@@ -2,7 +2,8 @@
 
 #
 # Takes a FileIO benchmark output csv and plots read/write filesize against needed iterations for different I/O types.
-# Expects a benchmark csv as created by running FileIOReadMicroBenchmark and FileIOWriteMicroBenchmark with `--benchmark_format=csv`.
+# Expects a benchmark csv as created by running FileIOReadMicroBenchmark and FileIOWriteMicroBenchmark with
+# `--benchmark_format=csv`.
 #
 
 import pandas as pd
