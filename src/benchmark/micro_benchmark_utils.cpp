@@ -1,8 +1,8 @@
 #include "micro_benchmark_utils.hpp"
 
 #include <stddef.h>
-#include <fstream>
 #include <unistd.h>
+#include <fstream>
 
 namespace hyrise {
 
@@ -15,10 +15,10 @@ void micro_benchmark_clear_cache() {
 }
 
 void micro_benchmark_clear_disk_cache() {
-	//TODO: better documentation of which caches we are clearing
-	sync();
-	std::ofstream ofs("/proc/sys/vm/drop_caches");
-	ofs << "3" << std::endl;
+  // TODO(anyone): better documentation of which caches we are clearing
+  sync();
+  std::ofstream ofs("/proc/sys/vm/drop_caches");
+  ofs << "3" << std::endl;
 }
 
 }  // namespace hyrise
