@@ -22,7 +22,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     // each int32_t contains four bytes
     int32_t vector_element_count = (BUFFER_SIZE_MB * MB) / 4;
     data_to_write = std::vector<int32_t>(vector_element_count, 42);
-    control_sum = vector_element_count * 42;
+    control_sum = vector_element_count * uint64_t{42};
 
     if (creat("file.txt", O_WRONLY) < 1) {
       std::cout << "create error" << std::endl;
