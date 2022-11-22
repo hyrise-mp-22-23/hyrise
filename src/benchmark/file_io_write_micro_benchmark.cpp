@@ -178,6 +178,35 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
   }
 }
 
+
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_ASYNC)(benchmark::State& state) {
+  int32_t fd;
+  if ((fd = open("file.txt", O_WRONLY)) < 0) {
+    std::cout << "open error " << errno << std::endl;
+  }
+  //const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+
+  struct io_uring ring;
+
+  for (auto _ : state) {
+        // You first need an io_service instance
+    io_service service;
+
+    // In order to `co_await`, you must be in a coroutine.
+    // We use IIFE here for simplification
+    auto work = [&] () -> task<> {
+        // Use Linux syscalls just as what you did before (except a little changes)
+        const auto str = "Hello world\n"sv;
+        co_await service.write(STDOUT_FILENO, str.data(), str.size(), 0);
+    }();
+
+    // At last, you need a loop to dispatch finished IO events
+    // It's usually called Event Loop (https://en.wikipedia.org/wiki/Event_loop)
+    service.run(work);
+  }
+}
+
+
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
@@ -185,5 +214,6 @@ BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)-
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IO_URING_ASYNC)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise
