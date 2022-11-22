@@ -122,7 +122,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RAND
   mmap_write_benchmark(state, MAP_SHARED, 1, state.range(0));
 }
 
-/**
+/*
  * Performs a benchmark run with the given parameters. 
  * 
  * @arguments:
@@ -179,7 +179,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
         state.ResumeTiming();
         for (uint32_t idx = 0; idx < ind_access_order.size(); ++idx) {
           auto access_index = ind_access_order[idx];
-          map[access_index] = access_index;
+          map[access_index] = static_cast<char>(access_index);
         }
         break;
     }
