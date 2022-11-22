@@ -655,6 +655,7 @@ set(
     compact_vector
     lz4
     magic_enum
+    uring
     sqlparser
     uninitialized_vector
     libzstd_static
