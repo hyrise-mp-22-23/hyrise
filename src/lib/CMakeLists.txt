@@ -2,6 +2,15 @@
 # Include this here because we need the GENERATED property on version.hpp and in CMake that property has directory
 # scope
 include(${PROJECT_SOURCE_DIR}/cmake/git_watcher.cmake)
+include(FetchContent)
+
+FetchContent_Declare(
+    liburing4cpp
+    GIT_REPOSITORY https://github.com/CarterLi/liburing4cpp.git
+    GIT_TAG        async
+)
+FetchContent_MakeAvailable(liburing4cpp)
+
 # Sources and libraries shared among the different builds of the lib
 set(
     SOURCES
@@ -655,8 +664,8 @@ set(
     compact_vector
     lz4
     magic_enum
-    uring
     sqlparser
+    liburing4cpp
     uninitialized_vector
     libzstd_static
     ${CMAKE_DL_LIBS}
