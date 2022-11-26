@@ -6,6 +6,8 @@ on:
 
 env:
   BUILD_TYPE: Release
+  HYRISE_HEADLESS_SETUP: true
+
 
 jobs:
   build_linux:
