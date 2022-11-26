@@ -66,6 +66,7 @@ if echo $REPLY | grep -E '^[Yy]$' > /dev/null; then
                 apt=$?
                 if [ $apt -ne 0 ]; then
                     echo "Error during apt-get installations."
+                    echo $apt
                     exit 1
                 fi
 
