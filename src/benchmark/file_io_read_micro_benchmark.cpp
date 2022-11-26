@@ -7,6 +7,7 @@
 #include <iterator>
 #include <numeric>
 #include <random>
+#include "umap/umap.h"
 #include "micro_benchmark_basic_fixture.hpp"
 
 namespace hyrise {
@@ -208,6 +209,85 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RAND
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)(benchmark::State& state) {
+  int32_t fd;
+  if ((fd = open("file.txt", O_RDONLY)) < 0) {
+    std::cout << "open error " << errno << std::endl;
+  }
+  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    state.ResumeTiming();
+
+    // Getting the mapping to memory.
+    const auto OFFSET = off_t{0};
+
+    int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+    if (map == MAP_FAILED) {
+      std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
+      continue;
+    }
+
+    madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+
+    auto sum = uint64_t{0};
+    for (size_t index = 0; index < vector_element_count; ++index) {
+      sum += map[index];
+    }
+
+    state.PauseTiming();
+    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    state.ResumeTiming();
+
+    // Remove memory mapping after job is done.
+    if (munmap(map, NUMBER_OF_BYTES) != 0) {
+      std::cout << "Unmapping failed." << std::endl;
+    }
+  }
+}
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
+  int32_t fd;
+  if ((fd = open("file.txt", O_RDONLY)) < 0) {
+    std::cout << "open error " << errno << std::endl;
+  }
+  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    const auto random_indices = generate_random_indexes(vector_element_count);
+    micro_benchmark_clear_disk_cache();
+    state.ResumeTiming();
+
+    // Getting the mapping to memory.
+    const auto OFFSET = off_t{0};
+
+    int32_t* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+    if (map == MAP_FAILED) {
+      std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
+      continue;
+    }
+
+    madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+
+    auto sum = uint64_t{0};
+    for (size_t index = 0; index < vector_element_count; ++index) {
+      sum += map[random_indices[index]];
+    }
+
+    state.PauseTiming();
+    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    state.ResumeTiming();
+
+    // Remove memory mapping after job is done.
+    if (munmap(map, NUMBER_OF_BYTES) != 0) {
+      std::cout << "Unmapping failed." << std::endl;
+    }
+  }
+}
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)(benchmark::State& state) {
   int32_t fd;
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
