@@ -22,14 +22,14 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     data_to_write = std::vector<uint32_t>(vector_element_count, VALUE_TO_WRITE);
     control_sum = vector_element_count * uint64_t{VALUE_TO_WRITE};
 
-    if (creat("file.txt", O_WRONLY) < 1) {
+    if (creat(filename, O_WRONLY) < 1) {
 	    Fail("Create error:" + std::strerror(errno));
     }
-    chmod("file.txt", S_IRUSR | S_IWUSR);  // enables owner to read and write file
+    chmod(filename, S_IRUSR | S_IWUSR);  // enables owner to read and write file
   }
 
   void TearDown(::benchmark::State& /*state*/) override {
-    Assert(std::remove("file.txt") == 0, "Remove error: " + std::strerror(errno));
+    Assert(std::remove(filename) == 0, "Remove error: " + std::strerror(errno));
   }
 
  protected:
@@ -37,6 +37,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 	uint64_t control_sum = uint64_t{0};
 	uint32_t vector_element_count;
 	uint32_t VALUE_TO_WRITE = 42;
+	const char* filename = "file.txt"; //const char* needed for C-System Calls
 
   void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const int32_t file_size);
   void sanity_check(uint32_t NUMBER_OF_BYTES);
@@ -45,7 +46,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
 void FileIOWriteMicroBenchmarkFixture::sanity_check(uint32_t NUMBER_OF_BYTES) {
 	auto fd = int32_t{};
-	if ((fd = open("file.txt", O_RDONLY)) < 0) {
+	if ((fd = open(filename, O_RDONLY)) < 0) {
 		close(fd);
 		Fail("Open error:" + std::strerror(errno));
 	}
@@ -68,7 +69,7 @@ void FileIOWriteMicroBenchmarkFixture::sanity_check(uint32_t NUMBER_OF_BYTES) {
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
-  if ((fd = open("file.txt", O_WRONLY)) < 0) {
+  if ((fd = open(filename, O_WRONLY)) < 0) {
 		close(fd);
 		Fail("Open error:" + std::strerror(errno));
   }
@@ -94,7 +95,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
-  if ((fd = open("file.txt", O_WRONLY)) < 0) {
+  if ((fd = open(filename, O_WRONLY)) < 0) {
 		close(fd);
 		Fail("Open error:" + std::strerror(errno));
   }
@@ -147,7 +148,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
   const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
 
   auto fd = int32_t{};
-  if ((fd = open("file.txt", O_RDWR)) < 0) {
+  if ((fd = open(filename, O_RDWR)) < 0) {
 	  close(fd);
 	  Fail("Open error:" + std::strerror(errno));
   }
