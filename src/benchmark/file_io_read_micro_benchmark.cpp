@@ -22,10 +22,10 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
   void SetUp(::benchmark::State& state) override {
     // TODO(everybody): Make setup/teardown global per file size to improve benchmark speed
-    ssize_t BUFFER_SIZE_MB = state.range(0);
+    ssize_t BUFFER_SIZE = allign_to_pagesize(state.range(0));
 
     // each int32_t contains four bytes
-    vector_element_count = (BUFFER_SIZE_MB * MB) / sizeof(uint32_t);
+    vector_element_count = BUFFER_SIZE / sizeof(uint32_t);
     numbers = std::vector<uint32_t>(vector_element_count);
     for (size_t index = 0; index < vector_element_count; ++index) {
       numbers[index] = std::rand() % UINT32_MAX;
@@ -38,8 +38,8 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     }
     //Assert((fd = creat("file.txt", O_WRONLY)) < 1, "create error");
     chmod("file.txt", S_IRWXU);  // enables owner to rwx file
-    //Assert(write(fd, std::data(numbers), BUFFER_SIZE_MB * MB != BUFFER_SIZE_MB * MB), "write error");
-    if (write(fd, std::data(numbers), BUFFER_SIZE_MB * MB) != BUFFER_SIZE_MB * MB) {
+    //Assert(write(fd, std::data(numbers), BUFFER_SIZE != BUFFER_SIZE), "write error");
+    if (write(fd, std::data(numbers), BUFFER_SIZE) != BUFFER_SIZE) {
       std::cout << "write error" << std::endl;
     }
 
@@ -52,7 +52,14 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   }
 
  protected:
+  uint32_t allign_to_pagesize(uint32_t buffer_size_mb, uint32_t page_size = 4096);
 };
+
+uint32_t FileIOMicroReadBenchmarkFixture::allign_to_pagesize(const uint32_t buffer_size_mb, const uint32_t page_size) {
+  auto buffer_size = buffer_size_mb * MB;
+  const auto multiplier = static_cast<uint32_t>(std::ceil(static_cast<float>(buffer_size) / static_cast<float>(page_size)));
+  return page_size * multiplier;
+}
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)(benchmark::State& state) {  // open file
   int32_t fd;
@@ -60,7 +67,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)(
     std::cout << "open error " << errno << std::endl;
   }
 
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -98,7 +105,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)(benc
     std::cout << "open error " << errno << std::endl;
   }
 
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -138,7 +145,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)(ben
     std::cout << "open error " << errno << std::endl;
   }
 
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -173,7 +180,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RAND
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -213,7 +220,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQU
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -252,7 +259,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RAND
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -263,13 +270,13 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RAND
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    int32_t* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+    int32_t* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, UMAP_PRIVATE, fd, OFFSET));
     if (map == MAP_FAILED) {
       std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
       continue;
     }
 
-    madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+    // madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
 
     auto sum = uint64_t{0};
     for (size_t index = 0; index < vector_element_count; ++index) {
@@ -281,7 +288,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RAND
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
-    if (munmap(map, NUMBER_OF_BYTES) != 0) {
+    if (uunmap(map, NUMBER_OF_BYTES) != 0) {
       std::cout << "Unmapping failed." << std::endl;
     }
   }
@@ -292,7 +299,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const uint32_t NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -302,13 +309,13 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+    int32_t* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, UMAP_PRIVATE, fd, OFFSET));
     if (map == MAP_FAILED) {
       std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
       continue;
     }
 
-    madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+    // madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
 
     auto sum = uint64_t{0};
     for (size_t index = 0; index < vector_element_count; ++index) {
@@ -320,7 +327,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
-    if (munmap(map, NUMBER_OF_BYTES) != 0) {
+    if (uunmap(map, NUMBER_OF_BYTES) != 0) {
       std::cout << "Unmapping failed." << std::endl;
     }
   }
@@ -331,7 +338,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDO
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -371,7 +378,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUE
   if ((fd = open("file.txt", O_RDONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -411,7 +418,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)(benchma
     std::cout << "open error " << errno << std::endl;
   }
 
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -443,7 +450,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)(benchma
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(benchmark::State& state) {  // open file
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -470,7 +477,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(benchmark::State& state) {  // open file
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto random_read_amount = static_cast<size_t>(NUMBER_OF_BYTES / uint32_t_size);
 
@@ -496,19 +503,22 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise

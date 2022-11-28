@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include "umap/umap.h"
 #include "micro_benchmark_basic_fixture.hpp"
 
 namespace hyrise {
@@ -20,9 +21,9 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
   void SetUp(::benchmark::State& state) override {
     // TODO(phoeinx): Make setup/teardown global per file size to improve benchmark speed
-    ssize_t BUFFER_SIZE_MB = state.range(0);
+    ssize_t BUFFER_SIZE = allign_to_pagesize(state.range(0));
     // each uint32_t contains four bytes
-    vector_element_count = (BUFFER_SIZE_MB * MB) / sizeof(uint32_t);
+    vector_element_count = BUFFER_SIZE / sizeof(uint32_t);
     data_to_write = std::vector<uint32_t>(vector_element_count, VALUE_TO_WRITE);
     control_sum = vector_element_count * uint64_t{VALUE_TO_WRITE};
 
@@ -32,7 +33,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     chmod("file.txt", S_IRWXU);  // enables owner to rwx file
   }
 
-  void sanity_check(uint32_t NUMBER_OF_BYTES ) {
+  void sanity_check(uint32_t NUMBER_OF_BYTES) {
     int32_t fd;
     if ((fd = open("file.txt", O_RDONLY)) < 0) {
       std::cout << "open error " << std::strerror(errno) << std::endl;
@@ -66,14 +67,22 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
  protected:
   std::vector<uint32_t> data_to_write;
   void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const int32_t file_size);
+  void umap_write_benchmark(benchmark::State& state, int data_access_mode, const int32_t file_size);
+  uint32_t allign_to_pagesize(uint32_t buffer_size_mb, uint32_t page_size = 4096);
 };
+
+uint32_t FileIOWriteMicroBenchmarkFixture::allign_to_pagesize(const uint32_t buffer_size_mb, const uint32_t page_size) {
+  auto buffer_size = buffer_size_mb * MB;
+  const auto multiplier = static_cast<uint32_t>(std::ceil(static_cast<float>(buffer_size) / static_cast<float>(page_size)));
+  return page_size * multiplier;
+}
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {  // open file
   int32_t fd;
   if ((fd = open("file.txt", O_WRONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -95,7 +104,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::S
   if ((fd = open("file.txt", O_WRONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -114,6 +123,10 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::S
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)(benchmark::State& state) {
   mmap_write_benchmark(state, MAP_PRIVATE, 0, state.range(0));
+}
+
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE)(benchmark::State& state) {
+  umap_write_benchmark(state, 0, state.range(0));
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)(benchmark::State& state) {
@@ -138,7 +151,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RAND
 */
 void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& state, const int flag,
                                                             int data_access_mode, const int32_t file_size) {
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   int32_t fd;
   if ((fd = open("file.txt", O_RDWR)) < 0) {
@@ -157,13 +170,6 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
-    /*
-    mmap man page: 
-    MAP_SHARED:
-      "Updates to the mapping are visible to other processes mapping 
-      the same region"
-      "changes are carried through to the underlying files"
-    */
     int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
     if (map == MAP_FAILED) {
       std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
@@ -214,8 +220,95 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
   }
 }
 
+/*
+ * Performs a benchmark run with the given parameters. 
+ * 
+ * @arguments:
+ *      state: the benchmark::State object handed to the called benchmarking function.
+ *      flag: The mmap flag (e.g., MAP_PRIVATE or MAP_SHARED).
+ *      data_access_mode: The way the data is written.
+ *                  (-1)  No data access
+ *                  (0)   Sequential
+ *                  (1)   Random
+ *      file_size: Size argument of benchmark.
+*/
+void FileIOWriteMicroBenchmarkFixture::umap_write_benchmark(benchmark::State& state,
+                                                            int data_access_mode, const int32_t file_size) {
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
+
+  int32_t fd;
+  if ((fd = open("file.txt", O_RDWR)) < 0) {
+    std::cout << "open error " << errno << std::endl;
+  }
+
+  // set output file size
+  if (ftruncate(fd, NUMBER_OF_BYTES) < 0) {
+    std::cout << "ftruncate error " << errno << std::endl;
+  }
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    state.ResumeTiming();
+
+    // Getting the mapping to memory.
+    const auto OFFSET = off_t{0};
+    /*
+    mmap man page: 
+    MAP_SHARED:
+      "Updates to the mapping are visible to other processes mapping 
+      the same region"
+      "changes are carried through to the underlying files"
+    */
+    int32_t* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_WRITE, UMAP_PRIVATE, fd, OFFSET));
+    if (map == MAP_FAILED) {
+      std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
+      continue;
+    }
+
+    switch (data_access_mode) {
+      case 0:
+        memcpy(map, std::data(data_to_write), NUMBER_OF_BYTES);
+        break;
+      case 1:
+        state.PauseTiming();
+        // Generating random indexes should not play a role in the benchmark.
+        const auto ind_access_order = generate_random_indexes(vector_element_count);
+        state.ResumeTiming();
+        for (uint32_t idx = 0; idx < ind_access_order.size(); ++idx) {
+          auto access_index = ind_access_order[idx];
+          map[access_index] = VALUE_TO_WRITE;
+        }
+        break;
+    }
+
+    umap_flush();
+
+    state.PauseTiming();
+
+    // We need this because MAP_PRIVATE is copy-on-write and
+    // thus written stuff is not visible in the original file.
+    if (true) {
+      std::vector<uint32_t> read_data;
+      read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
+      memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
+      auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+      Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
+    } //else {
+    //   sanity_check(NUMBER_OF_BYTES);
+    //}
+
+    state.ResumeTiming();
+
+    // Remove memory mapping after job is done.
+    if (uunmap(map, NUMBER_OF_BYTES) != 0) {
+      std::cout << "Unmapping failed." << std::endl;
+    }
+  }
+}
+
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark::State& state) {  // open file
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = allign_to_pagesize(state.range(0));
 
   std::vector<uint64_t> contents(NUMBER_OF_BYTES / sizeof(uint64_t));
   for (auto index = size_t{0}; index < contents.size(); index++) {
@@ -239,6 +332,7 @@ BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10)->
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise
