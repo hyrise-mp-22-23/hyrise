@@ -167,12 +167,9 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
     int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
-    if (map == MAP_FAILED) {
-      std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
-      continue;
-    }
+	  Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
-    switch (data_access_mode) {
+	  switch (data_access_mode) {
       case 0:
         memcpy(map, std::data(data_to_write), NUMBER_OF_BYTES);
         break;
@@ -188,11 +185,8 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
         break;
     }
 
-    // After writing, sync changes to filesystem.
-    if (msync(map, NUMBER_OF_BYTES, MS_SYNC) == -1) {
-      std::cout << "Write error " << errno << std::endl;
-    }
-
+	  // After writing, sync changes to filesystem.
+	  Assert(msync(map, NUMBER_OF_BYTES, MS_SYNC) != -1, "Mapping Syncing Failed:" + std::strerror(errno));
     state.PauseTiming();
 
     // We need this because MAP_PRIVATE is copy-on-write and
