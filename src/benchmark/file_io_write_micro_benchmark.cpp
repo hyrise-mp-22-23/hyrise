@@ -27,42 +27,39 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     control_sum = vector_element_count * uint64_t{VALUE_TO_WRITE};
 
     if (creat("file.txt", O_WRONLY) < 1) {
-      std::cout << "create error" << std::endl;
+	    Fail("Create error:" + std::strerror(errno));
     }
-    chmod("file.txt", S_IRWXU);  // enables owner to rwx file
+    chmod("file.txt", S_IRUSR | S_IWUSR);  // enables owner to read and write file
   }
 
   void sanity_check(uint32_t NUMBER_OF_BYTES ) {
     auto fd = int32_t{};
     if ((fd = open("file.txt", O_RDONLY)) < 0) {
-      std::cout << "open error " << std::strerror(errno) << std::endl;
+	    close(fd);
+	    Fail("Open error:" + std::strerror(errno));
     }
-    chmod("file.txt", S_IRWXU);  // enables owner to rwx file
+
     std::vector<uint32_t> read_data;
     read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
 
     // Getting the mapping to memory.
-    off_t OFFSET = 0;
+    const off_t OFFSET = 0;
 
     uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
-    if (map == MAP_FAILED) {
-      std::cout << "Mapping for Sanity Check Failed." << std::strerror(errno) << std::endl;
-    }
+		close(fd);
+
+		Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
 
     memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
-    // Remove memory mapping after job is done.
-    if (munmap(map, NUMBER_OF_BYTES) != 0) {
-      std::cout << "Unmapping for Sanity Check failed." << std::endl;
-    }
+    Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum));
 
-    close(fd);
+		// Remove memory mapping after job is done.
+	  Assert(munmap(map, NUMBER_OF_BYTES), "Unmapping for Sanity Check failed: " + std::strerror(errno));
   }
 
   void TearDown(::benchmark::State& /*state*/) override {
-    // TODO(phoeinx): Error handling
-    std::remove("file.txt");
+    Assert(std::remove("file.txt") == 0, "Remove error: " + std::strerror(errno));
   }
 
  protected:
@@ -73,7 +70,8 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {  // open file
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_WRONLY)) < 0) {
-    std::cout << "open error " << errno << std::endl;
+		close(fd);
+		Fail("Open error:" + std::strerror(errno));
   }
   const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
 
@@ -83,7 +81,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
     state.ResumeTiming();
 
     if (write(fd, std::data(data_to_write), NUMBER_OF_BYTES) != NUMBER_OF_BYTES) {
-      std::cout << "write error " << errno << std::endl;
+			close(fd);
+			Fail("Write error:" + std::strerror(errno));
     }
 
     state.PauseTiming();
@@ -97,7 +96,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_WRONLY)) < 0) {
-    std::cout << "open error " << errno << std::endl;
+		close(fd);
+		Fail("Open error:" + std::strerror(errno));
   }
   const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
 
@@ -107,7 +107,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::S
     state.ResumeTiming();
 
     if (pwrite(fd, std::data(data_to_write), NUMBER_OF_BYTES, 0) != NUMBER_OF_BYTES) {
-      std::cout << "write error " << errno << std::endl;
+			close(fd);
+			Fail("Write error:" + std::strerror(errno));
     }
 
     state.PauseTiming();
@@ -148,7 +149,8 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDWR)) < 0) {
-    std::cout << "open error " << errno << std::endl;
+	  close(fd);
+	  Fail("Open error:" + std::strerror(errno));
   }
 
   // set output file size
