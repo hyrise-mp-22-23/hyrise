@@ -75,21 +75,16 @@ class FileAsyncIOMicroWriteBenchmarkFixture : public MicroBenchmarkBasicFixture 
 
 BENCHMARK_DEFINE_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_SEQUENTIAL)(benchmark::State& state) {  // open file
   int32_t fd;
-  if ((fd = open("file.txt", O_RDONLY)) < 0) {
+  if ((fd = open("file.txt", O_WRONLY)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
 
   const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
-  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto write_data_size = NUMBER_OF_BYTES / uint32_t_size;
-
 
   for (auto _ : state) {
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    auto write_data = std::vector<uint32_t>{};
-    write_data.resize(write_data_size);
 
     state.ResumeTiming();
 
@@ -97,8 +92,8 @@ BENCHMARK_DEFINE_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_SEQUENTIAL)(
     struct aiocb aiocb;
     memset(&aiocb, 0, sizeof(struct aiocb));
     aiocb.aio_fildes = fd;
-    aiocb.aio_buf = std::data(write_data);
-    aiocb.aio_nbytes = 200;
+    aiocb.aio_buf = std::data(numbers);
+    aiocb.aio_nbytes = NUMBER_OF_BYTES;
     aiocb.aio_lio_opcode = LIO_WRITE;
 
     if (aio_write(&aiocb) == -1) {
@@ -112,68 +107,9 @@ BENCHMARK_DEFINE_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_SEQUENTIAL)(
     }
 
     aio_write_error_handling(&aiocb, NUMBER_OF_BYTES);
-
-    state.PauseTiming();
-
-    const auto sum = std::accumulate(write_data.begin(), write_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
-
-    state.ResumeTiming();
   }
 }
 
-BENCHMARK_DEFINE_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_RANDOM)(benchmark::State& state) {  // open file
-  int32_t fd;
-  if ((fd = open("file.txt", O_RDONLY)) < 0) {
-    std::cout << "open error " << errno << std::endl;
-  }
-
-  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
-  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto write_data_size = NUMBER_OF_BYTES / uint32_t_size;
-  const auto max_write_data_size = static_cast<size_t>(write_data_size);
-
-  for (auto _ : state) {
-    state.PauseTiming();
-
-    micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(vector_element_count);
-    auto write_data = std::vector<uint32_t>{};
-    write_data.resize(write_data_size);
-    auto* write_data_start = std::data(write_data);
-    state.ResumeTiming();
-
-    struct aiocb aiocb;
-
-    memset(&aiocb, 0, sizeof(struct aiocb));
-    aiocb.aio_fildes = fd;
-    aiocb.aio_lio_opcode = LIO_WRITE;
-    aiocb.aio_nbytes = uint32_t_size;
-
-    for (auto index = size_t{0}; index < max_write_data_size; ++index) {
-      aiocb.aio_offset = uint32_t_size * random_indices[index];
-      aiocb.aio_buf = write_data_start + index;
-      if (aio_write(&aiocb) == -1) {
-        Fail("write error: " + strerror(errno));
-      }
-
-      /* Wait until end of transaction */
-
-      std::cout << "Not in progress anymore" << std::endl;
-      const auto err = aio_error(&aiocb);
-      while (err == EINPROGRESS);
-
-      aio_write_error_handling(&aiocb, NUMBER_OF_BYTES);
-    }
-
-    state.PauseTiming();
-    const auto sum = std::accumulate(write_data.begin(), write_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
-    state.ResumeTiming();
-  }
-}
-
-BENCHMARK_REGISTER_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_SEQUENTIAL)->Arg(10)->Arg(100);
-// BENCHMARK_REGISTER_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_RANDOM)->Arg(10)->Arg(100);
+BENCHMARK_REGISTER_F(FileAsyncIOMicroWriteBenchmarkFixture, AIO_WRITE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise
