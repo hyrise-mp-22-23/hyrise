@@ -39,7 +39,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 	uint32_t VALUE_TO_WRITE = 42;
 	const char* filename = "file.txt"; //const char* needed for C-System Calls
 
-  void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const int32_t file_size);
+  void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const ssize_t file_size);
   void sanity_check(uint32_t NUMBER_OF_BYTES);
 };
 
@@ -73,7 +73,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
 		close(fd);
 		Fail("Open error:" + std::strerror(errno));
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -99,7 +99,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::S
 		close(fd);
 		Fail("Open error:" + std::strerror(errno));
   }
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+	const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -144,8 +144,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RAND
  *      file_size: Size argument of benchmark.
 */
 void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& state, const int flag,
-                                                            int data_access_mode, const int32_t file_size) {
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+                                                            const int data_access_mode, const ssize_t file_size) {
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   auto fd = int32_t{};
   if ((fd = open(filename, O_RDWR)) < 0) {
@@ -153,9 +153,10 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 	  Fail("Open error:" + std::strerror(errno));
   }
 
-  // set output file size
+  // set output file size to avoid mapping errors
   if (ftruncate(fd, NUMBER_OF_BYTES) < 0) {
-    std::cout << "ftruncate error " << errno << std::endl;
+	  close(fd);
+	  Fail("Ftruncate error:" + std::strerror(errno));
   }
 
   for (auto _ : state) {
@@ -165,13 +166,6 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
-    /*
-    mmap man page: 
-    MAP_SHARED:
-      "Updates to the mapping are visible to other processes mapping 
-      the same region"
-      "changes are carried through to the underlying files"
-    */
     int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
     if (map == MAP_FAILED) {
       std::cout << "Mapping Failed. " << std::strerror(errno) << std::endl;
@@ -225,7 +219,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark::State& state) {  // open file
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
+	const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   std::vector<uint64_t> contents(NUMBER_OF_BYTES / sizeof(uint64_t));
   for (auto index = size_t{0}; index < contents.size(); index++) {
