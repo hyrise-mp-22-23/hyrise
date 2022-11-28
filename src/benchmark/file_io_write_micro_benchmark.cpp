@@ -14,10 +14,6 @@ const auto MB = uint32_t{1'000'000};
 
 class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
-  uint64_t control_sum = uint64_t{0};
-  uint32_t vector_element_count;
-  uint32_t VALUE_TO_WRITE = 42;
-
   void SetUp(::benchmark::State& state) override {
     // TODO(phoeinx): Make setup/teardown global per file size to improve benchmark speed
     ssize_t BUFFER_SIZE_MB = state.range(0);
@@ -32,42 +28,45 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     chmod("file.txt", S_IRUSR | S_IWUSR);  // enables owner to read and write file
   }
 
-  void sanity_check(uint32_t NUMBER_OF_BYTES ) {
-    auto fd = int32_t{};
-    if ((fd = open("file.txt", O_RDONLY)) < 0) {
-	    close(fd);
-	    Fail("Open error:" + std::strerror(errno));
-    }
-
-    std::vector<uint32_t> read_data;
-    read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
-
-    // Getting the mapping to memory.
-    const off_t OFFSET = 0;
-
-    uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
-		close(fd);
-
-		Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
-
-    memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
-    const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum));
-
-		// Remove memory mapping after job is done.
-	  Assert(munmap(map, NUMBER_OF_BYTES), "Unmapping for Sanity Check failed: " + std::strerror(errno));
-  }
-
   void TearDown(::benchmark::State& /*state*/) override {
     Assert(std::remove("file.txt") == 0, "Remove error: " + std::strerror(errno));
   }
 
  protected:
   std::vector<uint32_t> data_to_write;
+	uint64_t control_sum = uint64_t{0};
+	uint32_t vector_element_count;
+	uint32_t VALUE_TO_WRITE = 42;
+
   void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const int32_t file_size);
+  void sanity_check(uint32_t NUMBER_OF_BYTES);
 };
 
-BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {  // open file
+
+void FileIOWriteMicroBenchmarkFixture::sanity_check(uint32_t NUMBER_OF_BYTES) {
+	auto fd = int32_t{};
+	if ((fd = open("file.txt", O_RDONLY)) < 0) {
+		close(fd);
+		Fail("Open error:" + std::strerror(errno));
+	}
+
+	auto read_data = std::vector<uint32_t>(NUMBER_OF_BYTES / sizeof(uint32_t));
+
+	const off_t OFFSET = 0;
+	uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+	close(fd);
+
+	Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
+
+	memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
+	const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+	Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum));
+
+	// Remove memory mapping after job is done.
+	Assert(munmap(map, NUMBER_OF_BYTES) == 0, "Unmapping for Sanity Check failed: " + std::strerror(errno));
+}
+
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_WRONLY)) < 0) {
 		close(fd);
