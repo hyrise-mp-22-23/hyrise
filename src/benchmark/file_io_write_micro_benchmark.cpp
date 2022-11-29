@@ -23,7 +23,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     control_sum = vector_element_count * uint64_t{VALUE_TO_WRITE};
 
     if (creat(filename, O_WRONLY) < 1) {
-	    Fail("Create error:" + std::strerror(errno));
+      Fail("Create error:" + std::strerror(errno));
     }
     chmod(filename, S_IRUSR | S_IWUSR);  // enables owner to read and write file
   }
@@ -34,44 +34,44 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
  protected:
   std::vector<uint32_t> data_to_write;
-	uint64_t control_sum = uint64_t{0};
-	uint32_t vector_element_count;
-	uint32_t VALUE_TO_WRITE = 42;
-	const char* filename = "file.txt"; //const char* needed for C-System Calls
+  uint64_t control_sum = uint64_t{0};
+  uint32_t vector_element_count;
+  uint32_t VALUE_TO_WRITE = 42;
+  const char* filename = "file.txt";  //const char* needed for C-System Calls
 
   void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const ssize_t file_size);
   void sanity_check(uint32_t NUMBER_OF_BYTES);
 };
 
-
 void FileIOWriteMicroBenchmarkFixture::sanity_check(uint32_t NUMBER_OF_BYTES) {
-	auto fd = int32_t{};
-	if ((fd = open(filename, O_RDONLY)) < 0) {
-		close(fd);
-		Fail("Open error:" + std::strerror(errno));
-	}
+  auto fd = int32_t{};
+  if ((fd = open(filename, O_RDONLY)) < 0) {
+    close(fd);
+    Fail("Open error:" + std::strerror(errno));
+  }
 
-	auto read_data = std::vector<uint32_t>(NUMBER_OF_BYTES / sizeof(uint32_t));
+  auto read_data = std::vector<uint32_t>(NUMBER_OF_BYTES / sizeof(uint32_t));
 
-	const off_t OFFSET = 0;
-	uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
-	close(fd);
+  const off_t OFFSET = 0;
+  uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+  close(fd);
 
-	Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
+  Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
 
-	memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
-	const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-	Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum));
+  memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
+  const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+  Assert(control_sum == sum,
+         "Sanity check failed. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum));
 
-	// Remove memory mapping after job is done.
-	Assert(munmap(map, NUMBER_OF_BYTES) == 0, "Unmapping for Sanity Check failed: " + std::strerror(errno));
+  // Remove memory mapping after job is done.
+  Assert(munmap(map, NUMBER_OF_BYTES) == 0, "Unmapping for Sanity Check failed: " + std::strerror(errno));
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open(filename, O_WRONLY)) < 0) {
-		close(fd);
-		Fail("Open error:" + std::strerror(errno));
+    close(fd);
+    Fail("Open error:" + std::strerror(errno));
   }
   const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
@@ -81,8 +81,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
     state.ResumeTiming();
 
     if (write(fd, std::data(data_to_write), NUMBER_OF_BYTES) != NUMBER_OF_BYTES) {
-			close(fd);
-			Fail("Write error:" + std::strerror(errno));
+      close(fd);
+      Fail("Write error:" + std::strerror(errno));
     }
 
     state.PauseTiming();
@@ -96,10 +96,10 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)(benchmark
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open(filename, O_WRONLY)) < 0) {
-		close(fd);
-		Fail("Open error:" + std::strerror(errno));
+    close(fd);
+    Fail("Open error:" + std::strerror(errno));
   }
-	const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -107,8 +107,8 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)(benchmark::S
     state.ResumeTiming();
 
     if (pwrite(fd, std::data(data_to_write), NUMBER_OF_BYTES, 0) != NUMBER_OF_BYTES) {
-			close(fd);
-			Fail("Write error:" + std::strerror(errno));
+      close(fd);
+      Fail("Write error:" + std::strerror(errno));
     }
 
     state.PauseTiming();
@@ -149,14 +149,14 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 
   auto fd = int32_t{};
   if ((fd = open(filename, O_WRONLY)) < 0) {
-	  close(fd);
-	  Fail("Open error:" + std::strerror(errno));
+    close(fd);
+    Fail("Open error:" + std::strerror(errno));
   }
 
   // set output file size to avoid mapping errors
   if (ftruncate(fd, NUMBER_OF_BYTES) < 0) {
-	  close(fd);
-	  Fail("Ftruncate error:" + std::strerror(errno));
+    close(fd);
+    Fail("Ftruncate error:" + std::strerror(errno));
   }
 
   for (auto _ : state) {
@@ -167,9 +167,9 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
     int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
-	  Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
+    Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
-	  switch (data_access_mode) {
+    switch (data_access_mode) {
       case 0:
         memcpy(map, std::data(data_to_write), NUMBER_OF_BYTES);
         break;
@@ -185,8 +185,8 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
         break;
     }
 
-	  // After writing, sync changes to filesystem.
-	  Assert(msync(map, NUMBER_OF_BYTES, MS_SYNC) != -1, "Mapping Syncing Failed:" + std::strerror(errno));
+    // After writing, sync changes to filesystem.
+    Assert(msync(map, NUMBER_OF_BYTES, MS_SYNC) != -1, "Mapping Syncing Failed:" + std::strerror(errno));
     state.PauseTiming();
 
     // We need this because MAP_PRIVATE is copy-on-write and
@@ -196,7 +196,8 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
       read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
       memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
       auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-      Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
+      Assert(control_sum == sum,
+             "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
     } else {
       sanity_check(NUMBER_OF_BYTES);
     }
@@ -213,7 +214,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark::State& state) {  // open file
-	const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   std::vector<uint64_t> contents(NUMBER_OF_BYTES / sizeof(uint64_t));
   for (auto index = size_t{0}; index < contents.size(); index++) {
