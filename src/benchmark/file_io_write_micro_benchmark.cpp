@@ -22,7 +22,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     data_to_write = std::vector<uint32_t>(vector_element_count, VALUE_TO_WRITE);
     control_sum = vector_element_count * uint64_t{VALUE_TO_WRITE};
 
-    if (creat(filename, O_WRONLY) < 1) {
+    if (creat(filename, O_RDWR) < 1) {
       Fail("Create error:" + std::strerror(errno));
     }
     chmod(filename, S_IRUSR | S_IWUSR);  // enables owner to read and write file
@@ -53,7 +53,7 @@ void FileIOWriteMicroBenchmarkFixture::sanity_check(uint32_t NUMBER_OF_BYTES) {
   auto read_data = std::vector<uint32_t>(NUMBER_OF_BYTES / sizeof(uint32_t));
 
   const off_t OFFSET = 0;
-  uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
   close(fd);
 
   Assert(map != MAP_FAILED, "Mapping for Sanity Check Failed:" + std::strerror(errno));
@@ -148,7 +148,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
   const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
 
   auto fd = int32_t{};
-  if ((fd = open(filename, O_WRONLY)) < 0) {
+  if ((fd = open(filename, O_RDWR)) < 0) {
     close(fd);
     Fail("Open error:" + std::strerror(errno));
   }
@@ -205,9 +205,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
-    if (munmap(map, NUMBER_OF_BYTES) != 0) {
-      std::cout << "Unmapping failed." << std::endl;
-    }
+    Assert(munmap(map, NUMBER_OF_BYTES) == 0, "Unmapping failed:" + std::strerror(errno));
   }
 
   close(fd);
@@ -233,11 +231,11 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
 }
 
 // Arguments are file size in MB
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)->Arg(10);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)->Arg(10);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10);
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10);
 
 }  // namespace hyrise
