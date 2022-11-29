@@ -1,6 +1,4 @@
-pipeline {
-  agent any
-
+agent {
   stages {
     stage("Setup") {
       steps {
