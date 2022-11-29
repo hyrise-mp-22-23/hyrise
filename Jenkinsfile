@@ -47,7 +47,7 @@ try {
     }
   }
 
-  node('linux') {
+  node('master') {
     stage("Hostname") {
       // Print the hostname to let us know on which node the docker image was executed for reproducibility.
       sh "hostname"
