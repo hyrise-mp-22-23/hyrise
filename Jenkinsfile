@@ -3,6 +3,7 @@ pipeline {
 
   stages {
     stage("Setup") {
+      steps {
         checkout scm
 
         // During CI runs, the user is different from the owner of the directories, which blocks the execution of git
@@ -53,6 +54,7 @@ pipeline {
         mkdir clang-11-debug && cd clang-11-debug &&                                                 ${cmake} ${debug}          ${clang11}          .. &\
         mkdir gcc-9-debug && cd gcc-9-debug &&                                                       ${cmake} ${debug}          ${gcc9}             .. &\
         wait"
+      }        
     }
   }
 }
