@@ -12,7 +12,7 @@
 
 namespace hyrise {
 
-const auto MB = uint32_t{1'000'000};
+const auto MEGA = uint32_t{1'000'000};
 
 class FileAsyncIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
@@ -25,29 +25,23 @@ class FileAsyncIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     ssize_t BUFFER_SIZE_MB = state.range(0);
 
     // each int32_t contains four bytes
-    vector_element_count = (BUFFER_SIZE_MB * MB) / sizeof(uint32_t);
+    vector_element_count = (BUFFER_SIZE_MB * MEGA) / sizeof(uint32_t);
     numbers = std::vector<uint32_t>(vector_element_count);
-    for (size_t index = 0; index < vector_element_count; ++index) {
+    for (auto index = size_t{0}; index < vector_element_count; ++index) {
       numbers[index] = std::rand() % UINT32_MAX;
     }
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     int32_t fd;
-    if ((fd = creat("file.txt", O_WRONLY)) < 1) {
-      std::cout << "create error" << std::endl;
-    }
-    //Assert((fd = creat("file.txt", O_WRONLY)) < 1, "create error");
+    Assert((fd = creat("file.txt", O_WRONLY)) !=  -1, "Create error: " + strerror(errno));
+
     chmod("file.txt", S_IRWXU);  // enables owner to rwx file
-    //Assert(write(fd, std::data(numbers), BUFFER_SIZE_MB * MB != BUFFER_SIZE_MB * MB), "write error");
-    if (write(fd, std::data(numbers), BUFFER_SIZE_MB * MB) != BUFFER_SIZE_MB * MB) {
-      std::cout << "write error" << std::endl;
-    }
+    Assert(write(fd, std::data(numbers), BUFFER_SIZE_MB * MEGA) == BUFFER_SIZE_MB * MEGA, "Write error: " + strerror(errno));
 
     close(fd);
   }
 
   void TearDown(::benchmark::State& /*state*/) override {
-    // TODO(everybody): Error handling
     std::remove("file.txt");
   }
 
@@ -55,29 +49,18 @@ class FileAsyncIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     const auto err = aio_error(aiocb);
     const auto ret = aio_return(aiocb);
 
-    if (err != 0) {
-      std::cout << "Error at aio_error(): " << std::strerror(errno) << std::endl;
-      close(aiocb->aio_fildes);
-      exit(2);
-    }
+    Assert(err == 0, "Error at aio_error(): " + strerror(errno));
 
-    if (ret != static_cast<int32_t>(EXPECTED_BYTES)) {
-      std::cout << "Error at aio_return(). Got: " << ret << " Expected: " << EXPECTED_BYTES << std::endl;
-      close(aiocb->aio_fildes);
-      exit(2);
-    }
+    Assert(ret == static_cast<int32_t>(EXPECTED_BYTES), "Error at aio_return(). Got: " + std::to_string(ret) +
+      " Expected: " + std::to_string(EXPECTED_BYTES) + ".");
   }
-
- protected:
 };
 
 BENCHMARK_DEFINE_F(FileAsyncIOMicroReadBenchmarkFixture, AIO_READ_SEQUENTIAL)(benchmark::State& state) {  // open file
   int32_t fd;
-  if ((fd = open("file.txt", O_RDONLY)) < 0) {
-    std::cout << "open error " << errno << std::endl;
-  }
+  Assert((fd = open("file.txt", O_RDONLY)) != -1, "Open error: " + strerror(errno));
 
-  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MEGA);
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
 
@@ -99,9 +82,7 @@ BENCHMARK_DEFINE_F(FileAsyncIOMicroReadBenchmarkFixture, AIO_READ_SEQUENTIAL)(be
     aiocb.aio_nbytes = NUMBER_OF_BYTES;
     aiocb.aio_lio_opcode = LIO_WRITE;
 
-    if (aio_read(&aiocb) == -1) {
-      Fail("read error: " + strerror(errno));
-    }
+    Assert(aio_read(&aiocb) != -1, "Read error: " + strerror(errno));
 
     int err;
     /* Wait until end of transaction */
@@ -120,11 +101,9 @@ BENCHMARK_DEFINE_F(FileAsyncIOMicroReadBenchmarkFixture, AIO_READ_SEQUENTIAL)(be
 
 BENCHMARK_DEFINE_F(FileAsyncIOMicroReadBenchmarkFixture, AIO_READ_RANDOM)(benchmark::State& state) {  // open file
   int32_t fd;
-  if ((fd = open("file.txt", O_RDONLY)) < 0) {
-    std::cout << "open error " << errno << std::endl;
-  }
+  Assert((fd = open("file.txt", O_RDONLY)) != -1, "Open error: " + strerror(errno));
 
-  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MB);
+  const auto NUMBER_OF_BYTES = static_cast<uint32_t>(state.range(0) * MEGA);
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
@@ -149,9 +128,8 @@ BENCHMARK_DEFINE_F(FileAsyncIOMicroReadBenchmarkFixture, AIO_READ_RANDOM)(benchm
     for (auto index = size_t{0}; index < max_read_data_size; ++index) {
       aiocb.aio_offset = uint32_t_size * random_indices[index];
       aiocb.aio_buf = read_data_start + index;
-      if (aio_read(&aiocb) == -1) {
-        Fail("read error: " + strerror(errno));
-      }
+
+      Assert(aio_read(&aiocb) != -1, "Read error: " + strerror(errno));
 
       int err;
       /* Wait until end of transaction */
