@@ -34,9 +34,8 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
   void sanity_check(uint32_t NUMBER_OF_BYTES ) {
     int32_t fd;
-    if ((fd = open("file.txt", O_RDONLY)) < 0) {
-      std::cout << "open error " << std::strerror(errno) << std::endl;
-    }
+    Assert((fd = open("file.txt", O_RDONLY)) != -1, "Open error: " + strerror(errno));
+
     chmod("file.txt", S_IRWXU);  // enables owner to rwx file
     std::vector<uint32_t> read_data;
     read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
@@ -45,17 +44,15 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
     off_t OFFSET = 0;
 
     uint32_t* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
-    if (map == MAP_FAILED) {
-      std::cout << "Mapping for Sanity Check Failed." << std::strerror(errno) << std::endl;
-    }
+    Assert(map != MAP_FAILED, "Mapping for sanity check failed: " + std::strerror(errno));
 
     memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
+
     // Remove memory mapping after job is done.
-    if (munmap(map, NUMBER_OF_BYTES) != 0) {
-      std::cout << "Unmapping for Sanity Check failed." << std::endl;
-    }
+    munmap(map, NUMBER_OF_BYTES);
+
   }
 
   void TearDown(::benchmark::State& /*state*/) override {
@@ -196,7 +193,7 @@ void FileIOWriteMicroBenchmarkFixture::mmap_write_benchmark(benchmark::State& st
     // We need this because MAP_PRIVATE is copy-on-write and
     // thus written stuff is not visible in the original file.
     if (flag == MAP_PRIVATE) {
-      std::vector<uint32_t> read_data;
+      auto read_data = std::vector<uint32_t>{};
       read_data.resize(NUMBER_OF_BYTES / sizeof(uint32_t));
       memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
       auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
