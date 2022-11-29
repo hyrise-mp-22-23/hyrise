@@ -1,4 +1,6 @@
-stages {
+pipeline {
+  agent any
+  
   stage("Setup") {
     steps {
       checkout scm
