@@ -39,7 +39,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
   uint32_t VALUE_TO_WRITE = 42;
   const char* filename = "file.txt";  //const char* needed for C-System Calls
 
-  void mmap_write_benchmark(benchmark::State& state, const int flag, int data_access_mode, const ssize_t file_size);
+  void mmap_write_benchmark(benchmark::State& state, const int flag, const int data_access_mode, const ssize_t file_size);
   void sanity_check(uint32_t NUMBER_OF_BYTES);
 };
 
