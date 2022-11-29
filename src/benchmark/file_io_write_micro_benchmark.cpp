@@ -51,6 +51,10 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
       std::cout << "Mapping for Sanity Check Failed." << std::strerror(errno) << std::endl;
     }
 
+    const auto file_size = lseek(fd, 0, SEEK_END);
+    Assert(file_size == NUMBER_OF_BYTES, "Sanity check failed: Actual size of " + std::to_string(file_size) +
+      " does not match expected file size of " + std::to_string(NUMBER_OF_BYTES) + ".");
+
     memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed. Got: " + std::to_string(sum) + "Expected: " + std::to_string(control_sum));
@@ -273,37 +277,52 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(bench
     iovec.iov_len = 1;
 
     auto used_slots = 0;
+
+    struct io_data {
+        int read;
+        off_t first_offset, offset;
+        size_t first_len;
+        struct iovec iov;
+    };
+
     while (offset < NUMBER_OF_BYTES) {
 
       while (used_slots < queue_slots) {
         // Append a new write()
         struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-        io_uring_prep_writev(sqe, fd, iovec, 1, offset);
+        io_uring_prep_writev(sqe, fd, &iovec, 50, offset);
+        offset += 50;
+        io_uring_sqe_set_data(sqe, &iovec.iov_base);
+        io_uring_submit(&ring);
+        ++used_slots;
       }
 
       while (used_slots >= queue_slots) {
         // Wait for a completion.
-        auto ret = io_uring_wait_cqe(ring, cqe);
+        struct io_uring_cqe *cqe;
+        auto ret = io_uring_wait_cqe(&ring, &cqe);
+
+        std::cout << ret << std::endl;
+        Assert(ret == 0, "Somethings wrong" + std::strerror(errno));
+        io_uring_cqe_seen(&ring, cqe);
+        --used_slots;
       }
     }
-
-    io_uring_prep_write(sqe, fd, 42, 1, offset);
-
-    std::cout << sqe << std::endl;
-
-    io_uring_submit(&ring);
-
     io_uring_queue_exit(&ring);
+
+    state.PauseTiming();
+    sanity_check(NUMBER_OF_BYTES);
+    state.ResumeTiming();
   }
 }
 
 
 // Arguments are file size in MB
-//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
-//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
-//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)->Arg(10)->Arg(100)->Arg(1000);
-//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+// BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 //BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)->Arg(10);
 
