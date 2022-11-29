@@ -10,24 +10,6 @@ try {
       def cause = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')[0]
       def jenkinsUserName = cause ? cause['userId'] : null
 
-      if (jenkinsUserName != "admin" && env.BRANCH_NAME != "master") {
-        try {
-          withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_TOKEN')]) {
-            env.PR_CREATED_BY = pullRequest.createdBy
-            sh '''
-              curl -s -I -H "Authorization: token ${GITHUB_TOKEN}" https://api.github.com/repos/hyrise/hyrise/collaborators/${PR_CREATED_BY} | head -n 1 | grep "204"
-            '''
-          }
-        } catch (error) {
-          stage ("User unknown") {
-            script {
-              githubNotify context: 'CI Pipeline', status: 'FAILURE', description: 'User is not a collaborator'
-            }
-          }
-          throw error
-        }
-      }
-
       script {
         githubNotify context: 'CI Pipeline', status: 'PENDING'
 
