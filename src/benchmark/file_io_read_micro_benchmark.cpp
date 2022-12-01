@@ -66,7 +66,6 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)(
   const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
-  const auto max_read_data_size = static_cast<size_t>(read_data_size);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -77,14 +76,10 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)(
 
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < max_read_data_size; ++index) {
-      lseek(fd, uint32_t_size * index, SEEK_SET);
-      if (read(fd, std::data(read_data) + index, uint32_t_size) != uint32_t_size) {
-        Fail("read error: " + strerror(errno));
-      }
-      //Assert(read(fd, read_data_start + index, uint32_t_size) != uint32_t_size, "read error: " + strerror(errno));
+    lseek(fd, 0, SEEK_SET);
+    if (read(fd, std::data(read_data), NUMBER_OF_BYTES) != NUMBER_OF_BYTES) {
+      Fail("read error: " + strerror(errno));
     }
-
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
@@ -142,13 +137,15 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   lseek(fd, from * uint32_t_size, SEEK_SET);
+  std::cout << "Thread " << from << " starting to execute" << std::endl;
   if (read(fd, read_data_start + from, bytes_to_read) != bytes_to_read) {
     Fail("read error: " + strerror(errno));
   }
+  std::cout << "Thread " << from << " finished reading" << std::endl;
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)(benchmark::State& state) {
-  auto thread_count = size_t{10}; // TODO replace with state.range(1)
+  auto thread_count = size_t{4}; // TODO replace with state.range(1)
 
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
@@ -211,7 +208,6 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)(ben
   const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
-  const auto max_read_data_size = static_cast<size_t>(read_data_size);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -219,15 +215,11 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)(ben
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(read_data_size);
-    auto* read_data_start = std::data(read_data);
 
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < max_read_data_size; ++index) {
-      if (pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * index) != uint32_t_size) {
-        Fail("read error: " + strerror(errno));
-      }
-      //Assert(pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * index) != uint32_t_size, "read error: " + strerror(errno));
+    if (pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0) != NUMBER_OF_BYTES) {
+      Fail("read error: " + strerror(errno));
     }
 
     state.PauseTiming();
@@ -498,20 +490,20 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise
