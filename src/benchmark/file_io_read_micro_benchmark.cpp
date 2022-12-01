@@ -137,11 +137,9 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   lseek(fd, from * uint32_t_size, SEEK_SET);
-  std::cout << "Thread " << from << " starting to execute" << std::endl;
   if (read(fd, read_data_start + from, bytes_to_read) != bytes_to_read) {
     Fail("read error: " + strerror(errno));
   }
-  std::cout << "Thread " << from << " finished reading" << std::endl;
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)(benchmark::State& state) {
