@@ -143,7 +143,7 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)(benchmark::State& state) {
-  auto thread_count = size_t{4}; // TODO replace with state.range(1)
+  auto thread_count = static_cast<uint16_t>(state.range(1));
 
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
@@ -154,13 +154,13 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_T
     filedescriptors[i] = fd;
   }
 
-  const auto NUMBER_OF_BYTES = uint32_t{static_cast<uint32_t>(state.range(0) * MB)};
+  const auto NUMBER_OF_BYTES = static_cast<uint64_t>(state.range(0) * MB);
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
+  const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size; // we require a MB size that's dividable by 4
   // const auto max_read_data_size = static_cast<size_t>(read_data_size);
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = read_data_size / thread_count;
+  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(read_data_size) / thread_count));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -173,8 +173,11 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_T
     state.ResumeTiming();
 
     for (auto i = size_t{0}; i < thread_count; i++){
-      size_t from = batch_size * i;
-      size_t to = from + batch_size;
+      auto from = batch_size * i;
+      auto to = from + batch_size;
+      if (to >= read_data_size) {
+        to = read_data_size;
+      }
       threads[i] = (std::thread(read_data_using_read, from, to, filedescriptors[i], read_data_start));
     }
 
@@ -490,9 +493,12 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
 //BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)->ArgsProduct({
+                  {10, 100, 1000},
+                  {1, 2, 4, 6, 8, 16, 32}
+                })->UseRealTime();
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
 //BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
 //BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
