@@ -38,7 +38,7 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
   return sequence;
 }
 
-std::vector<uint32_t> generate_random_numbers(uint32_t size){
+std::vector<uint32_t> generate_random_numbers(uint32_t size) {
   auto numbers = std::vector<uint32_t>(size);
   for (auto index = size_t{0}; index < size; ++index) {
     numbers[index] = std::rand() % UINT32_MAX;
@@ -47,7 +47,7 @@ std::vector<uint32_t> generate_random_numbers(uint32_t size){
   return numbers;
 }
 
-std::string fail_and_close_file(int32_t fd, std::string message, int error_num){
+std::string fail_and_close_file(int32_t fd, std::string message, int error_num) {
   close(fd);
   return message + std::strerror(error_num);
 }
