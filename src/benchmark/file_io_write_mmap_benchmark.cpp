@@ -13,6 +13,8 @@ class FileIOWriteMmapBenchmarkFixture : public FileIOWriteMicroBenchmarkFixture 
  protected:
   void mmap_write_benchmark(benchmark::State& state, const int flag, const int data_access_mode,
                             const ssize_t file_size);
+  void mmap_write_single_threaded(benchmark::State& state, const int mmap_mode_flag, const int data_access_mode,
+                                  const ssize_t file_size);
 };
 
 /*
@@ -24,12 +26,13 @@ class FileIOWriteMmapBenchmarkFixture : public FileIOWriteMicroBenchmarkFixture 
  *      data_access_mode: The way the data is written.
  *      file_size: Size argument of benchmark.
 */
-void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& state, const int flag,
-                                                           const int data_access_mode, const ssize_t file_size) {
+
+void FileIOWriteMmapBenchmarkFixture::mmap_write_single_threaded(benchmark::State& state, const int mmap_mode_flag,
+                                                                 const int data_access_mode, const ssize_t file_size) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDWR)) >= 0), fail_and_close_file(fd, "Open error:", errno));
 
-  // set output file size to avoid mapping errors
+  //set output file size to avoid mapping errors
   Assert((ftruncate(fd, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Ftruncate error:", errno));
 
   for (auto _ : state) {
@@ -39,7 +42,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, mmap_mode_flag, fd, OFFSET));
     Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
     switch (data_access_mode) {
@@ -64,7 +67,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
 
     // We need this because MAP_PRIVATE is copy-on-write and
     // thus written stuff is not visible in the original file.
-    if (flag == MAP_PRIVATE) {
+    if (mmap_mode_flag == MAP_PRIVATE) {
       std::vector<uint32_t> read_data;
       read_data.resize(NUMBER_OF_ELEMENTS);
       memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
@@ -82,6 +85,11 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
   }
 
   close(fd);
+}
+
+void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& state, const int mmap_mode_flag,
+                                                           const int data_access_mode, const ssize_t file_size) {
+  mmap_write_single_threaded(state, mmap_mode_flag, data_access_mode, file_size);
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMmapBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)(benchmark::State& state) {
