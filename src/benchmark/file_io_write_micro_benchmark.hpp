@@ -29,6 +29,10 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
  protected:
   void sanity_check();
+  void write_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
+  void write_non_atomic_single_threaded(benchmark::State& state);
+  void pwrite_atomic_single_threaded(benchmark::State& state);
+  void pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
 
   std::vector<uint32_t> data_to_write;
   uint64_t control_sum = uint64_t{0};

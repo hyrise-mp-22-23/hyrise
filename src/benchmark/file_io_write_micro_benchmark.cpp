@@ -26,37 +26,33 @@ void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uin
   }
 }
 
-BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)(benchmark::State& state) {
-  auto thread_count = static_cast<uint16_t>(state.range(1));
-
-  // for one thread run sequential implementation to avoid measuring unneccesary thread overhead
-  if (thread_count == 1) {
-    auto fd = int32_t{};
-    if ((fd = open(filename, O_WRONLY)) < 0) {
-      close(fd);
-      Fail("Open error:" + std::strerror(errno));
-    }
-
-    for (auto _ : state) {
-      state.PauseTiming();
-      micro_benchmark_clear_disk_cache();
-      state.ResumeTiming();
-
-      lseek(fd, 0, SEEK_SET);
-      if (write(fd, std::data(data_to_write), NUMBER_OF_BYTES) != NUMBER_OF_BYTES) {
-        close(fd);
-        Fail("Write error:" + std::strerror(errno));
-      }
-
-      state.PauseTiming();
-      sanity_check();
-      state.ResumeTiming();
-    }
-
+void FileIOWriteMicroBenchmarkFixture::write_non_atomic_single_threaded(benchmark::State& state){
+  auto fd = int32_t{};
+  if ((fd = open(filename, O_WRONLY)) < 0) {
     close(fd);
-    return;
+    Fail("Open error:" + std::strerror(errno));
   }
 
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    state.ResumeTiming();
+
+    lseek(fd, 0, SEEK_SET);
+    if (write(fd, std::data(data_to_write), NUMBER_OF_BYTES) != NUMBER_OF_BYTES) {
+      close(fd);
+      Fail("Write error:" + std::strerror(errno));
+    }
+
+    state.PauseTiming();
+    sanity_check();
+    state.ResumeTiming();
+  }
+
+  close(fd);
+}
+
+void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count){
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
     auto fd = int32_t{};
@@ -92,7 +88,6 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)(
     }
 
     state.PauseTiming();
-    threads.clear();
     sanity_check();
     state.ResumeTiming();
   }
@@ -102,37 +97,33 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)(
   }
 }
 
-BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)(benchmark::State& state) {
-  auto thread_count = static_cast<uint16_t>(state.range(1));
-
-  // for one thread run sequential implementation to avoid measuring unneccesary thread overhead
-  if (thread_count == 1) {
-    auto fd = int32_t{};
-    if ((fd = open(filename, O_WRONLY)) < 0) {
-      close(fd);
-      Fail("Open error:" + std::strerror(errno));
-    }
-
-    for (auto _ : state) {
-      state.PauseTiming();
-      micro_benchmark_clear_disk_cache();
-      state.ResumeTiming();
-
-      lseek(fd, 0, SEEK_SET);
-      if (pwrite(fd, std::data(data_to_write), NUMBER_OF_BYTES, 0) != NUMBER_OF_BYTES) {
-        close(fd);
-        Fail("Write error:" + std::strerror(errno));
-      }
-
-      state.PauseTiming();
-      sanity_check();
-      state.ResumeTiming();
-    }
-
+void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_single_threaded(benchmark::State& state){
+  auto fd = int32_t{};
+  if ((fd = open(filename, O_WRONLY)) < 0) {
     close(fd);
-    return;
+    Fail("Open error:" + std::strerror(errno));
   }
 
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    state.ResumeTiming();
+
+    lseek(fd, 0, SEEK_SET);
+    if (pwrite(fd, std::data(data_to_write), NUMBER_OF_BYTES, 0) != NUMBER_OF_BYTES) {
+      close(fd);
+      Fail("Write error:" + std::strerror(errno));
+    }
+
+    state.PauseTiming();
+    sanity_check();
+    state.ResumeTiming();
+  }
+
+  close(fd);
+}
+
+void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count){
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
     auto fd = int32_t{};
@@ -168,13 +159,35 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)(ben
     }
 
     state.PauseTiming();
-    threads.clear();
     sanity_check();
     state.ResumeTiming();
   }
 
   for (auto i = size_t{0}; i < thread_count; i++) {
     close(filedescriptors[i]);
+  }
+}
+
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
+(benchmark::State& state) {
+  auto thread_count = static_cast<uint16_t>(state.range(1));
+
+  // for one thread run sequential implementation to avoid measuring unneccesary thread overhead
+  if (thread_count == 1) {
+    write_non_atomic_single_threaded(state);
+  } else {
+    write_non_atomic_multi_threaded(state, thread_count);
+  }
+}
+
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)(benchmark::State& state) {
+  auto thread_count = static_cast<uint16_t>(state.range(1));
+
+  // for one thread run sequential implementation to avoid measuring unneccesary thread overhead
+  if (thread_count == 1) {
+    pwrite_atomic_single_threaded(state);
+  } else {
+    pwrite_atomic_multi_threaded(state, thread_count);
   }
 }
 
