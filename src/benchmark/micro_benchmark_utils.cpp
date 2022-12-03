@@ -1,4 +1,5 @@
 #include "micro_benchmark_utils.hpp"
+#include "utils/assert.hpp"
 
 #include <stddef.h>
 #include <unistd.h>
@@ -44,6 +45,11 @@ std::vector<uint32_t> generate_random_numbers(uint32_t size){
   }
 
   return numbers;
+}
+
+std::string fail_and_close_file(int32_t fd, std::string message, int error_num){
+  close(fd);
+  return message + std::strerror(error_num);
 }
 
 }  // namespace hyrise

@@ -49,7 +49,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
-    int32_t* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, flag, fd, OFFSET));
     Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
     switch (data_access_mode) {
@@ -61,7 +61,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
         // Generating random indexes should not play a role in the benchmark.
         const auto ind_access_order = generate_random_indexes(NUMBER_OF_ELEMENTS);
         state.ResumeTiming();
-        for (uint32_t idx = 0; idx < ind_access_order.size(); ++idx) {
+        for (auto idx = uint32_t{0}; idx < ind_access_order.size(); ++idx) {
           auto access_index = ind_access_order[idx];
           map[access_index] = data_to_write[idx];
         }
