@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <string>
 #include <vector>
 
 namespace hyrise {
@@ -8,5 +9,6 @@ namespace hyrise {
 void micro_benchmark_clear_cache();
 void micro_benchmark_clear_disk_cache();
 std::vector<uint32_t> generate_random_indexes(uint32_t number);
+std::vector<uint32_t> generate_random_numbers(uint32_t size);
 
 }  // namespace hyrise

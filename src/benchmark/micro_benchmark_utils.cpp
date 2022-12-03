@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include <algorithm>
+#include <cstring>
 #include <random>
 
 namespace hyrise {
@@ -34,6 +35,15 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
   std::shuffle(std::begin(sequence), std::end(sequence), rng);
 
   return sequence;
+}
+
+std::vector<uint32_t> generate_random_numbers(uint32_t size){
+  auto numbers = std::vector<uint32_t>(size);
+  for (auto index = size_t{0}; index < size; ++index) {
+    numbers[index] = std::rand() % UINT32_MAX;
+  }
+
+  return numbers;
 }
 
 }  // namespace hyrise

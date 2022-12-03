@@ -14,12 +14,10 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void SetUp(::benchmark::State& state) override {
     NUMBER_OF_BYTES = state.range(0) * MB;
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / sizeof(uint32_t);
-    data_to_write = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    data_to_write = generate_random_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(data_to_write.begin(), data_to_write.end(), uint64_t{0});
 
-    if (creat(filename, O_RDWR) < 1) {
-      Fail("Create error:" + std::strerror(errno));
-    }
+    Assert((creat(filename, O_RDWR) < 1), "Create error:" + std::strerror(errno));
     chmod(filename, S_IRUSR | S_IWUSR);  // enables owner to read and write file
   }
 
@@ -55,7 +53,7 @@ void FileIOWriteMicroBenchmarkFixture::sanity_check() {
 
   auto read_data = std::vector<uint32_t>(NUMBER_OF_ELEMENTS);
 
-  const off_t OFFSET = 0;
+  const auto OFFSET = off_t{0};
   auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
   close(fd);
 
