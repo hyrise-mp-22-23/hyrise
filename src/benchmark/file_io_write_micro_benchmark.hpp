@@ -1,4 +1,6 @@
 #include "micro_benchmark_basic_fixture.hpp"
+#include "micro_benchmark_utils.hpp"
+
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -37,6 +39,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
   const char* filename = "file.txt";  //const char* needed for C-System Calls
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
   uint32_t NUMBER_OF_ELEMENTS = uint32_t{0};
+  enum DATA_ACCESS_TYPES {NO_DATA_ACCESS, SEQUENTIAL, RANDOM};
 };
 
 void FileIOWriteMicroBenchmarkFixture::sanity_check() {

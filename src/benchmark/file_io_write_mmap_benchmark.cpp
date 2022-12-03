@@ -1,6 +1,5 @@
 #include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <algorithm>
@@ -23,24 +22,15 @@ class FileIOWriteMmapBenchmarkFixture : public FileIOWriteMicroBenchmarkFixture 
  *      state: the benchmark::State object handed to the called benchmarking function.
  *      flag: The mmap flag (e.g., MAP_PRIVATE or MAP_SHARED).
  *      data_access_mode: The way the data is written.
- *                  (-1)  No data access
- *                  (0)   Sequential
- *                  (1)   Random
  *      file_size: Size argument of benchmark.
 */
 void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& state, const int flag,
                                                            const int data_access_mode, const ssize_t file_size) {
   auto fd = int32_t{};
-  if ((fd = open(filename, O_RDWR)) < 0) {
-    close(fd);
-    Fail("Open error:" + std::strerror(errno));
-  }
+  Assert(((fd = open(filename, O_RDWR)) < 0), fail_and_close_file(fd, "Open error:", errno));
 
   // set output file size to avoid mapping errors
-  if (ftruncate(fd, NUMBER_OF_BYTES) < 0) {
-    close(fd);
-    Fail("Ftruncate error:" + std::strerror(errno));
-  }
+  Assert((ftruncate(fd, NUMBER_OF_BYTES) < 0), fail_and_close_file(fd, "Ftruncate error:", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -53,10 +43,10 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
     Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
     switch (data_access_mode) {
-      case 0:
+      case SEQUENTIAL:
         memcpy(map, std::data(data_to_write), NUMBER_OF_BYTES);
         break;
-      case 1:
+      case RANDOM:
         state.PauseTiming();
         // Generating random indexes should not play a role in the benchmark.
         const auto ind_access_order = generate_random_indexes(NUMBER_OF_ELEMENTS);
@@ -95,15 +85,15 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_benchmark(benchmark::State& sta
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMmapBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE)(benchmark::State& state) {
-  mmap_write_benchmark(state, MAP_PRIVATE, 0, state.range(0));
+  mmap_write_benchmark(state, MAP_PRIVATE, SEQUENTIAL, state.range(0));
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMmapBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)(benchmark::State& state) {
-  mmap_write_benchmark(state, MAP_SHARED, 0, state.range(0));
+  mmap_write_benchmark(state, MAP_SHARED, SEQUENTIAL, state.range(0));
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMmapBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)(benchmark::State& state) {
-  mmap_write_benchmark(state, MAP_SHARED, 1, state.range(0));
+  mmap_write_benchmark(state, MAP_SHARED, RANDOM, state.range(0));
 }
 
 // Arguments are file size in MB
