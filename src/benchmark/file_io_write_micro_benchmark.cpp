@@ -26,7 +26,7 @@ void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uin
   }
 }
 
-void FileIOWriteMicroBenchmarkFixture::write_non_atomic_single_threaded(benchmark::State& state){
+void FileIOWriteMicroBenchmarkFixture::write_non_atomic_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open(filename, O_WRONLY)) < 0) {
     close(fd);
@@ -52,7 +52,7 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_single_threaded(benchmar
   close(fd);
 }
 
-void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count){
+void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
     auto fd = int32_t{};
@@ -97,7 +97,7 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
   }
 }
 
-void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_single_threaded(benchmark::State& state){
+void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   if ((fd = open(filename, O_WRONLY)) < 0) {
     close(fd);
@@ -123,7 +123,7 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_single_threaded(benchmark::
   close(fd);
 }
 
-void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count){
+void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
     auto fd = int32_t{};
@@ -169,6 +169,7 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
 }
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
+
 (benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
 
