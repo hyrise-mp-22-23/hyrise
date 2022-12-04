@@ -168,9 +168,7 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
   }
 }
 
-BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
-
-(benchmark::State& state) {
+BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
 
   // for one thread run sequential implementation to avoid measuring unneccesary thread overhead
