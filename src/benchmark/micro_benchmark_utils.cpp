@@ -43,7 +43,6 @@ std::vector<uint32_t> generate_random_numbers(uint32_t size) {
   for (auto index = size_t{0}; index < size; ++index) {
     numbers[index] = std::rand() % UINT32_MAX;
   }
-
   return numbers;
 }
 
