@@ -13,7 +13,7 @@ pipeline {
         git config --global --add safe.directory $WORKSPACE
         # Get the paths of the submodules; for each path, add it as a git safe.directory
         grep path .gitmodules | sed 's/.*=//' | xargs -n 1 -I '{}' git config --global --add safe.directory $WORKSPACE/'{}'
-        '''
+        '''/*
 
         sh "./install_dependencies.sh"
 
@@ -21,12 +21,13 @@ pipeline {
 
         // We don't use unity builds with GCC 9 as it triggers https://github.com/google/googletest/issues/3552
         unity = '-DCMAKE_UNITY_BUILD=ON'
-
+        */
         // With Hyrise, we aim to support the most recent compiler versions and do not invest a lot of work to
         // support older versions. We test the oldest LLVM version shipped with Ubuntu 22.04 (i.e., LLVM 11) and
         // GCC 9 (oldest version supported by Hyrise). We execute at least debug runs for them.
         // If you want to upgrade compiler versions, please update install_dependencies.sh,  DEPENDENCIES.md, and
         // the documentation (README, Wiki).
+        /*
         clang = '-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++'
         clang11 = '-DCMAKE_C_COMPILER=clang-11 -DCMAKE_CXX_COMPILER=clang++-11'
         gcc = '-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++'
@@ -53,7 +54,7 @@ pipeline {
         mkdir gcc-release && cd gcc-release &&                                                       ${cmake} ${release}        ${gcc}              .. &\
         mkdir clang-11-debug && cd clang-11-debug &&                                                 ${cmake} ${debug}          ${clang11}          .. &\
         mkdir gcc-9-debug && cd gcc-9-debug &&                                                       ${cmake} ${debug}          ${gcc9}             .. &\
-        wait"
+        wait"*/
       }        
     }
   }
