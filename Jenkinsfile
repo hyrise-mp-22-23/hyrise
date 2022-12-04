@@ -38,7 +38,7 @@ pipeline {
           // jemalloc's autoconf operates outside of the build folder (#1413). If we start two cmake instances at the same time, we run into conflicts.
           // Thus, run this one (any one, really) first, so that the autoconf step can finish in peace.
 
-          sh "mkdir clang-debug && cd clang-debug &&                                                   ${cmake} ${debug}          ${clang}  ${unity}  .. && make -j libjemalloc-build"
+          sh "mkdir -p clang-debug && cd clang-debug &&                                                   ${cmake} ${debug}          ${clang}  ${unity}  .. && make -j libjemalloc-build"
 
           // Configure the rest in parallel
           sh "mkdir -p clang-debug-tidy && cd clang-debug-tidy &&                                         ${cmake} ${debug}          ${clang}            -DENABLE_CLANG_TIDY=ON .. &\
