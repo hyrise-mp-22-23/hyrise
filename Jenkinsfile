@@ -15,8 +15,6 @@ pipeline {
           grep path .gitmodules | sed 's/.*=//' | xargs -n 1 -I '{}' git config --global --add safe.directory $WORKSPACE/'{}'
           '''
 
-          sh "./install_dependencies.sh"
-
           cmake = 'cmake -DCI_BUILD=ON'
 
           // We don't use unity builds with GCC 9 as it triggers https://github.com/google/googletest/issues/3552
