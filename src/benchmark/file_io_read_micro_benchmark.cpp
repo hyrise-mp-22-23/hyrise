@@ -7,8 +7,8 @@
 #include <iterator>
 #include <numeric>
 #include <random>
-#include "micro_benchmark_basic_fixture.hpp"
 #include "file_io_read_micro_benchmark.hpp"
+#include "micro_benchmark_basic_fixture.hpp"
 
 namespace hyrise {
 
@@ -25,12 +25,9 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)(
 
     state.ResumeTiming();
 
-    // TODO Remove looping
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      lseek(fd, uint32_t_size * index, SEEK_SET);
-      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
-             fail_and_close_file(fd, "Read error: ", errno));
-    }
+    lseek(fd, 0, SEEK_SET);
+    Assert((read(fd, std::data(read_data), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
+           fail_and_close_file(fd, "Read error: ", errno));
 
     state.PauseTiming();
 
@@ -54,16 +51,14 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)(benc
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
-    auto* read_data_start = std::data(read_data);
 
     state.ResumeTiming();
 
     lseek(fd, 0, SEEK_SET);
-    // TODO Remove lseek loop
+    // TODO Randomize inidzes to not read all the data but really randomize the reads to read same amount but incl possible duplicates
     for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
-      // TODO do we need read data start?
-      Assert((read(fd, read_data_start + index, uint32_t_size) == uint32_t_size),
+      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
              fail_and_close_file(fd, "Read error: ", errno));
     }
 
@@ -88,16 +83,14 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL)(ben
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
-    auto* read_data_start = std::data(read_data);
+    state.ResumeTiming();
+
+    read_data.resize(NUMBER_OF_ELEMENTS);
 
     state.ResumeTiming();
 
-    // TODO remov loop
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      // TODO remove read data start
-      Assert((pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * index) == uint32_t_size),
-             fail_and_close_file(fd, "Read error: ", errno));
-    }
+    Assert((pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0) == NUMBER_OF_BYTES),
+           fail_and_close_file(fd, "Read error: ", errno));
 
     state.PauseTiming();
 
@@ -119,15 +112,14 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)(benchma
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
-    auto* read_data_start = std::data(read_data);
 
     state.ResumeTiming();
 
-    // TODO Remove looping
+    // TODO Randomize inidzes to not read all the data but really randomize
     for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      Assert(
-          (pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * random_indices[index]) == uint32_t_size),
-          fail_and_close_file(fd, "Read error: ", errno));
+      Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indices[index]) ==
+              uint32_t_size),
+             fail_and_close_file(fd, "Read error: ", errno));
     }
 
     state.PauseTiming();

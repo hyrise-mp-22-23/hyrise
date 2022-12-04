@@ -2,9 +2,7 @@
 
 namespace hyrise {
 
-class FileIOReadMmapBenchmarkFixture : public FileIOMicroReadBenchmarkFixture {
-
-};
+class FileIOReadMmapBenchmarkFixture : public FileIOMicroReadBenchmarkFixture {};
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
   auto fd = int32_t{};
@@ -145,4 +143,4 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RA
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-}
+}  // namespace hyrise

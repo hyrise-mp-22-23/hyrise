@@ -1,9 +1,9 @@
 #include "micro_benchmark_basic_fixture.hpp"
 
 #include <fcntl.h>
-#include <numeric>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <numeric>
 
 namespace hyrise {
 
@@ -39,4 +39,4 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   uint32_t NUMBER_OF_ELEMENTS = uint32_t{0};
   std::vector<uint32_t> numbers = std::vector<uint32_t>{};
 };
-}
+}  // namespace hyrise
