@@ -22,13 +22,12 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, const std::vector<uint32_t>& random_indices){
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto values_to_read = static_cast<ssize_t>((to - from));
 
   lseek(fd, 0, SEEK_SET);
   // TODO Randomize inidzes to not read all the data but really randomize the reads to read same amount but incl possible duplicates
-  for (auto index = ssize_t{0}; index < values_to_read; ++index) {
+  for (auto index = from; index < to; ++index) {
     lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
-    Assert((read(fd, read_data_start + from + index, uint32_t_size) == uint32_t_size),
+    Assert((read(fd, read_data_start + index, uint32_t_size) == uint32_t_size),
            fail_and_close_file(fd, "Read error: ", errno));
   }
 }
