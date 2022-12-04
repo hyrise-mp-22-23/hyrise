@@ -21,7 +21,7 @@ pipeline {
 
         // We don't use unity builds with GCC 9 as it triggers https://github.com/google/googletest/issues/3552
         unity = '-DCMAKE_UNITY_BUILD=ON'
-        */
+        
         // With Hyrise, we aim to support the most recent compiler versions and do not invest a lot of work to
         // support older versions. We test the oldest LLVM version shipped with Ubuntu 22.04 (i.e., LLVM 11) and
         // GCC 9 (oldest version supported by Hyrise). We execute at least debug runs for them.
