@@ -213,7 +213,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   }
 }
 
-void FileIOMicroReadBenchmarkFixture::pread_non_atomic_single_threaded(benchmark::State& state) {
+void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -242,7 +242,7 @@ void FileIOMicroReadBenchmarkFixture::pread_non_atomic_single_threaded(benchmark
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::pread_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
+void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -282,7 +282,7 @@ void FileIOMicroReadBenchmarkFixture::pread_non_atomic_multi_threaded(benchmark:
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::pread_non_atomic_random_single_threaded(benchmark::State& state) {
+void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -313,7 +313,7 @@ void FileIOMicroReadBenchmarkFixture::pread_non_atomic_random_single_threaded(be
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::pread_non_atomic_random_multi_threaded(benchmark::State& state,
+void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchmark::State& state,
                                                                              uint16_t thread_count) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
@@ -376,18 +376,18 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREA
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    pread_non_atomic_single_threaded(state);
+    pread_atomic_single_threaded(state);
   } else {
-    pread_non_atomic_multi_threaded(state, thread_count);
+    pread_atomic_multi_threaded(state, thread_count);
   }
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    pread_non_atomic_random_single_threaded(state);
+    pread_atomic_random_single_threaded(state);
   } else {
-    pread_non_atomic_random_multi_threaded(state, thread_count);
+    pread_atomic_random_multi_threaded(state, thread_count);
   }
 }
 
