@@ -15,7 +15,7 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void SetUp(::benchmark::State& state) override {
     NUMBER_OF_BYTES = state.range(0) * MB;
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / sizeof(uint32_t);
-    data_to_write = generate_random_numbers(NUMBER_OF_ELEMENTS);
+    data_to_write = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(data_to_write.begin(), data_to_write.end(), uint64_t{0});
 
     Assert((creat(filename, O_RDWR) >= 1), "Create error:" + std::strerror(errno));

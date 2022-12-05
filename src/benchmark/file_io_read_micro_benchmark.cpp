@@ -27,7 +27,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
     // each int32_t contains four bytes
     vector_element_count = (BUFFER_SIZE_MB * MB) / sizeof(uint32_t);
-    numbers = generate_random_numbers(vector_element_count);
+    numbers = generate_random_positive_numbers(vector_element_count);
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     auto fd = int32_t{};
