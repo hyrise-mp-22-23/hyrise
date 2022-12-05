@@ -54,6 +54,7 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
+// TODO(everyone): Reduce LOC by making this function more modular (do not repeat it with different function inputs).
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto i = size_t{0}; i < thread_count; i++) {
