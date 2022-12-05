@@ -132,7 +132,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_multi_threaded(benchmark::State
       case SEQUENTIAL:
         for (auto i = size_t{0}; i < thread_count; i++) {
           auto from = batch_size * i;
-          auto to = std::min(from + batch_size, uint64_t {NUMBER_OF_ELEMENTS});
+          auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
           threads[i] = std::thread(write_mmap_chunk_sequential, from, to, map, data_to_write_start);
         }
         break;
@@ -144,7 +144,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_multi_threaded(benchmark::State
 
         for (auto i = size_t{0}; i < thread_count; i++) {
           auto from = batch_size * i;
-          auto to = std::min(from + batch_size, uint64_t {NUMBER_OF_ELEMENTS});
+          auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
           threads[i] = std::thread(write_mmap_chunk_random, from, to, map, data_to_write, ind_access_order);
         }
         break;
