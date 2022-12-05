@@ -26,7 +26,8 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
-  // TODO Randomize inidzes to not read all the data but really randomize the reads to read same amount but incl possible duplicates
+  // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
+  //  incl possible duplicates
   for (auto index = from; index < to; ++index) {
     lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
     Assert((read(fd, read_data_start + index, uint32_t_size) == uint32_t_size),
@@ -47,7 +48,8 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
-  // TODO Randomize inidzes to not read all the data but really randomize the reads to read same amount but incl possible duplicates
+  // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
+  //  incl possible duplicates
   for (auto index = from; index < to; ++index) {
     Assert((pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * random_indices[index]) == uint32_t_size),
            fail_and_close_file(fd, "Read error: ", errno));
@@ -144,7 +146,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.ResumeTiming();
 
     lseek(fd, 0, SEEK_SET);
-    // TODO Randomize inidzes to not read all the data but really randomize the reads to read same amount but incl possible duplicates
+    // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
+    //  incl possible duplicates
     for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
       Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
@@ -298,7 +301,7 @@ void FileIOMicroReadBenchmarkFixture::pread_non_atomic_random_single_threaded(be
 
     state.ResumeTiming();
 
-    // TODO Randomize inidzes to not read all the data but really randomize
+    // TODO(everyone) Randomize inidzes to not read all the data but really randomize
     for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indices[index]) ==
               uint32_t_size),

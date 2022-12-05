@@ -1,9 +1,9 @@
-#include "micro_benchmark_basic_fixture.hpp"
-
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <numeric>
+
+#include "micro_benchmark_basic_fixture.hpp"
 
 namespace hyrise {
 
@@ -16,7 +16,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
 
     // each int32_t contains four bytes
-    numbers = generate_random_numbers(NUMBER_OF_ELEMENTS);
+    numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     auto fd = int32_t{};
@@ -32,7 +32,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   }
 
  protected:
-  const char* filename = "file.txt";  //const char* needed for C-System Calls
+  const char* filename = "file.txt";  // const char* needed for C-System Calls
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
   uint64_t control_sum = uint64_t{0};
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
