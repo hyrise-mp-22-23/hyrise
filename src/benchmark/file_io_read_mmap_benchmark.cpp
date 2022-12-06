@@ -2,22 +2,26 @@
 
 #include <umap/umap.h>
 
-namespace hyrise {
+namespace {
 
-class FileIOReadMmapBenchmarkFixture : public FileIOMicroReadBenchmarkFixture {};
-
+// Worker function for threading.
 void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum) {
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[index];
   }
 }
 
+// Worker function for threading.
 void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
                             const std::vector<uint32_t>& random_indexes) {
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
   }
 }
+
+}  // namespace
+
+namespace hyrise {
 
 void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const int access_order) {
   auto fd = int32_t{};
