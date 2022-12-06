@@ -1,5 +1,7 @@
 #include "file_io_read_micro_benchmark.hpp"
 
+#include <umap/umap.h>
+
 namespace hyrise {
 
 class FileIOReadMmapBenchmarkFixture : public FileIOMicroReadBenchmarkFixture {};
@@ -30,13 +32,25 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     const auto OFFSET = off_t{0};
 
     auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+
+    if (mapping_type == MMAP) {
+      map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+    } else if (mapping_type == UMAP) {
+      map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+    } else {
+      Fail("Error: Invalid mapping type.");
+    }
+
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
-    if (access_order == RANDOM) {
-      madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
-    } else {
-      madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+    if (mapping_type == MMAP) {
+      if (access_order == RANDOM) {
+        madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+      } else {
+        madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+      }
     }
+
     auto sum = uint64_t{0};
     for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       sum += map[index];
@@ -47,7 +61,11 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
-    Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+    if (mapping_type == MMAP) {
+      Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+    } else {
+      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+    } 
   }
 
   close(fd);
@@ -152,17 +170,43 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUE
   }
 }
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
+  // const auto thread_count = static_cast<uint16_t>(state.range(1));
+  // if (thread_count == 1) {
+    memory_mapped_read_single_threaded(state, UMAP, PRIVATE, RANDOM);
+  // } else {
+  //   memory_mapped_read_multi_threaded(state, MMAP, PRIVATE, thread_count, RANDOM);
+  // }
+}
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)(benchmark::State& state) {
+  // const auto thread_count = static_cast<uint16_t>(state.range(1));
+  // if (thread_count == 1) {
+    memory_mapped_read_single_threaded(state, UMAP, PRIVATE, SEQUENTIAL);
+  // } else {
+  //   memory_mapped_read_multi_threaded(state, MMAP, PRIVATE, thread_count, SEQUENTIAL);
+  // }
+}
+
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
+//     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
+//     ->UseRealTime();
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
+//     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
+//     ->UseRealTime();
+
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
+//     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
+//     ->UseRealTime();
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
+//     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
+//     ->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
 

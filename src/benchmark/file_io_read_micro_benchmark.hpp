@@ -7,12 +7,10 @@
 
 namespace hyrise {
 
-const auto MB = uint32_t{1'000'000};
-
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
   void SetUp(::benchmark::State& state) override {
-    NUMBER_OF_BYTES = state.range(0) * MB;
+    NUMBER_OF_BYTES = _align_to_pagesize(state.range(0));
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
 
     // each int32_t contains four bytes
