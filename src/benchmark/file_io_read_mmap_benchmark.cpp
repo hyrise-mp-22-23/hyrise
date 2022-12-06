@@ -17,8 +17,7 @@ void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* m
   }
 }
 
-void FileIOMicroReadBenchmarkFixture::mmap_read_single_threaded(benchmark::State& state, const int mmap_mode_flag,
-                                                                const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const int access_order) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -30,7 +29,7 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_single_threaded(benchmark::State
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, mmap_mode_flag, fd, OFFSET));
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
     if (access_order == RANDOM) {
@@ -54,8 +53,7 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_single_threaded(benchmark::State
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded(benchmark::State& state, const int mmap_mode_flag,
-                                                               const uint16_t thread_count, const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const uint16_t thread_count, const int access_order) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -71,7 +69,7 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded(benchmark::State&
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, mmap_mode_flag, fd, OFFSET));
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
     if (access_order == RANDOM) {
@@ -121,36 +119,36 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded(benchmark::State&
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    mmap_read_single_threaded(state, PRIVATE, RANDOM);
+    memory_mapped_read_single_threaded(state, MMAP, PRIVATE, RANDOM);
   } else {
-    mmap_read_multi_threaded(state, PRIVATE, thread_count, RANDOM);
+    memory_mapped_read_multi_threaded(state, MMAP, PRIVATE, thread_count, RANDOM);
   }
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)(benchmark::State& state) {
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    mmap_read_single_threaded(state, PRIVATE, SEQUENTIAL);
+    memory_mapped_read_single_threaded(state, MMAP, PRIVATE, SEQUENTIAL);
   } else {
-    mmap_read_multi_threaded(state, PRIVATE, thread_count, SEQUENTIAL);
+    memory_mapped_read_multi_threaded(state, MMAP, PRIVATE, thread_count, SEQUENTIAL);
   }
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)(benchmark::State& state) {
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    mmap_read_single_threaded(state, SHARED, RANDOM);
+    memory_mapped_read_single_threaded(state, MMAP, SHARED, RANDOM);
   } else {
-    mmap_read_multi_threaded(state, SHARED, thread_count, RANDOM);
+    memory_mapped_read_multi_threaded(state, MMAP, SHARED, thread_count, RANDOM);
   }
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)(benchmark::State& state) {
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    mmap_read_single_threaded(state, SHARED, SEQUENTIAL);
+    memory_mapped_read_single_threaded(state, MMAP, SHARED, SEQUENTIAL);
   } else {
-    mmap_read_multi_threaded(state, SHARED, thread_count, SEQUENTIAL);
+    memory_mapped_read_multi_threaded(state, MMAP, SHARED, thread_count, SEQUENTIAL);
   }
 }
 
