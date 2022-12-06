@@ -18,6 +18,7 @@ class MicroBenchmarkBasicFixture : public benchmark::Fixture {
 
  protected:
   void _clear_cache();
+  uint32_t _align_to_pagesize(uint32_t buffer_size_mb, uint32_t page_size = 4096);
 
  protected:
   std::shared_ptr<TableWrapper> _table_wrapper_a;
