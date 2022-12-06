@@ -10,6 +10,12 @@ void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_
   }
 }
 
+void read_mmap_chunk_randomly(const size_t from, const size_t to, const int32_t* map, uint64_t& sum, const std::vector<uint32_t>& random_indexes) {
+  for (auto index = size_t{0} + from; index < to; ++index) {
+    sum += map[random_indexes[index]];
+  }
+}
+
 void FileIOMicroReadBenchmarkFixture::mmap_read_single_threaded_sequential(benchmark::State& state, int mmap_mode_flag){
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
@@ -53,6 +59,7 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded_sequential(benchm
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    auto sums = std::vector<uint64_t>(thread_count);
     state.ResumeTiming();
 
     // Getting the mapping to memory.
@@ -62,9 +69,6 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded_sequential(benchm
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
     madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-
-
-    auto sums = std::vector<uint64_t>(thread_count);
 
     for (auto i = size_t{0}; i < thread_count; i++) {
       auto from = batch_size * i;
@@ -94,8 +98,7 @@ void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded_sequential(benchm
   close(fd);
 }
 
-
-BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
+void FileIOMicroReadBenchmarkFixture::mmap_read_single_threaded_random(benchmark::State& state, int mmap_mode_flag){
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -108,7 +111,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RAND
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, mmap_mode_flag, fd, OFFSET));
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping failed: ", errno));
 
     madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
@@ -126,6 +129,66 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RAND
     Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
   }
   close(fd);
+}
+
+void FileIOMicroReadBenchmarkFixture::mmap_read_multi_threaded_random(benchmark::State& state, int mmap_mode_flag, uint16_t thread_count){
+  auto fd = int32_t{};
+  Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+
+  auto threads = std::vector<std::thread>(thread_count);
+  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    auto sums = std::vector<uint64_t>(thread_count, 0);
+    // Generating random indexes should not play a role in the benchmark.
+    const auto ind_access_order = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    state.ResumeTiming();
+
+    // Getting the mapping to memory.
+    const auto OFFSET = off_t{0};
+
+    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, mmap_mode_flag, fd, OFFSET));
+    Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+
+    madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+
+    for (auto i = size_t{0}; i < thread_count; i++) {
+      auto from = batch_size * i;
+      auto to = std::min(from + batch_size, uint64_t {NUMBER_OF_ELEMENTS});
+      // std::ref fix from https://stackoverflow.com/a/73642536
+      threads[i] = std::thread(read_mmap_chunk_randomly, from, to, map, std::ref(sums[i]), ind_access_order);
+    }
+
+    for (auto i = size_t{0}; i < thread_count; i++) {
+      // Blocks the current thread until the thread identified by *this finishes its execution
+      threads[i].join();
+    }
+    state.PauseTiming();
+    auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
+
+    Assert(control_sum == total_sum, "Sanity check failed: Not the same result");
+    state.ResumeTiming();
+
+    Assert(msync(map, NUMBER_OF_BYTES, MS_SYNC) != -1, "Mapping Syncing Failed:" + std::strerror(errno));
+    state.PauseTiming();
+
+    // Remove memory mapping after job is done.
+    Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+    state.ResumeTiming();
+  }
+
+  close(fd);
+}
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
+  auto thread_count = static_cast<uint16_t>(state.range(1));
+  if (thread_count == 1) {
+    mmap_read_single_threaded_random(state, MAP_PRIVATE);
+  } else {
+    mmap_read_multi_threaded_random(state, MAP_PRIVATE, thread_count);
+  }
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)(benchmark::State& state) {
