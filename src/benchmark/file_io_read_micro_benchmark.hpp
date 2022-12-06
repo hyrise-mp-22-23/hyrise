@@ -46,9 +46,12 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void pread_atomic_single_threaded(benchmark::State& state);
   void pread_atomic_random_multi_threaded(benchmark::State& state, uint16_t thread_count);
   void pread_atomic_random_single_threaded(benchmark::State& state);
-  void mmap_read_single_threaded_sequential(benchmark::State& state, int mmap_mode_flag);
-  void mmap_read_multi_threaded_sequential(benchmark::State& state, int mmap_mode_flag, uint16_t thread_count);
+  void mmap_read_single_threaded(benchmark::State& state, int mmap_mode_flag, int access_order);
+  void mmap_read_multi_threaded(benchmark::State& state, int mmap_mode_flag, uint16_t thread_count, int access_order);
   void mmap_read_single_threaded_random(benchmark::State& state, int mmap_mode_flag);
   void mmap_read_multi_threaded_random(benchmark::State& state, int mmap_mode_flag, uint16_t thread_count);
+
+  enum DATA_ACCESS_TYPES { SEQUENTIAL, RANDOM };
+  enum MMAP_ACCESS_TYPES { SHARED, PRIVATE };
 };
 }  // namespace hyrise
