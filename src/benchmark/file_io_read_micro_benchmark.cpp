@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <liburing.h>
 
 #include <algorithm>
 #include <iterator>
@@ -34,11 +35,10 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     auto fd = int32_t{};
-    if ((fd = creat("file.txt", O_WRONLY)) < 1) {
-      std::cout << "create error" << std::endl;
+    if ((fd = open("file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXG)) < 1) {
+      std::cout << "create error " << fd << std::endl;
       exit(1);
     }
-    //Assert((fd = creat("file.txt", O_WRONLY)) < 1, "create error");
     chmod("file.txt", S_IRWXU);  // enables owner to rwx file
     //Assert(write(fd, std::data(numbers), BUFFER_SIZE_MB * MB != BUFFER_SIZE_MB * MB), "write error");
     if (write(fd, std::data(numbers), BUFFER_SIZE_MB * MB) != BUFFER_SIZE_MB * MB) {
@@ -353,7 +353,6 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM)(benchma
   const auto read_data_size = NUMBER_OF_BYTES / uint32_t_size;
   const auto max_read_data_size = static_cast<size_t>(read_data_size);
 
-
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
@@ -434,7 +433,64 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
   }
 }
 
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
+  const auto NUMBER_OF_BYTES = state.range(0) * MB;
+
+  auto fd = int32_t{};
+  if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) != 0) {
+    std::cout << "open error " << errno << std::endl;
+  }
+
+  for (auto _ : state) {
+    const auto queue_slots = 8;
+    auto used_slots = 0;
+
+    struct io_uring ring;
+    io_uring_queue_init(queue_slots, &ring, 0);
+
+    auto offset = std::uint32_t{0};
+
+    struct iovec iovec;
+    iovec.iov_base = &offset;
+    iovec.iov_len = 1;
+
+    std::vector<uint32_t> valuesFromFile(NUMBER_OF_BYTES / ssize_t{sizeof(uint32_t)});
+    const auto counter = 0;
+
+    while (offset < NUMBER_OF_BYTES) {
+
+      while (used_slots < queue_slots && offset <= NUMBER_OF_BYTES) {
+        // Append a new write()
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+        io_uring_prep_readv(sqe, fd, &iovec, 4096, offset);
+        io_uring_sqe_set_data(sqe, (void*) &counter);
+        offset += 4096;
+        used_slots = io_uring_submit(&ring);
+      }
+
+      while (used_slots >= queue_slots && offset < NUMBER_OF_BYTES) {
+        // Wait for a completion.
+        struct io_uring_cqe *cqe;
+        // No Error Handling so far. Would require re-submitting the request.
+        const auto ret = io_uring_wait_cqe(&ring, &cqe);
+        if (ret == 0) {
+          io_uring_cqe_seen(&ring, cqe);
+          // This should actuall be carried over by cqe->user_data, inserted in the submission queue.
+          valuesFromFile[counter] = cqe->res;
+        } else {
+          Fail("Reading with io_uring failed.");
+        }
+        --used_slots;
+      }
+
+    }
+    io_uring_queue_exit(&ring);
+
+  }
+}
+
 // Arguments are file size in MB
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
@@ -449,5 +505,8 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RA
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+*/
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)->Arg(10)->Arg(100)->Arg(1000);
+
 
 }  // namespace hyrise
