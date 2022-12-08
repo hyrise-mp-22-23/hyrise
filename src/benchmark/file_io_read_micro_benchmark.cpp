@@ -437,7 +437,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   const auto NUMBER_OF_BYTES = state.range(0) * MB;
 
   auto fd = int32_t{};
-  if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) != 0) {
+  if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) < 0) {
     std::cout << "open error " << errno << std::endl;
   }
 
@@ -462,7 +462,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
       while (used_slots < queue_slots && offset <= NUMBER_OF_BYTES) {
         // Append a new write()
         struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-        io_uring_prep_readv(sqe, fd, &iovec, 4096, offset);
+        io_uring_prep_readv(sqe, fd, &iovec, 1, offset);
         io_uring_sqe_set_data(sqe, (void*) &counter);
         offset += 4096;
         used_slots = io_uring_submit(&ring);
