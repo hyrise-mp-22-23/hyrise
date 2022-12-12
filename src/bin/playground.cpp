@@ -8,7 +8,7 @@
 
 using namespace hyrise;  // NOLINT
 
-#define chunk_type std::vector<std::shared_ptr<std::vector<uint32_t>>>
+#define chunk_type std::vector<std::shared_ptr<std::vector<int32_t>>>
 
 std::string fail_and_close_file(int32_t fd, std::string message, int error_num) {
   close(fd);
@@ -27,19 +27,19 @@ void printData(chunk_type data) {
   }
 }
 
-void printVector(std::vector<uint32_t> vector) {
+void printVector(std::vector<int32_t> vector) {
   std::cout << "Vector:" << std::endl;
-  for (uint32_t i : vector) {
+  for (int32_t i : vector) {
     std::cout << i << ' ';
   }
   std::cout << std::endl;
 }
 
-std::vector<uint32_t> flatten(chunk_type const& chunk) {
+std::vector<int32_t> flatten(chunk_type const& chunk) {
   const ssize_t ROW_COUNT = chunk.size();
   const ssize_t COLUMN_COUNT = chunk.at(0)->size();
 
-  std::vector<uint32_t> flattened;
+  std::vector<int32_t> flattened;
   flattened.reserve(ROW_COUNT * COLUMN_COUNT);
 
   for (ssize_t i = 0; i < COLUMN_COUNT; i++) {
@@ -60,9 +60,9 @@ chunk_type createChunk(const uint32_t row_count, const uint32_t column_count) {
 
   // create columns
   for (uint32_t i = 0; i < column_count; ++i) {
-    auto new_column = std::vector<uint32_t>{};
+    auto new_column = std::vector<int32_t>{};
     new_column.reserve(row_count);
-    chunk.push_back(std::make_shared<std::vector<uint32_t>>(new_column));
+    chunk.push_back(std::make_shared<std::vector<int32_t>>(new_column));
   }
 
   std::cout << chunk.size() << " columns created." << std::endl;
@@ -71,15 +71,15 @@ chunk_type createChunk(const uint32_t row_count, const uint32_t column_count) {
   for (uint32_t i = 0; i < VALUE_AMOUNT; ++i) {
     auto column_index = i % column_count;
     auto column = chunk.at(column_index);
-    column->push_back(i);
+    column->push_back(i*column_index);
   }
 
   std::cout << "Values populated." << std::endl;
   return chunk;
 }
 
-void writeDataToFile(std::vector<uint32_t> flattened_chunk, const char* filename) {
-  const ssize_t NUMBER_OF_BYTES = flattened_chunk.size() * sizeof(uint32_t);
+void writeDataToFile(std::vector<int32_t> flattened_chunk, const char* filename) {
+  const ssize_t NUMBER_OF_BYTES = flattened_chunk.size() * sizeof(int32_t);
   auto fd = int32_t{};
   Assert(((fd = creat(filename, O_WRONLY)) >= 1), fail_and_close_file(fd, "Create error: ", errno));
   chmod(filename, S_IRWXU);  // enables owner to rwx file
@@ -88,9 +88,9 @@ void writeDataToFile(std::vector<uint32_t> flattened_chunk, const char* filename
   close(fd);
 }
 
-std::vector<uint32_t> readDataFromFile(size_t number_of_bytes, const char* filename) {
-  auto read_data = std::vector<u_int32_t>{};
-  const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(u_int32_t);
+std::vector<int32_t> readDataFromFile(size_t number_of_bytes, const char* filename) {
+  auto read_data = std::vector<int32_t>{};
+  const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(int32_t);
   read_data.reserve(NUMBER_OF_ITEMS);
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
@@ -110,7 +110,7 @@ std::vector<uint32_t> readDataFromFile(size_t number_of_bytes, const char* filen
   return read_data;
 }
 
-chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, std::vector<uint32_t> data_vector) {
+chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, std::vector<int32_t> data_vector) {
   Assert(row_count % column_count == 0, "Row count is not a multiple of column count!");
   auto chunk = chunk_type{};
   const auto VALUE_AMOUNT = data_vector.size();
@@ -121,9 +121,9 @@ chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, 
 
   // create columns
   for (uint32_t i = 0; i < column_count; ++i) {
-    auto new_column = std::vector<uint32_t>{};
+    auto new_column = std::vector<int32_t>{};
     new_column.reserve(row_count);
-    chunk.push_back(std::make_shared<std::vector<uint32_t>>(new_column));
+    chunk.push_back(std::make_shared<std::vector<int32_t>>(new_column));
   }
 
   std::cout << chunk.size() << " columns created." << std::endl;
@@ -141,7 +141,7 @@ chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, 
 
 chunk_type readDataFromFileAsChunk(const uint32_t column_count, size_t number_of_bytes,
                                    const char* filename) {
-  const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(u_int32_t);
+  const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(int32_t);
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -161,9 +161,9 @@ chunk_type readDataFromFileAsChunk(const uint32_t column_count, size_t number_of
       auto column = chunk.at(column_index);
       column->push_back(map[index]);
     } else {
-      auto new_column = std::vector<uint32_t>{};
+      auto new_column = std::vector<int32_t>{};
       new_column.push_back(map[index]);
-      chunk.push_back(std::make_shared<std::vector<uint32_t>>(new_column));
+      chunk.push_back(std::make_shared<std::vector<int32_t>>(new_column));
     }
   }
 
@@ -195,7 +195,7 @@ int main() {
   const auto ROW_COUNT = uint32_t{65000};
   auto chunk = createChunk(ROW_COUNT, COLUMN_COUNT);
   auto flattened_chunk = flatten(chunk);
-  const ssize_t NUMBER_OF_BYTES = flattened_chunk.size() * sizeof(uint32_t);
+  const ssize_t NUMBER_OF_BYTES = flattened_chunk.size() * sizeof(int32_t);
   writeDataToFile(flattened_chunk, filename);
 
   std::cout << "Finished writing." << std::endl;
