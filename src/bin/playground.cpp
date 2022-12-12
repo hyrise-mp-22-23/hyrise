@@ -98,7 +98,7 @@ std::vector<int32_t> read_data_from_file(size_t number_of_bytes, const char* fil
 
   // Getting the mapping to memory.
   const auto OFFSET = off_t{0};
-  auto* map = reinterpret_cast<u_int32_t*>(mmap(NULL, number_of_bytes, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+  auto* map = reinterpret_cast<int32_t*>(mmap(NULL, number_of_bytes, PROT_READ, MAP_PRIVATE, fd, OFFSET));
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
   madvise(map, number_of_bytes, MADV_SEQUENTIAL);
