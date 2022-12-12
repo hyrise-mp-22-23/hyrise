@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <numeric>
 #include <vector>
 #include "types.hpp"
 
@@ -71,7 +72,7 @@ chunk_type createChunk(const uint32_t row_count, const uint32_t column_count) {
   for (uint32_t i = 0; i < VALUE_AMOUNT; ++i) {
     auto column_index = i % column_count;
     auto column = chunk.at(column_index);
-    column->push_back(i*column_index);
+    column->push_back(i * column_index);
   }
 
   std::cout << "Values populated." << std::endl;
@@ -139,8 +140,7 @@ chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, 
   return chunk;
 }
 
-chunk_type readDataFromFileAsChunk(const uint32_t column_count, size_t number_of_bytes,
-                                   const char* filename) {
+chunk_type readDataFromFileAsChunk(const uint32_t column_count, size_t number_of_bytes, const char* filename) {
   const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(int32_t);
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
@@ -188,6 +188,21 @@ void sanityCheck(chunk_type original_chunk, chunk_type read_chunk) {
   }
 }
 
+int calculateSumAcrossColumn(chunk_type chunk, u_int32_t col_index) {
+  auto column = chunk.at(col_index);
+  auto sum = std::accumulate(column->begin(), column->end(), uint64_t{0});
+  return sum;
+}
+
+void printRow(chunk_type chunk, u_int32_t row_index) {
+  const ssize_t COLUMN_COUNT = chunk.size();
+  std::cout << "Data of row: " << row_index << std::endl;
+  for (ssize_t index = 0; index < COLUMN_COUNT; ++index) {
+    std::cout << chunk.at(index)->at(row_index) << " ";
+  }
+  std::cout << std::endl;
+}
+
 int main() {
   std::cout << "Playground started." << std::endl;
   const char* filename = "flattened_vector.txt";
@@ -207,7 +222,9 @@ int main() {
   auto read_chunk = recreateChunk(ROW_COUNT, COLUMN_COUNT, read_vector);
    or */
   auto read_chunk = readDataFromFileAsChunk(COLUMN_COUNT, NUMBER_OF_BYTES, filename);
-
   sanityCheck(chunk, read_chunk);
+  auto sum = calculateSumAcrossColumn(read_chunk, 17);
+  std::cout << "Sum of column " << 17 << ": " << sum << std::endl;
+  printRow(chunk, 17);
   return 0;
 }
