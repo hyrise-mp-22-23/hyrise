@@ -35,7 +35,7 @@ void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32
   aiocb.aio_nbytes = bytes_to_write;
   aiocb.aio_lio_opcode = LIO_WRITE;
 
-  Assert(aio_write(&aiocb) != AIO_ERROR, "Read error: " + std::strerror(errno));
+  Assert(aio_write(&aiocb) == 0, "Read error: " + std::strerror(errno));
 
   auto err = aio_error(&aiocb);
   /* Wait until end of transaction */
@@ -197,7 +197,7 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
     aiocb.aio_nbytes = NUMBER_OF_BYTES;
     aiocb.aio_lio_opcode = LIO_WRITE;
 
-    Assert(aio_write(&aiocb) != AIO_ERROR, "Read error: " + std::strerror(errno));
+    Assert(aio_write(&aiocb) == 0, "Read error: " + std::strerror(errno));
 
     auto err = aio_error(&aiocb);
     /* Wait until end of transaction */
