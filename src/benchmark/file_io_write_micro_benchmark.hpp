@@ -1,6 +1,7 @@
 #include "micro_benchmark_basic_fixture.hpp"
 #include "micro_benchmark_utils.hpp"
 
+#include <aio.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -8,12 +9,10 @@
 
 namespace hyrise {
 
-const auto MB = uint32_t{1'000'000};
-
 class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
   void SetUp(::benchmark::State& state) override {
-    NUMBER_OF_BYTES = state.range(0) * MB;
+    NUMBER_OF_BYTES = _align_to_pagesize(state.range(0));
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / sizeof(uint32_t);
     data_to_write = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(data_to_write.begin(), data_to_write.end(), uint64_t{0});
@@ -32,6 +31,8 @@ class FileIOWriteMicroBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void write_non_atomic_single_threaded(benchmark::State& state);
   void pwrite_atomic_single_threaded(benchmark::State& state);
   void pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
+  void aio_single_threaded(benchmark::State& state);
+  void aio_multi_threaded(benchmark::State& state, uint16_t thread_count);
 
   std::vector<uint32_t> data_to_write;
   uint64_t control_sum = uint64_t{0};
