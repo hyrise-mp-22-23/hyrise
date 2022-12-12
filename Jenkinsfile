@@ -35,7 +35,7 @@ pipeline {
           release = '-DCMAKE_BUILD_TYPE=Release'
           relwithdebinfo = '-DCMAKE_BUILD_TYPE=RelWithDebInfo'
 
-          sh "echo $PATH"
+          sh "$PATH=$PATH:/usr/bin/"
 
           // jemalloc's autoconf operates outside of the build folder (#1413). If we start two cmake instances at the same time, we run into conflicts.
           // Thus, run this one (any one, really) first, so that the autoconf step can finish in peace.
