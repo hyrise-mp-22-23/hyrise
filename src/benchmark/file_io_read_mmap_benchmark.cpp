@@ -50,7 +50,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     if (mapping_type == MMAP) {
       if (access_order == RANDOM) {
         madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
-      } else {
+      } else /* if (access_order == SEQUENTIAL) */ {
         madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
       }
     }
@@ -67,7 +67,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     // Remove memory mapping after job is done.
     if (mapping_type == MMAP) {
       Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } else {
+    } else /* if (mapping_type == UMAP) */ {
       Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
     } 
   }
@@ -149,7 +149,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     // Remove memory mapping after job is done.
     if (mapping_type == MMAP) {
       Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } else {
+    } else /* if (mapping_type == UMAP) */ {
       Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
     } 
     state.ResumeTiming();
