@@ -51,7 +51,6 @@ std::vector<uint32_t> flatten(chunk_type const& chunk) {
 }
 
 chunk_type createChunk(const uint32_t row_count, const uint32_t column_count) {
-  Assert(row_count % column_count == 0, "Row count is not a multiple of column count!");
   auto chunk = chunk_type{};
   const auto VALUE_AMOUNT = column_count * row_count;
 
@@ -140,7 +139,40 @@ chunk_type recreateChunk(const uint32_t row_count, const uint32_t column_count, 
   return chunk;
 }
 
-void sanityCheck(chunk_type original_chunk, chunk_type read_chunk){
+chunk_type readDataFromFileAsChunk(const uint32_t column_count, size_t number_of_bytes,
+                                   const char* filename) {
+  const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(u_int32_t);
+  auto fd = int32_t{};
+  Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+
+  // Getting the mapping to memory.
+  const auto OFFSET = off_t{0};
+  auto* map = reinterpret_cast<u_int32_t*>(mmap(NULL, number_of_bytes, PROT_READ, MAP_PRIVATE, fd, OFFSET));
+  Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+
+  madvise(map, number_of_bytes, MADV_SEQUENTIAL);
+
+  auto chunk = chunk_type{};
+  chunk.reserve(column_count);
+
+  for (size_t index = 0; index < NUMBER_OF_ITEMS; ++index) {
+    auto column_index = index % column_count;
+    if (column_index < chunk.size()) {
+      auto column = chunk.at(column_index);
+      column->push_back(map[index]);
+    } else {
+      auto new_column = std::vector<uint32_t>{};
+      new_column.push_back(map[index]);
+      chunk.push_back(std::make_shared<std::vector<uint32_t>>(new_column));
+    }
+  }
+
+  // Remove memory mapping after job is done.
+  Assert((munmap(map, number_of_bytes) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+  return chunk;
+}
+
+void sanityCheck(chunk_type original_chunk, chunk_type read_chunk) {
   const size_t ROW_COUNT = original_chunk.size();
   const size_t COLUMN_COUNT = original_chunk.at(0)->size();
 
@@ -154,29 +186,28 @@ void sanityCheck(chunk_type original_chunk, chunk_type read_chunk){
       Assert(original_value == read_value, "Values are not the same!");
     }
   }
-
 }
-
 
 int main() {
   std::cout << "Playground started." << std::endl;
   const char* filename = "flattened_vector.txt";
-  const auto COLUMN_COUNT = uint32_t{5};
-  const auto ROW_COUNT = uint32_t{10};
+  const auto COLUMN_COUNT = uint32_t{23};
+  const auto ROW_COUNT = uint32_t{65000};
   auto chunk = createChunk(ROW_COUNT, COLUMN_COUNT);
-  printData(chunk);
   auto flattened_chunk = flatten(chunk);
   const ssize_t NUMBER_OF_BYTES = flattened_chunk.size() * sizeof(uint32_t);
-  printVector(flattened_chunk);
   writeDataToFile(flattened_chunk, filename);
 
   std::cout << "Finished writing." << std::endl;
   std::cout << "Start reading." << std::endl;
 
+  /*
   auto read_vector = readDataFromFile(NUMBER_OF_BYTES, filename);
   printVector(read_vector);
   auto read_chunk = recreateChunk(ROW_COUNT, COLUMN_COUNT, read_vector);
-  printData(read_chunk);
+   or */
+  auto read_chunk = readDataFromFileAsChunk(COLUMN_COUNT, NUMBER_OF_BYTES, filename);
+
   sanityCheck(chunk, read_chunk);
   return 0;
 }
