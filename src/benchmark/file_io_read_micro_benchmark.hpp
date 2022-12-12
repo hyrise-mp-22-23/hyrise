@@ -34,6 +34,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  protected:
   const char* filename = "file.txt";  // const char* needed for C-System Calls
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
+  const int8_t AIO_ERROR = int8_t{-1};
   uint64_t control_sum = uint64_t{0};
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
   uint32_t NUMBER_OF_ELEMENTS = uint32_t{0};

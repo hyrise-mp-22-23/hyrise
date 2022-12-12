@@ -23,16 +23,6 @@ void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uin
          fail_and_close_file(fd, "Write error: ", errno));
 }
 
-void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
-  const auto err = aio_error(aiocb);
-  const auto ret = aio_return(aiocb);
-
-  Assert(err == 0, "Error at aio_error(): " + std::strerror(errno));
-
-  Assert(ret == static_cast<int32_t>(expected_bytes),
-         "Error at aio_return(). Got: " + std::to_string(ret) + " Expected: " + std::to_string(expected_bytes) + ".");
-}
-
 void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_write = static_cast<ssize_t>(uint32_t_size * (to - from));
@@ -45,7 +35,7 @@ void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32
   aiocb.aio_nbytes = bytes_to_write;
   aiocb.aio_lio_opcode = LIO_WRITE;
 
-  Assert(aio_write(&aiocb) != -1, "Read error: " + std::strerror(errno));
+  Assert(aio_write(&aiocb) != AIO_ERROR, "Read error: " + std::strerror(errno));
 
   auto err = aio_error(&aiocb);
   /* Wait until end of transaction */
@@ -79,10 +69,10 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_single_threaded(benchmar
 
 void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
-  for (auto i = size_t{0}; i < thread_count; i++) {
+  for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
     Assert(((fd = open(filename, O_WRONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
-    filedescriptors[i] = fd;
+    filedescriptors[index] = fd;
   }
 
   auto threads = std::vector<std::thread>(thread_count);
@@ -95,18 +85,18 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
 
     auto* data_to_write_start = std::data(data_to_write);
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
-      auto from = batch_size * i;
+    for (auto index = size_t{0}; index < thread_count; ++index) {
+      auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[i] = std::thread(write_data_using_write, from, to, filedescriptors[i], data_to_write_start);
+      threads[index] = std::thread(write_data_using_write, from, to, filedescriptors[index], data_to_write_start);
     }
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
+    for (auto index = size_t{0}; index < thread_count; ++index) {
       //Blocks the current thread until the thread identified by *this finishes its execution
-      threads[i].join();
+      threads[index].join();
     }
 
     state.PauseTiming();
@@ -114,8 +104,8 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
     state.ResumeTiming();
   }
 
-  for (auto i = size_t{0}; i < thread_count; i++) {
-    close(filedescriptors[i]);
+  for (auto index = size_t{0}; index < thread_count; index++) {
+    close(filedescriptors[index]);
   }
 }
 
@@ -144,10 +134,10 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_single_threaded(benchmark::
 
 void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
-  for (auto i = size_t{0}; i < thread_count; i++) {
+  for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
     Assert(((fd = open(filename, O_WRONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
-    filedescriptors[i] = fd;
+    filedescriptors[index] = fd;
   }
 
   auto threads = std::vector<std::thread>(thread_count);
@@ -160,18 +150,18 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
 
     auto* data_to_write_start = std::data(data_to_write);
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
-      auto from = batch_size * i;
+    for (auto index = size_t{0}; index < thread_count; ++index) {
+      auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[i] = std::thread(write_data_using_pwrite, from, to, filedescriptors[i], data_to_write_start);
+      threads[index] = std::thread(write_data_using_pwrite, from, to, filedescriptors[index], data_to_write_start);
     }
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
+    for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution
-      threads[i].join();
+      threads[index].join();
     }
 
     state.PauseTiming();
@@ -179,8 +169,8 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
     state.ResumeTiming();
   }
 
-  for (auto i = size_t{0}; i < thread_count; i++) {
-    close(filedescriptors[i]);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    close(filedescriptors[index]);
   }
 }
 
@@ -207,7 +197,7 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
     aiocb.aio_nbytes = NUMBER_OF_BYTES;
     aiocb.aio_lio_opcode = LIO_WRITE;
 
-    Assert(aio_write(&aiocb) != -1, "Read error: " + std::strerror(errno));
+    Assert(aio_write(&aiocb) != AIO_ERROR, "Read error: " + std::strerror(errno));
 
     auto err = aio_error(&aiocb);
     /* Wait until end of transaction */
@@ -227,13 +217,13 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
 
 void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
-  for (auto i = size_t{0}; i < thread_count; i++) {
+  for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
     if ((fd = open(filename, O_WRONLY)) < 0) {
       close(fd);
       Fail("Open error:" + std::strerror(errno));
     }
-    filedescriptors[i] = fd;
+    filedescriptors[index] = fd;
   }
 
   auto threads = std::vector<std::thread>(thread_count);
@@ -246,18 +236,18 @@ void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& stat
 
     auto* data_to_write_start = std::data(data_to_write);
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
-      auto from = batch_size * i;
+    for (auto index = size_t{0}; index < thread_count; ++index) {
+      auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[i] = std::thread(write_data_using_aio, from, to, filedescriptors[i], data_to_write_start);
+      threads[index] = std::thread(write_data_using_aio, from, to, filedescriptors[index], data_to_write_start);
     }
 
-    for (auto i = size_t{0}; i < thread_count; i++) {
+    for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution
-      threads[i].join();
+      threads[index].join();
     }
 
     state.PauseTiming();
@@ -265,8 +255,8 @@ void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& stat
     state.ResumeTiming();
   }
 
-  for (auto i = size_t{0}; i < thread_count; i++) {
-    close(filedescriptors[i]);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    close(filedescriptors[index]);
   }
 }
 
