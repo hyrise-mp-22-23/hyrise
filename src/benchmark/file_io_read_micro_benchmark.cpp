@@ -86,7 +86,7 @@ void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_
   /* Wait until end of transaction */
   while ((err = aio_error (&aiocb)) == EINPROGRESS);
 
-  aio_read_error_handling(&aiocb, uint32_t_size);
+  aio_read_error_handling(&aiocb, bytes_to_read);
 }
 
 void read_data_randomly_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
@@ -690,12 +690,13 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREAD
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
 
-
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10}, {1}})
-    ->UseRealTime();
 */
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)
+    ->ArgsProduct({{10}, {1,48}})
+    ->UseRealTime();
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
     ->ArgsProduct({{10}, {1,4}})
     ->UseRealTime();
+*/
 }  // namespace hyrise
