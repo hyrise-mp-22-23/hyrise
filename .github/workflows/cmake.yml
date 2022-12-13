@@ -7,5 +7,5 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup Project
-        run: ls -ah
+      - name: Clone Project
+        run: git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && hyrise
