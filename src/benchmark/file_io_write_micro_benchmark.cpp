@@ -370,7 +370,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(bench
     io_uring_queue_exit(&ring);
 
     state.PauseTiming();
-    sanity_check(NUMBER_OF_ELEMENTS);
+    sanity_check();
     state.ResumeTiming();
   }
 }
