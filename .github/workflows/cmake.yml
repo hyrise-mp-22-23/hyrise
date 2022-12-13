@@ -11,7 +11,7 @@ jobs:
         run: git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise
 
       - name: Install Dependencies
-        run: 
-          - cd hyrise
-          - chmod +x install_dependencies.sh
-          - bash ./install_dependenies.sh
+        run: |
+            cd hyrise
+            chmod +x install_dependencies.sh
+            bash ./install_dependenies.sh
