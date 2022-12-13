@@ -714,7 +714,8 @@ void output_to_console(char *buf, int len) {
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
-  const auto NUMBER_OF_BYTES = state.range(0) * MB;
+  // Ye - that looks good.
+  const auto NUMBER_OF_BYTES = NUMBER_OF_ELEMENTS;
 
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) < 0) {
