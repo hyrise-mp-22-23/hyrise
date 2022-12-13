@@ -10,7 +10,6 @@
 
 #include <unistd.h>
 
-
 using namespace hyrise;  // NOLINT
 
 #define chunk_prototype std::vector<std::shared_ptr<std::vector<uint32_t>>>
@@ -62,8 +61,8 @@ void write_chunk(const chunk_prototype& chunk){
   }
 }
 
-std::vector<uint32_t*> map_chunk(const std::string& chunk_name, const uint32_t column_count, const uint32_t chunk_size){
-  auto mapped_chunk = std::vector<uint32_t*>();
+std::vector<std::span<uint32_t>> map_chunk(const std::string& chunk_name, const uint32_t column_count, const uint32_t chunk_size){
+  auto mapped_chunk = std::vector<std::span<uint32_t>>();
   for (auto column_index = size_t{0}; column_index < column_count; ++column_index){
     auto fd = int32_t{};
     const auto column_filename = chunk_name + "_segment" + std::to_string(column_index) + ".bin";
@@ -76,7 +75,10 @@ std::vector<uint32_t*> map_chunk(const std::string& chunk_name, const uint32_t c
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
     madvise(map, chunk_bytes, MADV_SEQUENTIAL);
-    mapped_chunk.emplace_back(map);
+
+    // create std::span view on map
+    auto map_span_view = std::span{map, chunk_size};
+    mapped_chunk.emplace_back(map_span_view);
   }
   return mapped_chunk;
 }
@@ -97,14 +99,8 @@ int main() {
   const auto mapped_chunk = map_chunk(chunk_name, COLUMN_COUNT, ROW_COUNT);
 
   // calculate sum of column 17
-  auto sum_column_17 = uint64_t{0};
-  const auto column_17 = mapped_chunk[16];
-  for (auto index = size_t{0}; index < ROW_COUNT; ++index) {
-    sum_column_17 += column_17[index];
-  }
-
   std::cout << "Sum of column 17 of created chunk: " << std::accumulate(chunk[16]->begin(), chunk[16]->end(), uint64_t{0}) << std::endl;
-  std::cout << "Sum of column 17 of mapped chunk: " << sum_column_17 << std::endl;
+  std::cout << "Sum of column 17 of mapped chunk: " << std::accumulate(mapped_chunk[16].begin(), mapped_chunk[16].end(), uint64_t{0}) << std::endl;
 
   // print row 17
   std::cout << "Row 17 of created chunk: ";
