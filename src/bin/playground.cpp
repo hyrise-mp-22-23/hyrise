@@ -9,16 +9,19 @@
 #include <vector>
 #include "types.hpp"
 
+#include <unistd.h>
+
+
 using namespace hyrise;  // NOLINT
 
-#define chunk_type std::vector<std::shared_ptr<std::vector<uint32_t>>>
+#define chunk_prototype std::vector<std::shared_ptr<std::vector<uint32_t>>>
 
 std::string fail_and_close_file(int32_t fd, std::string message, int error_num) {
   close(fd);
   return message + std::strerror(error_num);
 }
 
-void print_data(chunk_type data) {
+void print_data(chunk_prototype data) {
   const ssize_t ROW_COUNT = data.size();
   const ssize_t COLUMN_COUNT = data.at(0)->size();
   std::cout << "Data:" << std::endl;
@@ -38,7 +41,7 @@ void print_vector(std::vector<int32_t> values) {
   std::cout << std::endl;
 }
 
-std::vector<int32_t> flatten(chunk_type const& chunk) {
+std::vector<int32_t> flatten(chunk_prototype const& chunk) {
   const ssize_t ROW_COUNT = chunk.size();
   const ssize_t COLUMN_COUNT = chunk.at(0)->size();
 
@@ -53,8 +56,8 @@ std::vector<int32_t> flatten(chunk_type const& chunk) {
   return flattened;
 }
 
-chunk_type create_chunk(const uint32_t row_count, const uint32_t column_count) {
-  auto chunk = chunk_type{};
+chunk_prototype create_chunk(const uint32_t row_count, const uint32_t column_count) {
+  auto chunk = chunk_prototype{};
   const auto VALUE_AMOUNT = column_count * row_count;
 
   std::cout << "We create a chunk with " << column_count << " columns, " << row_count << " rows and thus "
@@ -114,7 +117,7 @@ std::vector<int32_t> read_data_from_file(size_t number_of_bytes, const char* fil
 }
 
 
-chunk_type read_data_from_file_as_chunk(const uint32_t column_count, size_t number_of_bytes, const char* filename) {
+chunk_prototype read_data_from_file_as_chunk(const uint32_t column_count, size_t number_of_bytes, const char* filename) {
   const auto NUMBER_OF_ITEMS = number_of_bytes / sizeof(int32_t);
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
@@ -126,7 +129,7 @@ chunk_type read_data_from_file_as_chunk(const uint32_t column_count, size_t numb
 
   madvise(map, number_of_bytes, MADV_SEQUENTIAL);
 
-  auto chunk = chunk_type{};
+  auto chunk = chunk_prototype{};
   chunk.reserve(column_count);
 
   for (auto index = size_t{0}; index < NUMBER_OF_ITEMS; ++index) {
@@ -146,7 +149,7 @@ chunk_type read_data_from_file_as_chunk(const uint32_t column_count, size_t numb
   return chunk;
 }
 
-void sanity_check(chunk_type original_chunk, chunk_type read_chunk) {
+void sanity_check(chunk_prototype original_chunk, chunk_prototype read_chunk) {
   const auto ROW_COUNT = original_chunk.size();
   const auto COLUMN_COUNT = original_chunk.at(0)->size();
 
@@ -162,13 +165,13 @@ void sanity_check(chunk_type original_chunk, chunk_type read_chunk) {
   }
 }
 
-int calculate_sum_across_column(chunk_type chunk, u_int32_t col_index) {
+int calculate_sum_across_column(chunk_prototype chunk, u_int32_t col_index) {
   auto column = chunk.at(col_index);
   auto sum = std::accumulate(column->begin(), column->end(), uint64_t{0});
   return sum;
 }
 
-void print_row(chunk_type chunk, u_int32_t row_index) {
+void print_row(chunk_prototype chunk, u_int32_t row_index) {
   const auto COLUMN_COUNT = static_cast<ssize_t>(chunk.size());
   std::cout << "Data of row: " << row_index << std::endl;
   for (auto index = ssize_t{0}; index < COLUMN_COUNT; ++index) {
@@ -180,11 +183,19 @@ void print_row(chunk_type chunk, u_int32_t row_index) {
 void write_segment(const std::shared_ptr<std::vector<uint32_t>> segment, const std::string& filename){
   std::ofstream column_file;
   column_file.open(filename, std::ios::out | std::ios::binary);
-  std::copy(segment->begin(), segment->end(), std::ostream_iterator<uint32_t>(column_file));
+  column_file.write(reinterpret_cast<char*>(std::data(*segment)), segment->size() * sizeof(uint32_t));
+  // std::copy(segment->begin(), segment->end(), std::ostream_iterator<uint32_t>(column_file));
   column_file.close();
+  // auto NUMBER_OF_BYTES = static_cast<size_t>(segment->size() * sizeof(uint32_t));
+  // auto fd = int32_t{};
+  // Assert(((fd = open(filename.c_str(), O_WRONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+  // if (static_cast<size_t>(pwrite(fd, std::data(*segment), NUMBER_OF_BYTES, 0)) != NUMBER_OF_BYTES) {
+  //     close(fd);
+  //     Fail("Write error:" + std::strerror(errno));
+  // }
 }
 
-void write_chunk(const chunk_type& chunk){
+void write_chunk(const chunk_prototype& chunk){
   const auto file_prefix = "test_chunk_segment";
   const auto file_extension = ".bin";
   const auto chunk_size = chunk.size();
@@ -196,17 +207,22 @@ void write_chunk(const chunk_type& chunk){
 
 std::vector<uint32_t*> map_chunk(const std::string& chunk_name, const uint32_t column_count, const uint32_t chunk_size){
   auto mapped_chunk = std::vector<uint32_t*>();
-  for (auto column_index = size_t{0}; column_index < column_count; ++column_index){
+  for (auto column_index = size_t{0}; column_index < 1; ++column_index){
     // create map on every segment and push pointer into mapped_chunk vector
     auto fd = int32_t{};
     const auto column_filename = chunk_name + "_segment" + std::to_string(column_index) + ".bin";
-    Assert(((fd = open(column_filename.c_str(), O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+    Assert((fd = open(column_filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
 
     // Getting the mapping to memory.
     const auto offset = off_t{0};
-    const auto chunk_bytes = chunk_size * sizeof(uint32_t);
+    const auto chunk_bytes = column_count * sizeof(uint32_t);
+
     auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, chunk_bytes, PROT_READ, MAP_PRIVATE, fd, offset));
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+
+    for (auto index = size_t{0}; index < 500; ++index) {
+      std::cout << map[index] << std::endl;
+    }
 
     madvise(map, chunk_bytes, MADV_SEQUENTIAL);
     mapped_chunk.emplace_back(map);
