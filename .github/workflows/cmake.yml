@@ -12,7 +12,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-            cd /home/runner/work/hyrise/hyrise
+            cd /home/runner/work/hyrise/hyrise/hyrise
             ls -ah
             chmod +x install_dependencies.sh
             bash ./install_dependenies.sh
