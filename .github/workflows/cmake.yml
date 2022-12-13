@@ -7,5 +7,5 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Some Magic
-        run: echo "Some Magic"
+      - name: Setup Project
+        run: ls -ah
