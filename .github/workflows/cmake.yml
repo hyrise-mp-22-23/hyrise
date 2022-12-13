@@ -13,5 +13,6 @@ jobs:
       - name: Install Dependencies
         run: |
             cd hyrise
+            pwd
             chmod +x install_dependencies.sh
             bash ./install_dependenies.sh
