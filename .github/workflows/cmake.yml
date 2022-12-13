@@ -17,13 +17,13 @@ jobs:
 
       - name: Run CMake
         run: |
-            cd ${{github.workspace}}
+            cd ${{github.workspace}}/hyrise/
             mkdir cmake-build-debug && cd cmake-build-debug
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
       
       - name: Run Make
         run: |
-            cd ${{github.workspace}}/cmake-build-debug
+            cd ${{github.workspace}}/hyrise/cmake-build-debug
             make hyriseConsole -j4
             echo "Build Finished Successfully"
 
