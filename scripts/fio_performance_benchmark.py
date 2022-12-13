@@ -22,9 +22,9 @@ for fio_size in ('10M', '100M', '1000M'):
         numjobs = 1
         iodepth = 1
 
-        command = "sudo fio -minimal  -name=fio-bandwidth --bs=128k --ioengine=libaio --iodepth=64 --size=" + str(fio_size) + " --direct=1 --rw=" + str(
+        command = "sudo fio -minimal  -name=fio-bandwidth --bs=128k --ioengine=sync --size=" + str(fio_size) + " --direct=1 --rw=" + str(
             run) + " --filename=/dev/nvme0n1 --numjobs=" + str(
-            numjobs) + "--iodepth=" + str(iodepth) + " --numjobs=" + str(numjobs) + " --group_reporting --thread --refill_buffers"  # + " --time_based --runtime=" + fio_runtime
+            numjobs) + " --group_reporting --refill_buffers"  # + " --time_based --runtime=" + fio_runtime
 
         fio_type_offset = 0
         print(command)
@@ -59,11 +59,10 @@ for fio_size in ('10M', '100M', '1000M'):
         for numjobs in (1, 2, 4, 8, 16, 24, 32, 48, 64):
 
             iodepth = numjobs
-            command = "sudo fio -minimal  -name=fio-bandwidth --bs=128k --ioengine=libaio --iodepth=64 --size=" + str(
+            command = "sudo fio -minimal  -name=fio-bandwidth --bs=128k --ioengine=libaio --size=" + str(
                 fio_size) + " --direct=1 --rw=" + str(
                 run) + " --filename=/dev/nvme0n1 --numjobs=" + str(
-                numjobs) + "--iodepth=" + str(iodepth) + " --numjobs=" + str(
-                numjobs) + " --group_reporting --thread --refill_buffers"  # + " --time_based --runtime=" + fio_runtime
+                numjobs) + "--iodepth=" + str(iodepth) + " --group_reporting --thread --refill_buffers"  # + " --time_based --runtime=" + fio_runtime
 
             fio_type_offset = 0
 
@@ -96,5 +95,4 @@ for fio_size in ('10M', '100M', '1000M'):
             f.flush()
 
 f.closed
-
 
