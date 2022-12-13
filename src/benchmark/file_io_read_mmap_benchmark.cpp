@@ -56,8 +56,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 
     auto sum = uint64_t{0};
-    for (auto index = size_t{0}; index < 65000; ++index) {
-      std::cout << map[index] << std::endl;
+    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      sum += map[index];
     }
 
     state.PauseTiming();
