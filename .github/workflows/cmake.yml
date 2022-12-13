@@ -7,9 +7,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Update Submodules
+      - name: Clone Repository
         run: git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && cd hyrise
 
       - name: Install Dependencies
