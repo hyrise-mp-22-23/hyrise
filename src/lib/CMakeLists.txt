@@ -657,6 +657,7 @@ set(
     magic_enum
     uring
     sqlparser
+    umap
     uninitialized_vector
     libzstd_static
     ${CMAKE_DL_LIBS}
