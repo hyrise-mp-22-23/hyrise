@@ -12,3 +12,17 @@ jobs:
 
       - name: Install Dependencies
         run: sudo apt-get install --no-install-recommends -y autoconf bash-completion bc clang-11 clang-14 clang-format-14 clang-tidy-14 cmake curl dos2unix g++-9 gcc-9 g++-11 gcc-11 gcovr git graphviz libboost-all-dev libhwloc-dev libncurses5-dev libnuma-dev libnuma1 libpq-dev libreadline-dev libsqlite3-dev libtbb-dev lld man parallel postgresql-server-dev-all python3 python3-pip valgrind &
+
+      - name: Run CMake
+        run: |
+            cd /home/runner/work/hyrise/hyrise/hyrise/
+            mkdir cmake-build-debug && cd cmake-build-debug
+            cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -GNinja ..
+      
+      - name: Run Ninja
+        run: |
+            cd /home/runner/work/hyrise/hyrise/hyrise/cmake-build-debug
+            ninja
+            echo "Build Finished Successfully"
+
+
