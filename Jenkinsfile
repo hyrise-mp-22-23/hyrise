@@ -283,7 +283,7 @@ try {
               // Runs after the other sanitizers as it depends on gcc-release to be built. With #2402, valgrind now
               // uses the GCC build instead of the clang build as there are issues with valgrind and the debug symbols
               // of clang 14 (https://bugs.kde.org/show_bug.cgi?id=452758).
-              if (env.BRANCH_NAME == 'master' || full_ci) {
+              if (full_ci) {
                 sh "mkdir ./clang-release-memcheck-test"
                 // If this shows a leak, try --leak-check=full, which is slower but more precise
                 sh "valgrind --tool=memcheck --error-exitcode=1 --gen-suppressions=all --num-callers=25 --suppressions=resources/.valgrind-ignore.txt ./gcc-release/hyriseTest clang-release-memcheck-test --gtest_filter=-NUMAMemoryResourceTest.BasicAllocate"
@@ -295,7 +295,7 @@ try {
             }
           }, tpchVerification: {
             stage("tpchVerification") {
-              if (env.BRANCH_NAME == 'master' || full_ci) {
+              if (full_ci) {
                 sh "./clang-release/hyriseBenchmarkTPCH --dont_cache_binary_tables -r 1 -s 1 --verify"
               } else {
                 Utils.markStageSkippedForConditional("tpchVerification")
@@ -303,7 +303,7 @@ try {
             }
           }, tpchQueryPlans: {
             stage("tpchQueryPlans") {
-              if (env.BRANCH_NAME == 'master' || full_ci) {
+              if (full_ci) {
                 sh "mkdir -p query_plans/tpch; cd query_plans/tpch && ../../clang-release/hyriseBenchmarkTPCH --dont_cache_binary_tables -r 2 -s 10 --visualize && ../../scripts/plot_operator_breakdown.py ../../clang-release/"
                 archiveArtifacts artifacts: 'query_plans/tpch/*.svg'
                 archiveArtifacts artifacts: 'query_plans/tpch/operator_breakdown.pdf'
@@ -313,7 +313,7 @@ try {
             }
           }, tpcdsQueryPlansAndVerification: {
             stage("tpcdsQueryPlansAndVerification") {
-              if (env.BRANCH_NAME == 'master' || full_ci) {
+              if (full_ci) {
                 sh "mkdir -p query_plans/tpcds; cd query_plans/tpcds && ln -s ../../resources; ../../clang-release/hyriseBenchmarkTPCDS --dont_cache_binary_tables -r 1 -s 1 --visualize --verify && ../../scripts/plot_operator_breakdown.py ../../clang-release/"
                 archiveArtifacts artifacts: 'query_plans/tpcds/*.svg'
                 archiveArtifacts artifacts: 'query_plans/tpcds/operator_breakdown.pdf'
@@ -323,7 +323,7 @@ try {
             }
           }, jobQueryPlans: {
             stage("jobQueryPlans") {
-              if (env.BRANCH_NAME == 'master' || full_ci) {
+              if (full_ci) {
                 // In contrast to TPC-H and TPC-DS above, we execute the JoinOrderBenchmark from the project's root directoy because its setup script requires us to do so.
                 sh "mkdir -p query_plans/job && ./clang-release/hyriseBenchmarkJoinOrder --dont_cache_binary_tables -r 1 --visualize && ./scripts/plot_operator_breakdown.py ./clang-release/ && mv operator_breakdown.pdf query_plans/job && mv *QP.svg query_plans/job"
                 archiveArtifacts artifacts: 'query_plans/job/*.svg'
@@ -340,85 +340,12 @@ try {
       }
     }
   }
-
-  parallel clangDebugMacX64: {
-    node('mac') {
-      stage("clangDebugMacX64") {
-        if (env.BRANCH_NAME == 'master' || full_ci) {
-          try {
-            checkout scm
-
-            // We do not use install_dependencies.sh here as there is no way to run OS X in a Docker container
-            sh "git submodule update --init --recursive --jobs 4 --depth=1"
-
-            sh "mkdir clang-debug && cd clang-debug && /usr/local/bin/cmake ${debug} ${unity} -DCMAKE_C_COMPILER=/usr/local/opt/llvm@15/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm@15/bin/clang++ .."
-            sh "cd clang-debug && make -j \$(sysctl -n hw.logicalcpu)"
-            sh "./clang-debug/hyriseTest"
-            sh "./clang-debug/hyriseSystemTest --gtest_filter=\"-TPCCTest*:TPCDSTableGeneratorTest.*:TPCHTableGeneratorTest.RowCountsMediumScaleFactor:*.CompareToSQLite/Line1*WithLZ4\""
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseConsole_test.py clang-debug"
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseServer_test.py clang-debug"
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseBenchmarkFileBased_test.py clang-debug"
-          } finally {
-            sh "ls -A1 | xargs rm -rf"
-          }
-        } else {
-          Utils.markStageSkippedForConditional("clangDebugMacX64")
-        }
-      }
-    }
-  }, clangReleaseMacArm: {
-    // For this to work, we installed a native non-standard JDK (zulu) via brew. See #2339 for more details.
-    node('mac-arm') {
-      stage("clangReleaseMacArm") {
-        if (env.BRANCH_NAME == 'master' || full_ci) {
-          try {
-            checkout scm
-
-            // We do not use install_dependencies.sh here as there is no way to run OS X in a Docker container
-            sh "git submodule update --init --recursive --jobs 4 --depth=1"
-
-            // NOTE: These paths differ from x64 - brew on ARM uses /opt (https://docs.brew.sh/Installation)
-            sh "mkdir clang-release && cd clang-release && cmake ${release} -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@15/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@15/bin/clang++ .."
-            sh "cd clang-release && make -j \$(sysctl -n hw.logicalcpu)"
-
-            // Check whether arm64 binaries are built to ensure that we are not accidentally running rosetta that
-            // executes x86 binaries on arm.
-            sh "file ./clang-release/hyriseTest | grep arm64"
-
-            sh "./clang-release/hyriseTest"
-            sh "./clang-release/hyriseSystemTest --gtest_filter=\"-TPCCTest*:TPCDSTableGeneratorTest.*:TPCHTableGeneratorTest.RowCountsMediumScaleFactor:*.CompareToSQLite/Line1*WithLZ4\""
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseConsole_test.py clang-release"
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseServer_test.py clang-release"
-            sh "PATH=/usr/local/bin/:$PATH ./scripts/test/hyriseBenchmarkFileBased_test.py clang-release"
-          } finally {
-            sh "ls -A1 | xargs rm -rf"
-          }
-        } else {
-          Utils.markStageSkippedForConditional("clangReleaseMacArm")
-        }
-      }
-    }
-  }
-
-  node {
-    stage("Notify") {
-      script {
-        githubNotify context: 'CI Pipeline', status: 'SUCCESS'
-        if (env.BRANCH_NAME == 'master' || full_ci) {
-          githubNotify context: 'Full CI', status: 'SUCCESS'
-        }
-      }
-    }
-  }
 } catch (error) {
   stage("Notify") {
     script {
       githubNotify context: 'CI Pipeline', status: 'FAILURE'
-      if (env.BRANCH_NAME == 'master' || full_ci) {
+      if (full_ci) {
         githubNotify context: 'Full CI', status: 'FAILURE'
-      }
-      if (env.BRANCH_NAME == 'master') {
-        slackSend message: ":rotating_light: ALARM! Build on ${env.BRANCH_NAME} failed! - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>) :rotating_light:"
       }
     }
     throw error
