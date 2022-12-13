@@ -9,21 +9,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Clone Project
-        run: git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && hyrise
+      - name: Update Submodules
+        run: git -C ${{github.workspace}} submodule update --remote
 
       - name: Install Dependencies
         run: sudo apt-get install --no-install-recommends -y autoconf bash-completion bc clang-11 clang-14 clang-format-14 clang-tidy-14 cmake curl dos2unix g++-9 gcc-9 g++-11 gcc-11 gcovr git graphviz libboost-all-dev libhwloc-dev libncurses5-dev libnuma-dev libnuma1 libpq-dev libreadline-dev libsqlite3-dev libtbb-dev lld man ninja-build parallel postgresql-server-dev-all python3 python3-pip valgrind &
 
       - name: Run CMake
         run: |
-            cd /home/runner/work/hyrise/hyrise/hyrise
+            cd ${{github.workspace}}
             mkdir cmake-build-debug && cd cmake-build-debug
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
       
       - name: Run Make
         run: |
-            cd /home/runner/work/hyrise/hyrise/hyrise/cmake-build-debug
+            cd ${{github.workspace}}/cmake-build-debug
             make hyriseConsole -j4
             echo "Build Finished Successfully"
 
