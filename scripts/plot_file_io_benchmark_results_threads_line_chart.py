@@ -12,7 +12,6 @@ import pandas as pd
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
 
 # set plot styles
 plt.style.use("ggplot")
@@ -36,13 +35,18 @@ df.drop(df[df.real_time_appendix.str.contains("_mean|_median|_stddev|_cv")].inde
 # drop MAP_PRIVATE benchmarks to better plot MAP_SEQUENTIAL benchmarks
 # df.drop(df[df.io_type.str.contains("MAP_PRIVATE")].index, inplace=True)
 
+print(df['bytes_per_second'])
 df["filesize_mb"] = pd.to_numeric(df["filesize_mb"])
 df["real_time_sec"] = pd.to_numeric(df["real_time"]) / 1000000000
 df["mb_per_sec"] = df["filesize_mb"] / df["real_time_sec"]
+df['bytes_per_second'].fillna(-1)
+df.loc[df['bytes_per_second'] > 0, 'mb_per_sec'] = df["bytes_per_second"] / 1000000
+
+#print(df)
 for filesize in df['filesize_mb'].unique():
     df_filesize = df[df['filesize_mb'] == filesize]
 
-    benchmark_results = sns.lineplot(data=df_filesize, x="threads", y="mb_per_sec", hue="io_type", markers="o", err_style='bars', err_kws={'capsize':10})
+    benchmark_results = sns.lineplot(data=df_filesize, x="threads", y="mb_per_sec", hue="io_type", marker='o', err_style='bars', err_kws={'capsize':10})
 
     benchmark_results.set(
         xlabel="#threads", ylabel="Throughput in MB/s", title=f"Different I/O method speed dependent on threads for {filesize}MB"
