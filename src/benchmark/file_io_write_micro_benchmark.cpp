@@ -316,8 +316,6 @@ struct io_data {
 };
 
 BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(benchmark::State& state) {  // open file
-  const uint32_t NUMBER_OF_BYTES = state.range(0) * MB;
-
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDWR)) < 0) {
     std::cout << "open error " << errno << std::endl;
@@ -346,7 +344,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(bench
         struct iovec iov;
     };
 
-    while (offset < NUMBER_OF_BYTES) {
+    while (offset < NUMBER_OF_ELEMENTS) {
 
       while (used_slots < queue_slots) {
         // Append a new write()
@@ -372,7 +370,7 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(bench
     io_uring_queue_exit(&ring);
 
     state.PauseTiming();
-    sanity_check(NUMBER_OF_BYTES);
+    sanity_check(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
   }
 }
