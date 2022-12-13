@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <liburing.h>
 
-#include <algorithm>
 #include <iterator>
 #include <numeric>
 #include <random>
@@ -50,7 +49,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
   void TearDown(::benchmark::State& /*state*/) override {
     // TODO(everybody): Error handling
-    std::remove("file.txt");
+    //std::remove("file.txt");
   }
 
  protected:
@@ -433,6 +432,60 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
   }
 }
 
+struct file_info{
+  long file_size;
+  uint32_t blocks;
+  std::vector<iovec> io_vectors;
+};
+
+file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYTES) {
+  const auto BLOCK_SZ = 4096;
+
+  auto bytes_remaining = NUMBER_OF_BYTES;
+  auto current_block = 0;
+  auto blocks = (int) NUMBER_OF_BYTES / BLOCK_SZ;
+  if (NUMBER_OF_BYTES % BLOCK_SZ) blocks++;
+
+  auto io_vectors = std::vector<iovec>(blocks);
+
+  /*
+     * For each block of the file we need to read, we allocate an iovec struct
+     * which is indexed into the iovecs array. This array is passed in as part
+     * of the submission. If you don't understand this, then you need to look
+     * up how the readv() and writev() system calls work.
+     * */
+  while (bytes_remaining) {
+    off_t bytes_to_read = bytes_remaining;
+    if (bytes_to_read > BLOCK_SZ)
+      bytes_to_read = BLOCK_SZ;
+
+    io_vectors[current_block].iov_len = bytes_to_read;
+    std::cout << io_vectors[current_block].iov_len << std::endl;
+
+    void *buf;
+    if( posix_memalign(&buf, BLOCK_SZ, BLOCK_SZ)) {
+      Fail("Could not allocate memory.");
+    }
+    io_vectors[current_block].iov_base = buf;
+
+    current_block++;
+    bytes_remaining -= bytes_to_read;
+  }
+
+  file_info finfo;
+  finfo.file_size = NUMBER_OF_BYTES;
+  finfo.blocks = blocks;
+  finfo.io_vectors = io_vectors;
+
+  return finfo;
+}
+
+void output_to_console(char *buf, int len) {
+  while (len--) {
+    fputc(*buf++, stdout);
+  }
+}
+
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
   const auto NUMBER_OF_BYTES = state.range(0) * MB;
 
@@ -442,50 +495,38 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   }
 
   for (auto _ : state) {
-    const auto queue_slots = 8;
-    auto used_slots = 0;
-
+    const auto queue_slots = 1;
     struct io_uring ring;
     io_uring_queue_init(queue_slots, &ring, 0);
+    auto finfo = get_file_info(&fd, &ring, NUMBER_OF_BYTES);
 
-    auto offset = std::uint32_t{0};
+    auto current_block = uint32_t{0};
+    while (current_block < finfo.blocks) {
 
-    struct iovec iovec;
-    iovec.iov_base = &offset;
-    iovec.iov_len = 1;
+      // Get an SQE
+      struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+      const iovec curr_iovec = finfo.io_vectors[current_block];
+      // Setup a read operation
+      io_uring_prep_readv(sqe, fd, &curr_iovec, 1, 0);
+      // Set user data
+      io_uring_sqe_set_data(sqe, &finfo.io_vectors[current_block]);
+      // Finally, submit the request
+      io_uring_submit(&ring);
 
-    std::vector<uint32_t> valuesFromFile(NUMBER_OF_BYTES / ssize_t{sizeof(uint32_t)});
-    const auto counter = 0;
-
-    while (offset < NUMBER_OF_BYTES) {
-
-      while (used_slots < queue_slots && offset <= NUMBER_OF_BYTES) {
-        // Append a new write()
-        struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-        io_uring_prep_readv(sqe, fd, &iovec, 1, offset);
-        io_uring_sqe_set_data(sqe, (void*) &counter);
-        offset += 4096;
-        used_slots = io_uring_submit(&ring);
+      // Wait for CQE
+      // Note: This is not efficient. Submitting more SQEs with more Ring Slots is the way of the async warrior.
+      struct io_uring_cqe *cqe;
+      auto ret = io_uring_wait_cqe(&ring, &cqe);
+      if (ret < 0) {
+        Fail("Could not wait for CQE");
       }
-
-      while (used_slots >= queue_slots && offset < NUMBER_OF_BYTES) {
-        // Wait for a completion.
-        struct io_uring_cqe *cqe;
-        // No Error Handling so far. Would require re-submitting the request.
-        const auto ret = io_uring_wait_cqe(&ring, &cqe);
-        if (ret == 0) {
-          io_uring_cqe_seen(&ring, cqe);
-          // This should actuall be carried over by cqe->user_data, inserted in the submission queue.
-          valuesFromFile[counter] = cqe->res;
-        } else {
-          Fail("Reading with io_uring failed.");
-        }
-        --used_slots;
+      if (cqe->res < 0) {
+        Fail("Async Read did not succeed.");
       }
+      ++current_block;
 
     }
     io_uring_queue_exit(&ring);
-
   }
 }
 
