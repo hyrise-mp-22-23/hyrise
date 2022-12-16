@@ -21,8 +21,7 @@ if len(sys.argv) != 2:
 
 # TODO: make pretty with arguments if statistical evaluation should be done
 
-with open(sys.argv[1]) as csv_file:
-    df = pd.read_csv(csv_file)
+df = pd.read_csv(sys.argv[1])
 
 df[["fixture", "io_type", "filesize_mb", "threads", "real_time_appendix"]] = df["name"].str.split("/", 4, expand=True)
 
@@ -35,14 +34,12 @@ df.drop(df[df.real_time_appendix.str.contains("_mean|_median|_stddev|_cv")].inde
 # drop MAP_PRIVATE benchmarks to better plot MAP_SEQUENTIAL benchmarks
 # df.drop(df[df.io_type.str.contains("MAP_PRIVATE")].index, inplace=True)
 
-print(df['bytes_per_second'])
 df["filesize_mb"] = pd.to_numeric(df["filesize_mb"])
 df["real_time_sec"] = pd.to_numeric(df["real_time"]) / 1000000000
 df["mb_per_sec"] = df["filesize_mb"] / df["real_time_sec"]
 df['bytes_per_second'].fillna(-1)
 df.loc[df['bytes_per_second'] > 0, 'mb_per_sec'] = df["bytes_per_second"] / 1000000
 
-#print(df)
 for filesize in df['filesize_mb'].unique():
     df_filesize = df[df['filesize_mb'] == filesize]
 
