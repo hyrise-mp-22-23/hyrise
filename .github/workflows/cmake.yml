@@ -17,8 +17,9 @@ jobs:
         run: |
             git clone https://github.com/LLNL/umap.git umap
             mkdir umap/build && cd umap/build && mkdir output
-            cmake -DCMAKE_INSTALL_PREFIX=./output ..
+            cmake -DCMAKE_INSTALL_PREFIX=./umap ..
             make install
+            sudo mv umap /usr/include/
 
       - name: Run CMake
         run: |
