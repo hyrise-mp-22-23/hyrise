@@ -13,6 +13,13 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get install --no-install-recommends -y autoconf bash-completion bc clang-11 clang-14 clang-format-14 clang-tidy-14 cmake curl dos2unix g++-9 gcc-9 g++-11 gcc-11 gcovr git graphviz libboost-all-dev libhwloc-dev libncurses5-dev libnuma-dev libnuma1 libpq-dev libreadline-dev libsqlite3-dev libtbb-dev lld man ninja-build parallel python3 python3-pip valgrind
 
+      - name: Install umap
+        run: |
+            git clone https://github.com/LLNL/umap.git umap
+            mkdir umap/build && cd umap/build
+            cmake -DCMAKE_INSTALL_PREFIX=/usr/lib ..
+            make install
+
       - name: Run CMake
         run: |
             cd ${{github.workspace}}/hyrise/
