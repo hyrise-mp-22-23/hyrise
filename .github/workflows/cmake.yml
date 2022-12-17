@@ -17,7 +17,7 @@ jobs:
         run: |
             git clone https://github.com/LLNL/umap.git umap
             mkdir umap/build && cd umap/build
-            cmake -DCMAKE_INSTALL_PREFIX=/usr/lib ..
+            sudo cmake -DCMAKE_INSTALL_PREFIX=/usr/lib ..
             make install
 
       - name: Run CMake
