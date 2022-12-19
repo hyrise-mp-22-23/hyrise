@@ -20,7 +20,7 @@ jobs:
             cmake -DCMAKE_INSTALL_PREFIX=./umap ..
             make
             make install
-            ls /usr/local/lib/
+            ls /usr/local/include/
             echo $LD_LIBRARY_PATH
 
       - name: Run CMake
