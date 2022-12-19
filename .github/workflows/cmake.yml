@@ -33,3 +33,28 @@ jobs:
             mkdir cmake-build-debug-gcc && cd cmake-build-debug-gcc
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
             make hyriseConsole -j4
+
+      - name: Run Unit Tests
+        run: |
+            cd ${{github.-workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseTest
+      
+      - name: Run Read Microbenchmarks
+        run: |
+            cd ${{github.-workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseMicroIOReadBenchmark
+      
+      - name: Run Read mmap Microbenchmarks
+        run: |
+            cd ${{github.-workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseMicroIOReadMmapBenchmark
+
+      - name: Run Write Microbenchmarks
+        run: |
+            cd ${{github.-workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseMicroIOWriteBenchmark
+
+      - name: Run Read mmap Microbenchmarks
+        run: |
+            cd ${{github.-workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseMicroIOWriteMmapBenchmark
