@@ -20,9 +20,8 @@ jobs:
             cmake -DCMAKE_INSTALL_PREFIX=./umap ..
             make
             make install
-            ls /usr/include -ah
-            ls /usr/lib -ah
-            echo $LD_LIBRARY_PATH
+            sudo cp -r umap /usr/include/
+            sudo cp umap/umap.h /usr/include/ 
 
       - name: Run CMake
         run: |
