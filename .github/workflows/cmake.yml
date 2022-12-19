@@ -20,11 +20,17 @@ jobs:
             cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
             sudo make install
 
-      - name: Run CMake
+      - name: Run CMake with Clang
         run: |
             cd ${{github.workspace}}/hyrise/
-            mkdir cmake-build-debug && cd cmake-build-debug
+            mkdir cmake-build-debug-clang && cd cmake-build-debug-clang
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
+
+      - name: Run CMake with gcc
+        run: |
+            cd ${{github.workspace}}/hyrise/
+            mkdir cmake-build-debug-gcc && cd cmake-build-debug-gcc
+            cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
       
       - name: Run Make
         run: |
