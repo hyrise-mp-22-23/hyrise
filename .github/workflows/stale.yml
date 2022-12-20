@@ -5,14 +5,3 @@ on:
     - cron:  '30 5,17 * * *'
 
 jobs:
-  passive-aggressive-comments:
-    runs-on: ubuntu-latest
-    permissions: 
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/stale@v5
-        with: 
-          days-before-pr-stale: 0
-          stale-pr-message: "Am I so worthless that nobody wants to commit to me?"
-          stale-pr-label: "unloved"
