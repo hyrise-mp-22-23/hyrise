@@ -55,3 +55,6 @@ jobs:
           days-before-pr-stale: -7
           stale-pr-message: "Am I so worthless that nobody wants to commit to me?"
           stale-pr-label: "unloved"
+          days-before-issue-stale: -7
+          stale-issue-message: "I know I am just an issue, but could still give me some attention?"
+          stale-issue-label: "unloved"
