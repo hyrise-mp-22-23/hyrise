@@ -1,9 +1,6 @@
 name: CMake GH Actions
 
-on:
-  issue_comment:
-    types:
-      - created
+on: push
 
 jobs:
   build-linux:
