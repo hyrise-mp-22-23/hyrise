@@ -16,4 +16,3 @@ jobs:
           days-before-pr-stale: 0
           stale-pr-message: "Am I so worthless that nobody wants to commit to me?"
           stale-pr-label: "unloved"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
