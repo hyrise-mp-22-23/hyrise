@@ -38,7 +38,13 @@ jobs:
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
             make -j
 
-      - name: Run Unit Tests
+      - name: Run Unit Tests with clang
         run: |
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseTest
+      
+      - name: Run Unit Tests with gcc
+        run: |
+            cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+            ./hyriseTest
+
