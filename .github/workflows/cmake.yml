@@ -25,14 +25,14 @@ jobs:
             cd ${{github.workspace}}/hyrise/
             mkdir cmake-build-debug-clang && cd cmake-build-debug-clang
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ..
-            make  -j4
+            make  -j
 
       - name: Run Make with gcc
         run: |
             cd ${{github.workspace}}/hyrise/
             mkdir cmake-build-debug-gcc && cd cmake-build-debug-gcc
             cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
-            make -j4
+            make -j
 
       - name: Run Unit Tests
         run: |
