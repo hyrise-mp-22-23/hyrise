@@ -45,40 +45,41 @@ chunk_prototype create_chunk(const uint32_t row_count, const uint32_t column_cou
 
 void write_segment(const std::shared_ptr<std::vector<uint32_t>> segment, const std::string& filename) {
   std::ofstream column_file;
-  column_file.open(filename, std::ios::out | std::ios::binary);
+  column_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
   column_file.write(reinterpret_cast<char*>(std::data(*segment)), segment->size() * sizeof(uint32_t));
   column_file.close();
 }
 
-void write_chunk(const chunk_prototype& chunk) {
-  const auto file_prefix = "test_chunk_segment";
+void write_chunk(const chunk_prototype& chunk, const std::string& chunk_filename) {
   const auto file_extension = ".bin";
+  const auto filename = chunk_filename + file_extension;
   const auto column_count = chunk.size();
   for (auto column_index = size_t{0}; column_index < column_count; ++column_index) {
-    const auto filename = file_prefix + std::to_string(column_index) + file_extension;
     write_segment(chunk[column_index], filename);
   }
 }
 
 std::vector<std::span<uint32_t>> map_chunk(const std::string& chunk_name, const uint32_t column_count,
-                                           const uint32_t chunk_size) {
+                                           const uint32_t segment_size) {
   auto mapped_chunk = std::vector<std::span<uint32_t>>();
+
+  auto fd = int32_t{};
+  const auto file_extension = ".bin";
+  const auto chunk_filename = chunk_name + file_extension;
+  Assert((fd = open(chunk_filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
+
+  const auto offset = off_t{0};
+  const auto chunk_bytes = segment_size * column_count * sizeof(uint32_t);
+
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, chunk_bytes, PROT_READ, MAP_PRIVATE, fd, offset));
+  Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+  close(fd);
+
+  madvise(map, chunk_bytes, MADV_SEQUENTIAL);
+
   for (auto column_index = size_t{0}; column_index < column_count; ++column_index) {
-    auto fd = int32_t{};
-    const auto column_filename = chunk_name + "_segment" + std::to_string(column_index) + ".bin";
-    Assert((fd = open(column_filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
-
-    const auto offset = off_t{0};
-    const auto chunk_bytes = chunk_size * sizeof(uint32_t);
-
-    auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, chunk_bytes, PROT_READ, MAP_PRIVATE, fd, offset));
-    Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
-    close(fd);
-
-    madvise(map, chunk_bytes, MADV_SEQUENTIAL);
-
     // create std::span view on map
-    auto map_span_view = std::span{map, chunk_size};
+    auto map_span_view = std::span{map + (column_index * segment_size), segment_size};
     mapped_chunk.emplace_back(map_span_view);
   }
   return mapped_chunk;
@@ -97,12 +98,15 @@ int main() {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto ROW_COUNT = uint32_t{65000};
   auto chunk = create_chunk(ROW_COUNT, COLUMN_COUNT);
-  write_chunk(chunk);
+  const auto chunk_name = "test_chunk";
+
+  // TODO: Make file removal before writing prettier.
+  std::remove("test_chunk.bin");
+  write_chunk(chunk, chunk_name);
 
   std::cout << "Finished writing." << std::endl;
 
   std::cout << "Start reading." << std::endl;
-  const auto chunk_name = "test_chunk";
   const auto mapped_chunk = map_chunk(chunk_name, COLUMN_COUNT, ROW_COUNT);
 
   // calculate sum of column 17
