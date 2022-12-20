@@ -1,4 +1,4 @@
-name: CMake GH Actions
+name: Stale PRs & Issues
 
 on:
   schedule:
