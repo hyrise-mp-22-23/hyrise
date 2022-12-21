@@ -11,7 +11,7 @@
 
 using namespace hyrise;  // NOLINT
 
-#define chunk_prototype std::vector<std::shared_ptr<std::vector<uint32_t>>>
+using chunk_prototype = std::vector<std::shared_ptr<std::vector<uint32_t>>>;
 
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
@@ -95,9 +95,9 @@ int main() {
   std::cout << "Playground started." << std::endl;
 
   //const char* filename = "flattened_vector.txt";
-  const auto COLUMN_COUNT = uint32_t{23};
-  const auto ROW_COUNT = uint32_t{65000};
-  auto chunk = create_chunk(ROW_COUNT, COLUMN_COUNT);
+  const auto column_count = uint32_t{23};
+  const auto row_count = uint32_t{65'000};
+  auto chunk = create_chunk(row_count, column_count);
   const auto chunk_name = "test_chunk";
 
   // TODO: Make file removal before writing prettier.
@@ -107,7 +107,7 @@ int main() {
   std::cout << "Finished writing." << std::endl;
 
   std::cout << "Start reading." << std::endl;
-  const auto mapped_chunk = map_chunk(chunk_name, COLUMN_COUNT, ROW_COUNT);
+  const auto mapped_chunk = map_chunk(chunk_name, column_count, row_count);
 
   // calculate sum of column 17
   std::cout << "Sum of column 17 of created chunk: "
@@ -117,13 +117,13 @@ int main() {
 
   // print row 17
   std::cout << "Row 17 of created chunk: ";
-  for (auto column_index = size_t{0}; column_index < COLUMN_COUNT; ++column_index) {
+  for (auto column_index = size_t{0}; column_index < column_count; ++column_index) {
     std::cout << chunk[column_index]->at(16) << " ";
   }
   std::cout << std::endl;
 
   std::cout << "Row 17 of mapped chunk: ";
-  for (auto column_index = size_t{0}; column_index < COLUMN_COUNT; ++column_index) {
+  for (auto column_index = size_t{0}; column_index < column_count; ++column_index) {
     std::cout << mapped_chunk[column_index][16] << " ";
   }
 
