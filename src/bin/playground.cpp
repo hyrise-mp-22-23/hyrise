@@ -85,10 +85,10 @@ std::vector<std::span<uint32_t>> map_chunk(const std::string& chunk_name, const 
   return mapped_chunk;
 }
 
-void unmap_chunk(std::vector<std::span<uint32_t>> mapped_chunk) {
-  for (auto mapped_segment : mapped_chunk){
-    Assert((munmap(mapped_segment.data(), mapped_segment.size_bytes()) == 0), "Blub");
-  }
+void unmap_chunk(std::vector<std::span<uint32_t>> mapped_chunk, const uint32_t column_count,
+                                           const uint32_t segment_size) {
+  const auto chunk_bytes = segment_size * column_count * sizeof(uint32_t);
+  Assert((munmap(mapped_chunk[0].data(), chunk_bytes) == 0), "Unmapping failed.");
 }
 
 int main() {
@@ -127,7 +127,7 @@ int main() {
     std::cout << mapped_chunk[column_index][16] << " ";
   }
 
-  unmap_chunk(mapped_chunk);
+  unmap_chunk(mapped_chunk, column_count, row_count);
 
   return 0;
 }
