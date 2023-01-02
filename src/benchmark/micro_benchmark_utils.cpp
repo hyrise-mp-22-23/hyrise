@@ -37,7 +37,6 @@ void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
          "Error at aio_return(). Got: " + std::to_string(ret) + " Expected: " + std::to_string(expected_bytes) + ".");
 }
 
-
 /**
  * Generates a vector containing random indexes between 0 and number.
 */
@@ -46,7 +45,32 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
   std::iota(std::begin(sequence), std::end(sequence), 0);
   auto rng = std::default_random_engine{};
   std::shuffle(std::begin(sequence), std::end(sequence), rng);
+  return sequence;
+}
 
+std::vector<uint32_t> generate_random_indexes_page_fault(uint32_t number) {
+  std::vector<uint32_t> sequence(number);
+  std::cout << "Numbers to create: " << number << std::endl;
+  auto elements_per_page = 4096 / sizeof(uint32_t);
+
+  for (auto index = size_t{0}; index < number; ++index) {
+    auto value = (index * elements_per_page) % number;
+    sequence[index] = value;
+  }
+
+  for (auto index = size_t{0}; index < 20; ++index) {
+    std::cout << "Index: " << index << " Value: " << sequence[index] << std::endl;
+  }
+
+
+  // page size: 4096 byte
+  // size of uint32_t = 4 byte
+  // elements per page: 4096 / 4 = 1024
+  /*
+
+  std::cout << "Number of elements to create: " << number << std::endl;
+  std::cout << "Number of elements per page: " << elements_per_page << std::endl;
+  //auto page_off_set = {12};*/
   return sequence;
 }
 

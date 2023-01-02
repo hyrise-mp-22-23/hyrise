@@ -105,7 +105,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 
     if (access_order == RANDOM) {
       state.PauseTiming();
-      const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
+      const auto random_indexes = generate_random_indexes_page_fault(NUMBER_OF_ELEMENTS);
       state.ResumeTiming();
 
       if (mapping_type == MMAP) {
@@ -212,13 +212,16 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
   }
 }
 
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
     ->UseRealTime();
+    */
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    //->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    ->ArgsProduct({{10}, {1, 2}})
     ->UseRealTime();
-
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
     ->UseRealTime();
@@ -233,5 +236,5 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SE
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
-
+*/
 }  // namespace hyrise

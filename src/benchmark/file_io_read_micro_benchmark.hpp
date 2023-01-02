@@ -12,6 +12,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void SetUp(::benchmark::State& state) override {
     NUMBER_OF_BYTES = _align_to_pagesize(state.range(0));
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
+    NUMBER_OF_PAGES = NUMBER_OF_BYTES / 4096;
 
     // each int32_t contains four bytes
     numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
@@ -35,6 +36,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   uint64_t control_sum = uint64_t{0};
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
   uint32_t NUMBER_OF_ELEMENTS = uint32_t{0};
+  uint32_t NUMBER_OF_PAGES = uint32_t{0};
   std::vector<uint32_t> numbers = std::vector<uint32_t>{};
   void read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
   void read_non_atomic_single_threaded(benchmark::State& state);
