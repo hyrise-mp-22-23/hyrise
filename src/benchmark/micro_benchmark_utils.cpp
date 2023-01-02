@@ -49,28 +49,20 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
 }
 
 std::vector<uint32_t> generate_random_indexes_page_fault(uint32_t number) {
-  std::vector<uint32_t> sequence(number);
+  std::vector<uint32_t> sequence(number); // 2500608
+  // page size: 4096 byte
+  // size of uint32_t = 4 byte
+  // elements per page: 4096 / 4 = 1024
   std::cout << "Numbers to create: " << number << std::endl;
   auto elements_per_page = 4096 / sizeof(uint32_t);
 
   for (auto index = size_t{0}; index < number; ++index) {
-    auto value = (index * elements_per_page) % number;
+    auto ganzzahlig = static_cast<uint32_t>(index * elements_per_page)/number;
+    auto value = (index * elements_per_page) % number + ganzzahlig;
     sequence[index] = value;
+    std::cout << sequence[index] << std::endl;
   }
 
-  for (auto index = size_t{0}; index < 20; ++index) {
-    std::cout << "Index: " << index << " Value: " << sequence[index] << std::endl;
-  }
-
-
-  // page size: 4096 byte
-  // size of uint32_t = 4 byte
-  // elements per page: 4096 / 4 = 1024
-  /*
-
-  std::cout << "Number of elements to create: " << number << std::endl;
-  std::cout << "Number of elements per page: " << elements_per_page << std::endl;
-  //auto page_off_set = {12};*/
   return sequence;
 }
 
