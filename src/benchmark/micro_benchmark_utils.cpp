@@ -53,7 +53,6 @@ std::vector<uint32_t> generate_random_indexes_page_fault(uint32_t number) {
   // page size: 4096 byte
   // size of uint32_t = 4 byte
   // elements per page: 4096 / 4 = 1024
-  std::cout << "Numbers to create: " << number << std::endl;
   auto elements_per_page = 4096 / sizeof(uint32_t);
 
   for (auto index = size_t{0}; index < number; ++index) {
