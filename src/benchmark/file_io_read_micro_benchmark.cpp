@@ -687,7 +687,6 @@ file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYT
       bytes_to_read = BLOCK_SZ;
 
     io_vectors[current_block].iov_len = bytes_to_read;
-    std::cout << io_vectors[current_block].iov_len << std::endl;
 
     void *buf;
     if( posix_memalign(&buf, BLOCK_SZ, BLOCK_SZ)) {
