@@ -49,17 +49,18 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
 }
 
 std::vector<uint32_t> generate_random_indexes_page_fault(uint32_t number) {
-  std::vector<uint32_t> sequence(number); // 2500608
+  std::vector<uint32_t> sequence(number);
+  // number of elements 2500608
   // page size: 4096 byte
   // size of uint32_t = 4 byte
   // elements per page: 4096 / 4 = 1024
   auto elements_per_page = 4096 / sizeof(uint32_t);
 
   for (auto index = size_t{0}; index < number; ++index) {
-    auto ganzzahlig = static_cast<uint32_t>(index * elements_per_page)/number;
-    auto value = (index * elements_per_page) % number + ganzzahlig;
+    auto result = index * elements_per_page;
+    auto int_div_result = static_cast<uint32_t>(result/number);
+    auto value = (result) % number + int_div_result;
     sequence[index] = value;
-    std::cout << sequence[index] << std::endl;
   }
 
   return sequence;
