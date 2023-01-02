@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <algorithm>
 #include <numeric>
-#include "micro_benchmark_basic_fixture.hpp"
-#include "liburing.h"
 
 namespace hyrise {
 
@@ -307,74 +305,6 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
     state.ResumeTiming();
   }
 }
-
-struct io_data {
-  int write;
-  off_t first_offset, offset;
-  size_t first_len;
-  struct iovec iov;
-};
-
-BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IO_URING_WRITE_ASYNC)(benchmark::State& state) {  // open file
-  auto fd = int32_t{};
-  if ((fd = open("file.txt", O_RDWR)) < 0) {
-    std::cout << "open error " << errno << std::endl;
-  }
-
-  for (auto _ : state) {
-    const auto queue_slots = 8;
-
-    struct io_uring ring;
-    io_uring_queue_init(queue_slots, &ring, 0);
-
-    auto offset = std::uint32_t{0};
-
-    const auto data = u_int32_t{42};
-
-    struct iovec iovec;
-    iovec.iov_base = reinterpret_cast<void*>(data);
-    iovec.iov_len = 1;
-
-    auto used_slots = 0;
-
-    struct io_data {
-        int read;
-        off_t first_offset, offset;
-        size_t first_len;
-        struct iovec iov;
-    };
-
-    while (offset < NUMBER_OF_ELEMENTS) {
-
-      while (used_slots < queue_slots) {
-        // Append a new write()
-        struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-        io_uring_prep_writev(sqe, fd, &iovec, 50, offset);
-        offset += 50;
-        io_uring_sqe_set_data(sqe, &iovec.iov_base);
-        io_uring_submit(&ring);
-        ++used_slots;
-      }
-
-      while (used_slots >= queue_slots) {
-        // Wait for a completion.
-        struct io_uring_cqe *cqe;
-        auto ret = io_uring_wait_cqe(&ring, &cqe);
-
-        std::cout << ret << std::endl;
-        Assert(ret == 0, "Somethings wrong" + std::strerror(errno));
-        io_uring_cqe_seen(&ring, cqe);
-        --used_slots;
-      }
-    }
-    io_uring_queue_exit(&ring);
-
-    state.PauseTiming();
-    sanity_check();
-    state.ResumeTiming();
-  }
-}
-
 
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
