@@ -42,7 +42,6 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 
     auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
 
-
     if (mapping_type == MMAP) {
       map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     }
