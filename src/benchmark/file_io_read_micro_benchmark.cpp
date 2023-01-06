@@ -39,7 +39,6 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
 void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
-  lseek(fd, from * uint32_t_size, SEEK_SET);
   Assert((pread(fd, read_data_start + from, bytes_to_read, from * uint32_t_size) == bytes_to_read),
          fail_and_close_file(fd, "Read error: ", errno));
 }
