@@ -61,6 +61,6 @@ std::vector<uint32_t> generate_random_positive_numbers(uint32_t size) {
 
 std::string fail_and_close_file(int32_t fd, std::string message, int error_num) {
   close(fd);
-  return message + std::strerror(error_num);
+  Fail(message + std::strerror(error_num));
 }
 }  // namespace hyrise
