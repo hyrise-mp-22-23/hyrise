@@ -28,7 +28,10 @@ void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* m
 
 namespace hyrise {
 
-void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state,
+                                                                         const int mapping_type,
+                                                                         const int map_mode_flag,
+                                                                         const int access_order) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -48,7 +51,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 #ifdef __APPLE__
     else {
-      Fail("Error: Mapping type invalid or not supported.");
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
     }
 #else
     else if (mapping_type == UMAP) {
@@ -60,17 +63,20 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 
     Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
 
-    if (mapping_type == MMAP) {
-      if (access_order == RANDOM) {
-        madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
-      } else /* if (access_order == SEQUENTIAL) */ {
-        madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      }
-    }
-
     auto sum = uint64_t{0};
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      sum += map[index];
+    if (access_order == RANDOM) {
+      madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+      state.PauseTiming();
+      const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
+      state.ResumeTiming();
+      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+        sum += map[random_indexes[index]];
+      }
+    } else /* if (access_order == SEQUENTIAL) */ {
+      madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+        sum += map[index];
+      }
     }
 
     state.PauseTiming();
@@ -83,18 +89,20 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 #ifdef __APPLE__
     else {
-      Fail("Error: Mapping type not supported.");
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
     }
 #else
     else /* if (mapping_type == UMAP) */ {
-      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));;
-    }
+      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
 #endif
   }
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const uint16_t thread_count, const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmark::State& state, const int mapping_type,
+                                                                        const int map_mode_flag,
+                                                                        const uint16_t thread_count,
+                                                                        const int access_order) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
 
@@ -117,7 +125,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     }
 #ifdef __APPLE__
     else {
-      Fail("Error: Mapping type invalid or not supported.");
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
     }
 #else
     else if (mapping_type == UMAP) {
@@ -185,12 +193,11 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     }
 #ifdef __APPLE__
     else {
-      Fail("Error: Mapping type not supported.");
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
     }
 #else
     else /* if (mapping_type == UMAP) */ {
-      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));;
-    }
+      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
 #endif
     state.ResumeTiming();
   }
