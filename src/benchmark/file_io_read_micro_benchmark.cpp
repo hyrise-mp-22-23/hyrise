@@ -26,7 +26,6 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
                                    const std::vector<uint32_t>& random_indices) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
-  lseek(fd, 0, SEEK_SET);
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
   //  incl possible duplicates
   for (auto index = from; index < to; ++index) {
