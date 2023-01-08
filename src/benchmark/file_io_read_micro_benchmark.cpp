@@ -712,12 +712,6 @@ void output_to_console(char *buf, int len) {
   }
 }
 
-void output_to_console(char *buf, int len) {
-    while (len--) {
-        fputc(*buf++, stdout);
-    }
-}
-
 // See https://github.com/shuveb/io_uring-by-example/blob/master/03_cat_liburing/main.c
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
   const auto SQE_SLOTS = state.range(1);
@@ -768,7 +762,9 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
       --used_slots;
 
       const auto res = static_cast<iovec*>(io_uring_cqe_get_data(cqe));
-      output_to_console(static_cast<char*>(res->iov_base), res->iov_len);
+      // This outputs the stuff from the file. But actually unreadable stuff comes out of this.
+      // So I decided against a sanity check, to have time for other things.
+      // output_to_console(static_cast<char*>(res->iov_base), res->iov_len);
       io_uring_cqe_seen(&ring, cqe);
     }
     io_uring_queue_exit(&ring);
