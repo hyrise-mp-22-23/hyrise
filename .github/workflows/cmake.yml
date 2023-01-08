@@ -71,7 +71,7 @@ jobs:
 
       - name: Install Dependencies
         run: brew install autoconf boost cmake coreutils dos2unix graphviz libpq ncurses parallel pkg-config postgresql readline sqlite3 tbb && brew install ninja
-        
+
       - name: Run Make with gcc
         run: |
             cd ${{github.workspace}}/hyrise/
@@ -98,7 +98,7 @@ jobs:
         run: |
             cd ${{github.workspace}}/hyrise/
             mkdir cmake-build-debug-clang && cd cmake-build-debug-clang
-            cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang  -DCMAKE_CXX_COMPILER=clang++ ..
+            cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang  -DCMAKE_CXX_COMPILER=clang++ ..
             ninja
 
       - name: Run Unit Tests with clang
