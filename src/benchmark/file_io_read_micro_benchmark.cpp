@@ -713,8 +713,12 @@ void output_to_console(char *buf, int len) {
 }
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
+  const auto SQE_SLOTS = 8;
+  auto used_slots = 0;
+
   // Ye - that looks good.
   const auto NUMBER_OF_BYTES = NUMBER_OF_ELEMENTS;
+  std::cout << NUMBER_OF_BYTES << std::endl;
 
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) < 0) {
@@ -722,26 +726,30 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   }
 
   for (auto _ : state) {
-    const auto queue_slots = 1;
     struct io_uring ring;
-    io_uring_queue_init(queue_slots, &ring, 0);
+    io_uring_queue_init(SQE_SLOTS, &ring, 0);
     auto finfo = get_file_info(&fd, &ring, NUMBER_OF_BYTES);
 
-    auto current_block = uint32_t{0};
-    while (current_block < finfo.blocks) {
+    auto finished_blocks = uint32_t{0};
+    auto submitted_blocks = uint32_t{0};
+    while (finished_blocks < finfo.blocks) {
 
-      // Get an SQE
-      struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-      const iovec curr_iovec = finfo.io_vectors[current_block];
-      // Setup a read operation
-      io_uring_prep_readv(sqe, fd, &curr_iovec, 1, 0);
-      // Set user data
-      io_uring_sqe_set_data(sqe, &finfo.io_vectors[current_block]);
-      // Finally, submit the request
-      io_uring_submit(&ring);
+      while (used_slots < SQE_SLOTS && submitted_blocks < finished_blocks) {
+        // Get an SQE
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+        const iovec curr_iovec = finfo.io_vectors[submitted_blocks];
+        // Setup a read operation
+        io_uring_prep_readv(sqe, fd, &curr_iovec, 1, 0);
+        // Set user data
+        io_uring_sqe_set_data(sqe, &finfo.io_vectors[submitted_blocks]);
+        // Finally, submit the request
+        io_uring_submit(&ring);
 
-      // Wait for CQE
-      // Note: This is not efficient. Submitting more SQEs with more Ring Slots is the way of the async warrior.
+        ++submitted_blocks;
+        ++used_slots;
+      }
+
+      // Wait for CQE. We will wait only for one
       struct io_uring_cqe *cqe;
       auto ret = io_uring_wait_cqe(&ring, &cqe);
       if (ret < 0) {
@@ -750,14 +758,15 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
       if (cqe->res < 0) {
         Fail("Async Read did not succeed.");
       }
-      ++current_block;
-
+      ++finished_blocks;
+      --used_slots;
     }
     io_uring_queue_exit(&ring);
   }
 }
 
 // Arguments are file size in MB
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 6, 8, 16, 24, 32, 48}})
     ->UseRealTime();
@@ -777,7 +786,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 6, 8, 16, 24, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);*/
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)->Arg(10)->Arg(100)->Arg(1000);
 
 }  // namespace hyrise
