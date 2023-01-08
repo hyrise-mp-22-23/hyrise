@@ -712,13 +712,19 @@ void output_to_console(char *buf, int len) {
   }
 }
 
+void output_to_console(char *buf, int len) {
+    while (len--) {
+        fputc(*buf++, stdout);
+    }
+}
+
+// See https://github.com/shuveb/io_uring-by-example/blob/master/03_cat_liburing/main.c
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
-  const auto SQE_SLOTS = 8;
+  const auto SQE_SLOTS = state.range(1);
   auto used_slots = 0;
 
-  // Ye - that looks good.
+  // Ye - that looks good. @Reviews: Is this the way number of elements is supposed to be used?
   const auto NUMBER_OF_BYTES = NUMBER_OF_ELEMENTS;
-  std::cout << NUMBER_OF_BYTES << std::endl;
 
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) < 0) {
@@ -734,7 +740,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
     auto submitted_blocks = uint32_t{0};
     while (finished_blocks < finfo.blocks) {
 
-      while (used_slots < SQE_SLOTS && submitted_blocks < finished_blocks) {
+      while (used_slots < SQE_SLOTS && submitted_blocks < finfo.blocks) {
         // Get an SQE
         struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
         const iovec curr_iovec = finfo.io_vectors[submitted_blocks];
@@ -760,6 +766,10 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
       }
       ++finished_blocks;
       --used_slots;
+
+      const auto res = static_cast<iovec*>(io_uring_cqe_get_data(cqe));
+      output_to_console(static_cast<char*>(res->iov_base), res->iov_len);
+      io_uring_cqe_seen(&ring, cqe);
     }
     io_uring_queue_exit(&ring);
   }
@@ -787,6 +797,8 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(10)->Arg(100)->Arg(1000);
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(10)->Arg(100)->Arg(1000);*/
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)->Arg(10)->Arg(100)->Arg(1000);
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 6, 8, 16, 24, 32, 48}})
+    ->UseRealTime();
 
 }  // namespace hyrise
