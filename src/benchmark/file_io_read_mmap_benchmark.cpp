@@ -113,6 +113,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
     auto sums = std::vector<uint64_t>(thread_count);
+    bool threads_ready_to_be_executed = false;
     state.ResumeTiming();
 
     // Getting the mapping to memory.
@@ -151,7 +152,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes, std::ref(threads_ready_to_executed));
+        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes, std::ref(threads_ready_to_be_executed));
       }
     } else {
       if (mapping_type == MMAP) {
@@ -163,19 +164,19 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]), std::ref(threads_ready_to_executed));
+        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]), std::ref(threads_ready_to_be_executed));
       }
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
     const auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
 
     Assert(control_sum == total_sum, "Sanity check failed: Not the same result");

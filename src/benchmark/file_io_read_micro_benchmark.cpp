@@ -126,6 +126,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -137,18 +138,18 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start, std::ref(threads_ready_to_executed));
+      threads[index] = std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start, std::ref(threads_ready_to_be_executed));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -237,6 +238,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
@@ -248,18 +250,18 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data), random_indices, std::ref(threads_ready_to_executed)));
+      threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -307,6 +309,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -318,18 +321,18 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_pread, from, to, fd, read_data_start, std::ref(threads_ready_to_executed)));
+      threads[index] = (std::thread(read_data_using_pread, from, to, fd, read_data_start, std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -381,6 +384,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
@@ -392,18 +396,18 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_executed)));
+      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -463,6 +467,7 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -474,18 +479,18 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_aio, from, to, fd, read_data_start, std::ref(threads_ready_to_executed)));
+      threads[index] = (std::thread(read_data_using_aio, from, to, fd, read_data_start, std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -551,6 +556,7 @@ void FileIOMicroReadBenchmarkFixture::aio_random_multi_threaded(benchmark::State
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
@@ -562,18 +568,18 @@ void FileIOMicroReadBenchmarkFixture::aio_random_multi_threaded(benchmark::State
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_aio, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_executed)));
+      threads[index] = (std::thread(read_data_randomly_using_aio, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
-    threads_ready_to_executed = true;
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_executed = false;
+    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
