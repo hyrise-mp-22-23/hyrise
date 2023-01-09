@@ -38,35 +38,32 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs):
     f.flush()
 
 
-# single threaded
 for multi_threaded in (True, False):
     for fio_size in filesizes:
         for run in run_types:
 
-            if multi_threaded:
-                for numjobs in thread_range:
-                    iodepth = numjobs
-                    command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=128k --size={
-                    fio_size} --direct=1 --rw=" + {run} --filename=file.txt --numjobs={
-                    numjobs} --iodepth= {iodepth} --group_reporting --thread --refill_buffers"""
-                    # + "--ioengine=libaio --time_based --runtime=" + fio_runtime
-
-                    fio_type_offset = 0
-                    print(command)
-                    run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
-
-            else:
-                numjobs = 1
-                iodepth = 1
-
-                command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=128k --ioengine=sync --size={
-                fio_size} --direct=1 --rw={
-                run} --filename=file.txt --numjobs={
-                numjobs} --group_reporting --refill_buffers"""
-                # + " --time_based --runtime=" + fio_runtime
+            # multithreaded
+            for numjobs in thread_range:
+                iodepth = numjobs
+                command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --size={
+                fio_size} --direct=1 --rw={run} --filename=file.txt --numjobs={
+                numjobs} --iodepth={iodepth} --group_reporting --thread --refill_buffers --ioengine=libaio"""
 
                 fio_type_offset = 0
                 print(command)
                 run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
+
+            # single-threaded
+            numjobs = 1
+            iodepth = 1
+
+            command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --ioengine=sync --size={
+            fio_size} --direct=1 --rw={
+            run} --filename=file.txt --numjobs={
+            numjobs} --group_reporting --refill_buffers"""
+
+            fio_type_offset = 0
+            print(command)
+            run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
 
 f.closed
