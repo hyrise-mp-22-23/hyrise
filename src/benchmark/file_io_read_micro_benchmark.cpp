@@ -662,18 +662,29 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 struct file_info{
   long file_size;
   uint32_t blocks;
-  std::vector<iovec> io_vectors;
+  iovec* io_vectors;
 };
 
-file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYTES) {
-  const auto BLOCK_SZ = 4096;
+/*
+ * Submit the readv request via liburing
+ * */
 
-  auto bytes_remaining = NUMBER_OF_BYTES;
-  auto current_block = 0;
-  auto blocks = (int) NUMBER_OF_BYTES / BLOCK_SZ;
-  if (NUMBER_OF_BYTES % BLOCK_SZ) blocks++;
+int submit_read_request(int file_fd, struct io_uring *ring, off_t file_sz) {
+  const auto BLOCK_SZ = 1024;
+
+  off_t bytes_remaining = file_sz;
+  int current_block = 0;
+  int blocks = (int) file_sz / BLOCK_SZ;
+  if (file_sz % BLOCK_SZ) blocks++;
 
   auto io_vectors = std::vector<iovec>(blocks);
+
+  struct file_info finfo{};
+  finfo.io_vectors = reinterpret_cast<iovec*>(&io_vectors);
+  finfo.blocks = blocks;
+  finfo.file_size = file_sz;
+
+  auto fi = static_cast<file_info*>(&finfo);
 
   /*
      * For each block of the file we need to read, we allocate an iovec struct
@@ -686,24 +697,32 @@ file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYT
     if (bytes_to_read > BLOCK_SZ)
       bytes_to_read = BLOCK_SZ;
 
-    io_vectors[current_block].iov_len = bytes_to_read;
+    fi->io_vectors[current_block].iov_len = bytes_to_read;
 
     void *buf;
     if( posix_memalign(&buf, BLOCK_SZ, BLOCK_SZ)) {
-      Fail("Could not allocate memory.");
+      perror("posix_memalign");
+      return 1;
     }
-    io_vectors[current_block].iov_base = buf;
+    fi->io_vectors[current_block].iov_base = buf;
 
     current_block++;
     bytes_remaining -= bytes_to_read;
   }
+  fi->file_size = file_sz;
 
-  file_info finfo;
-  finfo.file_size = NUMBER_OF_BYTES;
-  finfo.blocks = blocks;
-  finfo.io_vectors = io_vectors;
+  // prep_readv needs a const iovecs field.
+  const auto iovecs = fi->io_vectors;
+  /* Get an SQE */
+  struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+  /* Setup a readv operation */
+  io_uring_prep_readv(sqe, file_fd, iovecs, 1, 0);
+  /* Set user data */
+  io_uring_sqe_set_data(sqe, fi);
+  /* Finally, submit the request */
+  io_uring_submit(ring);
 
-  return finfo;
+  return 0;
 }
 
 void output_to_console(char *buf, int len) {
@@ -715,9 +734,7 @@ void output_to_console(char *buf, int len) {
 // See https://github.com/shuveb/io_uring-by-example/blob/master/03_cat_liburing/main.c
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
   const auto SQE_SLOTS = state.range(1);
-  auto used_slots = 0;
 
-  // Ye - that looks good. @Reviews: Is this the way number of elements is supposed to be used?
   const auto NUMBER_OF_BYTES = NUMBER_OF_ELEMENTS;
 
   auto fd = int32_t{};
@@ -728,45 +745,23 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   for (auto _ : state) {
     struct io_uring ring;
     io_uring_queue_init(SQE_SLOTS, &ring, 0);
-    auto finfo = get_file_info(&fd, &ring, NUMBER_OF_BYTES);
+    submit_read_request(fd, &ring, NUMBER_OF_BYTES);
 
-    auto finished_blocks = uint32_t{0};
-    auto submitted_blocks = uint32_t{0};
-    while (finished_blocks < finfo.blocks) {
-
-      while (used_slots < SQE_SLOTS && submitted_blocks < finfo.blocks) {
-        // Get an SQE
-        struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-        const iovec curr_iovec = finfo.io_vectors[submitted_blocks];
-        // Setup a read operation
-        io_uring_prep_readv(sqe, fd, &curr_iovec, 1, 0);
-        // Set user data
-        io_uring_sqe_set_data(sqe, &finfo.io_vectors[submitted_blocks]);
-        // Finally, submit the request
-        io_uring_submit(&ring);
-
-        ++submitted_blocks;
-        ++used_slots;
-      }
-
-      // Wait for CQE. We will wait only for one
-      struct io_uring_cqe *cqe;
-      auto ret = io_uring_wait_cqe(&ring, &cqe);
-      if (ret < 0) {
-        Fail("Could not wait for CQE");
-      }
-      if (cqe->res < 0) {
-        Fail("Async Read did not succeed.");
-      }
-      ++finished_blocks;
-      --used_slots;
-
-      const auto res = static_cast<iovec*>(io_uring_cqe_get_data(cqe));
-      // This outputs the stuff from the file. But actually unreadable stuff comes out of this.
-      // So I decided against a sanity check, to have time for other things.
-      // output_to_console(static_cast<char*>(res->iov_base), res->iov_len);
-      io_uring_cqe_seen(&ring, cqe);
+    // Wait for CQE. We will wait only for one
+    struct io_uring_cqe *cqe;
+    auto ret = io_uring_wait_cqe(&ring, &cqe);
+    if (ret < 0) {
+      Fail("Could not wait for CQE");
     }
+    if (cqe->res < 0) {
+      Fail("Async Read did not succeed.");
+    }
+
+    auto fi = static_cast<file_info*>(io_uring_cqe_get_data(cqe));
+    for (auto i = uint32_t{0}; i < fi->blocks; ++i)
+      output_to_console(static_cast<char*>(fi->io_vectors[i].iov_base), fi->io_vectors[i].iov_len);
+
+    io_uring_cqe_seen(&ring, cqe);
     io_uring_queue_exit(&ring);
   }
 }
