@@ -14,8 +14,8 @@
 
 namespace hyrise {
 
-void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
@@ -25,9 +25,9 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
 }
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                   const std::vector<uint32_t>& random_indices, bool& threads_ready_to_executed) {
+                                   const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  while(!threads_ready_to_executed){}
+  while(!threads_ready_to_be_executed){}
 
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
   //  incl possible duplicates
@@ -38,8 +38,8 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
   }
 }
 
-void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
@@ -48,8 +48,8 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                    const std::vector<uint32_t>& random_indices, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+                                    const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
@@ -62,8 +62,8 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
-void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
@@ -86,8 +86,8 @@ void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_
 }
 
 void read_data_randomly_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                  const std::vector<uint32_t>& random_indices, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+                                  const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   struct aiocb aiocb;
@@ -149,7 +149,6 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -261,7 +260,6 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -332,7 +330,6 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -407,7 +404,6 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -490,7 +486,6 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");
@@ -579,7 +574,6 @@ void FileIOMicroReadBenchmarkFixture::aio_random_multi_threaded(benchmark::State
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result");

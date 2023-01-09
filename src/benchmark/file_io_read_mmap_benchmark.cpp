@@ -7,8 +7,8 @@
 namespace {
 
 // Worker function for threading.
-void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[index];
   }
@@ -16,8 +16,8 @@ void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_
 
 // Worker function for threading.
 void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
-                            const std::vector<uint32_t>& random_indexes, bool& threads_ready_to_executed) {
-  while(!threads_ready_to_executed){}
+                            const std::vector<uint32_t>& random_indexes, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
   
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
