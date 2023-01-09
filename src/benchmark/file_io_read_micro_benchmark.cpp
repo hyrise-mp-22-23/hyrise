@@ -55,52 +55,6 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
-void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
-  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
-  struct aiocb aiocb;
-
-  memset(&aiocb, 0, sizeof(struct aiocb));
-  aiocb.aio_fildes = fd;
-  aiocb.aio_offset = from * uint32_t_size;
-  aiocb.aio_buf = read_data_start + from;
-  aiocb.aio_nbytes = bytes_to_read;
-  aiocb.aio_lio_opcode = LIO_READ;
-
-  Assert(aio_read(&aiocb) == 0, "Read error: " + strerror(errno));
-
-  /* Wait until end of transaction */
-  auto err = int{0};
-  while ((err = aio_error(&aiocb)) == EINPROGRESS);
-
-  aio_error_handling(&aiocb, bytes_to_read);
-}
-
-void read_data_randomly_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                  const std::vector<uint32_t>& random_indices) {
-  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  struct aiocb aiocb;
-  memset(&aiocb, 0, sizeof(struct aiocb));
-  aiocb.aio_fildes = fd;
-  aiocb.aio_lio_opcode = LIO_READ;
-  aiocb.aio_nbytes = uint32_t_size;
-
-  // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
-  //  incl possible duplicates
-  for (auto index = from; index < to; ++index) {
-    aiocb.aio_buf = read_data_start + index;
-    std::cout << aiocb.aio_buf << std::endl;
-    aiocb.aio_offset = uint32_t_size * random_indices[index];
-    Assert(aio_read(&aiocb) == 0, "Read error: " + strerror(errno));
-
-    /* Wait until end of transaction */
-    auto err = int{0};
-    while ((err = aio_error(&aiocb)) == EINPROGRESS);
-
-    aio_error_handling(&aiocb, uint32_t_size);
-  }
-}
-
 // TODO(everyone): Reduce LOC by making this function more modular (do not repeat it with different function inputs).
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto filedescriptors = std::vector<int32_t>(thread_count);
