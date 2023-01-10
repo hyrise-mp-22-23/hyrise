@@ -176,7 +176,6 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
       threads[index].join();
     }
     state.PauseTiming();
-    threads_ready_to_be_executed = false;
     const auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
 
     Assert(control_sum == total_sum, "Sanity check failed: Not the same result");
