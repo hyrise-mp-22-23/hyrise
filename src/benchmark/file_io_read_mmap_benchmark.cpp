@@ -94,8 +94,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 #else
     else /* if (mapping_type == UMAP) */ {
       Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
+    }
 #endif
-  }
   close(fd);
 }
 
