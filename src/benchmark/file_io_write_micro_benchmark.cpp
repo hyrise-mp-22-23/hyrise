@@ -312,6 +312,6 @@ BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(1000)->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(1000)->UseRealTime();
 
 }  // namespace hyrise
