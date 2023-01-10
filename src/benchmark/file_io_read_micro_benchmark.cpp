@@ -441,9 +441,7 @@ void FileIOMicroReadBenchmarkFixture::aio_sequential_read_multi_threaded(benchma
 
     auto return_value = lio_listio(LIO_WAIT, std::data(aio_list), aio_request_count, 0);
 
-    if(return_value != 0){
-      close_files_and_return_error_message(filedescriptors, "Asynchronous read using lio_listio failed.", return_value);
-    }
+    Assert(return_value == 0, close_files_and_return_error_message(filedescriptors, "Asynchronous read using lio_listio failed.", return_value));
 
     for (auto index = size_t{0}; index < aio_request_count; ++index) {
       aio_error_handling(aio_list[index], aio_list[index]->aio_nbytes);
@@ -473,8 +471,11 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
     * For comparability the number of threads that can be used are being limited.
     */
 
-  auto filedescriptors = std::vector<int32_t>(aio_request_count);
-  for (auto index = size_t{0}; index < aio_request_count; ++index) {
+  //aio can only handle a specific number of concurrent aio requests set it more or less arbitrarily to 64
+  const auto batch_size = uint32_t{64};
+
+  auto filedescriptors = std::vector<int32_t>(batch_size);
+  for (auto index = size_t{0}; index < batch_size; ++index) {
     auto fd = int32_t{};
     Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
@@ -495,9 +496,6 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    //aio can only handle a specific number of concurrent aio requests set it more or less arbitrarily to 64
-    const auto batch_size = uint32_t{64};
-
     auto aio = std::vector<aiocb>(batch_size);
     auto aio_list = std::vector<aiocb*>(batch_size);
     auto read_data_ptr = std::data(read_data);
@@ -507,15 +505,13 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
       auto to = (batch_index + batch_size < NUMBER_OF_ELEMENTS) ? (batch_index + batch_size) : NUMBER_OF_ELEMENTS;
       for (auto request_index = batch_index; request_index < to; ++request_index) {
         auto from = random_indices[request_index];
-        create_aio_request(aio[request_index % batch_size], filedescriptors[request_index], from * uint32_t_size, read_data_ptr + request_index, uint32_t_size, LIO_READ);
+        create_aio_request(aio[request_index % batch_size], filedescriptors[request_index % batch_size], from * uint32_t_size, read_data_ptr + request_index, uint32_t_size, LIO_READ);
         aio_list[request_index % batch_size] = &aio[request_index % batch_size];
       }
 
       auto return_value = lio_listio(LIO_WAIT, std::data(aio_list), batch_size, 0);
 
-      if (return_value != 0){
-        close_files_and_return_error_message(filedescriptors, "Asynchronous read using lio_listio failed.", return_value);
-      }
+      Assert(return_value == 0, close_files_and_return_error_message(filedescriptors, "Asynchronous read using lio_listio failed.", return_value));
 
       for (auto request_index = size_t{0}; request_index < batch_size; ++request_index){
         aio_error_handling(aio_list[request_index], aio_list[request_index]->aio_nbytes);
@@ -529,7 +525,7 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
     state.ResumeTiming();
   }
 
-  for (auto index = size_t{0}; index < aio_request_count; ++index) {
+  for (auto index = size_t{0}; index < batch_size; ++index) {
     close(filedescriptors[index]);
   }
 }
