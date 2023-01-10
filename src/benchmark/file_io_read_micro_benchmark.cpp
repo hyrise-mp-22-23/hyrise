@@ -359,9 +359,16 @@ void create_aio_request(struct aiocb &request, int const fd, off_t const offset,
   request.aio_lio_opcode = aio_lio_opcode;
 }
 
-void FileIOMicroReadBenchmarkFixture::aio_single_threaded(benchmark::State& state) {
+void FileIOMicroReadBenchmarkFixture::aio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+
+  // init aio to only use specified amounts of threads (not part of POSIX API, only defined in GNU-C libary)
+#ifdef __linux__
+  static struct aioinit init_data;
+    init_data.aio_threads = 1;
+    aio_init(&init_data);
+#endif
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -371,8 +378,8 @@ void FileIOMicroReadBenchmarkFixture::aio_single_threaded(benchmark::State& stat
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    static struct aiocb requests[1];
-    static const struct aiocb * aio_list[1]; //aio_suspend expects a list of async I/O requests
+    struct aiocb requests[1];
+    const struct aiocb * aio_list[1]; //aio_suspend expects a list of async I/O requests
 
     create_aio_request(requests[0], fd, 0, std::data(read_data), NUMBER_OF_BYTES, LIO_READ);
     aio_list[0] = &requests[0];
@@ -393,7 +400,7 @@ void FileIOMicroReadBenchmarkFixture::aio_single_threaded(benchmark::State& stat
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state, uint16_t aio_request_count) {
+void FileIOMicroReadBenchmarkFixture::aio_sequential_read_multi_threaded(benchmark::State& state, uint16_t aio_request_count) {
   auto filedescriptors = std::vector<int32_t>(aio_request_count);
   for (auto index = size_t{0}; index < aio_request_count; ++index) {
     auto fd = int32_t{};
@@ -402,6 +409,13 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
   }
 
   auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / aio_request_count));
+
+  // init aio to only use specified amounts of threads (not part of POSIX API, only defined in GNU-C libary)
+#ifdef __linux__
+  static struct aioinit init_data;
+    init_data.aio_threads = aio_request_count;
+    aio_init(&init_data);
+#endif
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -467,7 +481,7 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
     filedescriptors[index] = fd;
   }
 
-  // init aio to only use one thread (not part of POSIX API, only defined in GNU-C libary)
+  // init aio to only use specified amounts of threads (not part of POSIX API, only defined in GNU-C libary)
 #ifdef __linux__
   static struct aioinit init_data;
     init_data.aio_threads = aio_request_count;
@@ -482,6 +496,7 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
     read_data.resize(NUMBER_OF_ELEMENTS);
 
     state.ResumeTiming();
+    //aio can only handle a specific number of concurrent aio requests set it more or less arbitrarily to 64
     const auto batch_size = uint32_t{64};
 
     auto aio = std::vector<aiocb>(batch_size);
@@ -489,6 +504,7 @@ void FileIOMicroReadBenchmarkFixture::aio_random_read(benchmark::State& state, u
 
     auto read_data_ptr = std::data(read_data);
 
+    //process batches of 64 concurrent async I/O requests at a time
     for (auto batch_index = size_t{0}; batch_index < NUMBER_OF_ELEMENTS; batch_index += batch_size) {
       auto to = (batch_index + batch_size < NUMBER_OF_ELEMENTS) ? (batch_index + batch_size) : NUMBER_OF_ELEMENTS;
       for (auto request_index = batch_index; request_index < to; ++request_index) {
@@ -557,9 +573,9 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    aio_single_threaded(state);
+    aio_sequential_read_single_threaded(state);
   } else {
-    aio_multi_threaded(state, thread_count);
+    aio_sequential_read_multi_threaded(state, thread_count);
   }
 }
 
@@ -613,29 +629,29 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
-    ->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
+//    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
+//    ->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
+//    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
+//    ->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
+//    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
+//    ->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
+//    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
+//    ->UseRealTime();
 
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
-    ->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)
+//    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
+//    ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
 
-
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
+//
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
+//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
 
 }  // namespace hyrise
