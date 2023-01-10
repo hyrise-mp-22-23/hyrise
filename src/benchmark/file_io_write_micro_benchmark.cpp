@@ -176,8 +176,6 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
     }
 
     state.PauseTiming();
-
-    state.PauseTiming();
     sanity_check();
     state.ResumeTiming();
   }
