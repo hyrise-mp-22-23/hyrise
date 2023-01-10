@@ -755,7 +755,12 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
     // So I decided against a sanity check, to have time for other things.
     for (auto iovecInd = uint32_t{0}; iovecInd < finfo.io_vectors.size(); ++iovecInd) {
       const auto io_vector = finfo.io_vectors[iovecInd];
-      auto iov_base = static_cast<char*>(io_vector.iov_base);
+
+      auto resulting_numbers = std::vector<uint32_t>(static_cast<uint32_t>(4096 / 4));
+
+      for (auto ind = uint32_t{0}; )
+
+      auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
       std::cout << iov_base;
     }
     io_uring_cqe_seen(&ring, cqe);
