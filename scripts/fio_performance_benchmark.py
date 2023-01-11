@@ -2,11 +2,11 @@ import os
 import time
 import subprocess
 
-thread_range = [1, 2, 4, 8, 16, 24, 32, 48, 64]
+thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
 
-run_types = ['read', 'randread', 'write', 'randwrite']
+run_types = ['read', 'randread']
 
-filesizes = ['10M', '100M', '1000M']
+filesizes = ['1000']
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
