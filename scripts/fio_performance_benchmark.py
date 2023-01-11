@@ -6,7 +6,7 @@ thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
 
 run_types = ['read', 'randread']
 
-filesizes = ['1000']
+filesizes = ['1000M']
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
