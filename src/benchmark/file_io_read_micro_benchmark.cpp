@@ -238,8 +238,12 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
 }
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
-  auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  auto filedescriptors = std::vector<int32_t>(thread_count);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    auto fd = int32_t{};
+    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    filedescriptors[index] = fd;
+  }
 
   auto threads = std::vector<std::thread>(thread_count);
   auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
@@ -260,7 +264,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_pread, from, to, fd, read_data_start));
+      threads[index] = (std::thread(read_data_using_pread, from, to, filedescriptors[index], read_data_start));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -274,7 +278,9 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
     state.ResumeTiming();
   }
 
-  close(fd);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    close(filedescriptors[index]);
+  }
 }
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchmark::State& state) {
@@ -310,8 +316,12 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchmark::State& state,
                                                                          uint16_t thread_count) {
-  auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  auto filedescriptors = std::vector<int32_t>(thread_count);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    auto fd = int32_t{};
+    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    filedescriptors[index] = fd;
+  }
 
   auto threads = std::vector<std::thread>(thread_count);
   auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
@@ -331,7 +341,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, fd, std::data(read_data), random_indices));
+      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index], std::data(read_data), random_indices));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -346,7 +356,9 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.ResumeTiming();
   }
 
-  close(fd);
+  for (auto index = size_t{0}; index < thread_count; ++index) {
+    close(filedescriptors[index]);
+  }
 }
 
 void create_aio_request(struct aiocb &request, int const fd, off_t const offset, volatile void* buffer, size_t const bytes, int const aio_lio_opcode) {
@@ -625,12 +637,14 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
@@ -648,5 +662,6 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
+
 
 }  // namespace hyrise
