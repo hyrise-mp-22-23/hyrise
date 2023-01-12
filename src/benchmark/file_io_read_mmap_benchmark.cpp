@@ -103,9 +103,6 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
   setenv("UMAP_PAGE_FILLERS", std::to_string(thread_count).c_str(), 1);
   setenv("UMAP_PAGE_EVICTORS", std::to_string(thread_count).c_str(), 1);
 
-  const auto HISTORAM_TYPE = std::getenv("UMAP_PAGE_EVICTORS");
-  std::cout << "++++++++++++++" << HISTORAM_TYPE << std::endl;
-
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
 
