@@ -349,16 +349,6 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   close(fd);
 }
 
-void create_aio_request(struct aiocb &request, int const fd, off_t const offset, volatile void* buffer, size_t const bytes, int const aio_lio_opcode) {
-  memset(&request, 0, sizeof(request));
-
-  request.aio_fildes = fd;
-  request.aio_offset = offset;
-  request.aio_buf = buffer;
-  request.aio_nbytes = bytes;
-  request.aio_lio_opcode = aio_lio_opcode;
-}
-
 void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
