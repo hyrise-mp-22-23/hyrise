@@ -666,13 +666,15 @@ struct file_info{
   std::vector<iovec> io_vectors;
 };
 
-file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYTES) {
+file_info get_file_info(int *fd, struct io_uring *ring) {
   const auto BLOCK_SZ = 4096;
 
-  auto bytes_remaining = NUMBER_OF_BYTES;
+  const auto file_size = get_file_size(*fd);
+
+  auto bytes_remaining = file_size;
   auto current_block = 0;
-  auto blocks = (int) NUMBER_OF_BYTES / BLOCK_SZ;
-  if (NUMBER_OF_BYTES % BLOCK_SZ) blocks++;
+  auto blocks = static_cast<int>(bytes_remaining) / BLOCK_SZ;
+  if (bytes_remaining % BLOCK_SZ) blocks++;
 
   auto io_vectors = std::vector<iovec>(blocks);
 
@@ -697,25 +699,16 @@ file_info get_file_info(int *fd, struct io_uring *ring, const long NUMBER_OF_BYT
   }
 
   file_info finfo;
-  finfo.file_size = NUMBER_OF_BYTES;
+  finfo.file_size = file_size;
   finfo.blocks = blocks;
   finfo.io_vectors = io_vectors;
 
   return finfo;
 }
 
-void output_to_console(char *buf, int len) {
-  while (len--) {
-    fputc(*buf++, stdout);
-  }
-}
-
 // See https://github.com/shuveb/io_uring-by-example/blob/master/03_cat_liburing/main.c
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchmark::State& state) {  // open file
   const auto SQE_SLOTS = state.range(1);
-
-  // Ye - that looks good. @Reviews: Is this the way number of elements is supposed to be used?
-  const auto NUMBER_OF_BYTES = NUMBER_OF_ELEMENTS;
 
   auto fd = int32_t{};
   if ((fd = open("file.txt", O_RDONLY | O_CLOEXEC)) < 0) {
@@ -725,7 +718,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   for (auto _ : state) {
     struct io_uring ring;
     io_uring_queue_init(SQE_SLOTS, &ring, 0);
-    auto finfo = get_file_info(&fd, &ring, NUMBER_OF_BYTES);
+    auto finfo = get_file_info(&fd, &ring);
 
     /*
      * Submitting a read request.
@@ -753,18 +746,22 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
 
     // This outputs the stuff from the file. But actually unreadable stuff comes out of this.
     // So I decided against a sanity check, to have time for other things.
+
+    auto checksum = uint64_t{0};
     for (auto iovecInd = uint32_t{0}; iovecInd < finfo.io_vectors.size(); ++iovecInd) {
       const auto io_vector = finfo.io_vectors[iovecInd];
+      const auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
 
-      auto resulting_numbers = std::vector<uint32_t>(static_cast<uint32_t>(4096 / 4));
+      auto offset = uint32_t{0};
+      while (offset < io_vector.iov_len) {
+        checksum += *(iov_base+offset);
+        offset += sizeof(uint32_t);
+      }
 
-      for (auto ind = uint32_t{0}; )
-
-      auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
-      std::cout << iov_base;
     }
     io_uring_cqe_seen(&ring, cqe);
 
+    Assert(checksum == control_sum, "io_uring checksum (" + std::to_string(checksum) + ") did not match control sum.");
     io_uring_queue_exit(&ring);
   }
 }
