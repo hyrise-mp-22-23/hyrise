@@ -38,30 +38,29 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs):
     f.flush()
 
 
-for multi_threaded in (True, False):
-    for fio_size in filesizes:
-        for run in run_types:
+for fio_size in filesizes:
+    for run in run_types:
 
-            # multithreaded
-            for numjobs in thread_range:
-                command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --size={
-                fio_size} --direct=1 --rw={run} --filename=file.txt --numjobs={
-                numjobs} --group_reporting --thread --refill_buffers --ioengine=sync"""
-
-                fio_type_offset = 0
-                print(command)
-                run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
-
-            # single-threaded
-            numjobs = 1
-
-            command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --ioengine=sync --size={
-            fio_size} --direct=1 --rw={
-            run} --filename=file.txt --numjobs={
-            numjobs} --group_reporting --refill_buffers"""
+        # multithreaded
+        for numjobs in thread_range:
+            command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={
+            fio_size} --direct=1 --rw={run} --filename=file.txt --numjobs={
+            numjobs} --group_reporting --thread --refill_buffers --ioengine=sync"""
 
             fio_type_offset = 0
             print(command)
             run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
+
+        # single-threaded
+        numjobs = 1
+
+        command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --ioengine=sync --size={
+        fio_size} --direct=1 --rw={
+        run} --filename=file.txt --numjobs={
+        numjobs} --group_reporting --refill_buffers"""
+
+        fio_type_offset = 0
+        print(command)
+        run_and_write_command(run, command, fio_type_offset, fio_size, numjobs)
 
 f.closed
