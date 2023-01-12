@@ -1,4 +1,4 @@
-#include <aio.h>
+#include <libaio.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -357,6 +357,63 @@ void create_aio_request(struct aiocb &request, int const fd, off_t const offset,
   request.aio_buf = buffer;
   request.aio_nbytes = bytes;
   request.aio_lio_opcode = aio_lio_opcode;
+}
+
+void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(benchmark::State& state) {
+  auto fd = int32_t{};
+  Assert(((fd = open(filename, O_RDONLY|O_DIRECT)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+
+  io_context_t ctx;
+  memset(&ctx, 0, sizeof(ctx));
+  // long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
+  int ret = io_setup(1, &ctx);
+  if(ret<0) {
+    std::cerr << "Error initializing libaio context" << std::endl;
+    exit(1);
+  }
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    micro_benchmark_clear_disk_cache();
+    auto read_data = std::vector<uint32_t>{};
+    read_data.resize(NUMBER_OF_ELEMENTS);
+    state.ResumeTiming();
+
+    // Creating the request
+    struct iocb request;
+    /*
+    request.aio_lio_opcode = IO_CMD_PREAD;
+    request.aio_fildes = fd;
+    request.buf  = std::data(read_data);
+    request.nbytes  = NUMBER_OF_BYTES;
+    request.offset  = 0 ;
+    is done by the convenience function 'io_prep_pread'
+    */
+    io_prep_pread(&request, fd, std::data(read_data), NUMBER_OF_BYTES, 0);
+
+    // Submit the request.
+    struct iocb *requests[1] = { &request };
+    io_submit(ctx, 1, requests);
+
+
+
+    struct io_event event;
+    io_getevents(ctx, 1, 1, &event, NULL);
+
+    ret = event.res;
+    if(ret<0) {
+      std::cerr << "Read error: " << strerror(errno) << std::endl;
+      exit(1);
+    }
+
+    state.PauseTiming();
+    const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    state.ResumeTiming();
+  }
+
+  io_destroy(ctx);
+  close(fd);
 }
 
 void FileIOMicroReadBenchmarkFixture::aio_sequential_read_single_threaded(benchmark::State& state) {
