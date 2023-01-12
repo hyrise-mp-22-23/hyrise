@@ -13,6 +13,8 @@
 #include <thread>
 #include "file_io_read_micro_benchmark.hpp"
 #include "micro_benchmark_basic_fixture.hpp"
+#include <algorithm>
+#include <math.h>
 
 namespace hyrise {
 
@@ -666,14 +668,14 @@ struct file_info{
   std::vector<iovec> io_vectors;
 };
 
-file_info get_file_info(int *fd, struct io_uring *ring) {
-  const auto BLOCK_SZ = 4096;
+file_info get_file_info(int *fd, struct io_uring *ring, benchmark::State& state) {
+  const auto BLOCK_SZ = 4096 * 4;
 
   const auto file_size = get_file_size(*fd);
 
   auto bytes_remaining = file_size;
   auto current_block = 0;
-  auto blocks = static_cast<int>(bytes_remaining) / BLOCK_SZ;
+  auto blocks = static_cast<int>(file_size / BLOCK_SZ);
   if (bytes_remaining % BLOCK_SZ) blocks++;
 
   auto io_vectors = std::vector<iovec>(blocks);
@@ -689,7 +691,7 @@ file_info get_file_info(int *fd, struct io_uring *ring) {
     if (bytes_to_read > BLOCK_SZ)
       bytes_to_read = BLOCK_SZ;
 
-    io_vectors[current_block].iov_len = bytes_to_read;
+    io_vectors[current_block].iov_len = BLOCK_SZ;
 
     auto buffer = (void*) malloc(BLOCK_SZ);
     io_vectors[current_block].iov_base = static_cast<void*>(buffer);
@@ -718,7 +720,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
   for (auto _ : state) {
     struct io_uring ring;
     io_uring_queue_init(SQE_SLOTS, &ring, 0);
-    auto finfo = get_file_info(&fd, &ring);
+    auto finfo = get_file_info(&fd, &ring, state);
 
     /*
      * Submitting a read request.
@@ -746,19 +748,20 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
 
     // This outputs the stuff from the file. But actually unreadable stuff comes out of this.
     // So I decided against a sanity check, to have time for other things.
-
+    state.PauseTiming();
     auto checksum = uint64_t{0};
     for (auto iovecInd = uint32_t{0}; iovecInd < finfo.io_vectors.size(); ++iovecInd) {
       const auto io_vector = finfo.io_vectors[iovecInd];
       const auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
 
       auto offset = uint32_t{0};
-      while (offset < io_vector.iov_len) {
-        checksum += *(iov_base+offset);
-        offset += sizeof(uint32_t);
-      }
+      while (offset < 4096) {
 
+        checksum += *(iov_base+offset);
+        offset += 1;
+      }
     }
+    state.ResumeTiming();
     io_uring_cqe_seen(&ring, cqe);
 
     Assert(checksum == control_sum, "io_uring checksum (" + std::to_string(checksum) + ") did not match control sum.");

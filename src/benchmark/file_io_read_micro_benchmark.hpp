@@ -18,7 +18,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     auto fd = int32_t{};
-    Assert(((fd = creat(filename, O_WRONLY)) >= 1), fail_and_close_file(fd, "Create error: ", errno));
+    Assert(((fd = creat(filename, O_WRONLY | O_CLOEXEC)) >= 1), fail_and_close_file(fd, "Create error: ", errno));
     chmod(filename, S_IRWXU);  // enables owner to rwx file
     Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
            fail_and_close_file(fd, "Write error: ", errno));
