@@ -361,8 +361,9 @@ void create_aio_request(struct aiocb &request, int const fd, off_t const offset,
 
 void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY|O_DIRECT)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
 
+  // The context is shared among threads.
   io_context_t ctx;
   memset(&ctx, 0, sizeof(ctx));
   // long io_setup(unsigned int nr_events, aio_context_t *ctx_idp);
@@ -395,8 +396,6 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
     struct iocb *requests[1] = { &request };
     io_submit(ctx, 1, requests);
 
-
-
     struct io_event event;
     io_getevents(ctx, 1, 1, &event, NULL);
 
@@ -415,6 +414,64 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
   io_destroy(ctx);
   close(fd);
 }
+
+void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benchmark::State& state, uint16_t aio_request_count) {
+    auto filedescriptors = std::vector<int32_t>(aio_request_count);
+    for (auto index = size_t{0}; index < aio_request_count; ++index) {
+        auto fd = int32_t{};
+        Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+        filedescriptors[index] = fd;
+    }
+
+    auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / aio_request_count));
+
+    //create context
+    io_context_t ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    io_setup(aio_request_count, &ctx);
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        auto read_data = std::vector<uint32_t>{};
+        read_data.resize(NUMBER_OF_ELEMENTS);
+        micro_benchmark_clear_disk_cache();
+        state.ResumeTiming();
+
+        auto iocb_list = std::vector<iocb>(aio_request_count);
+        auto read_data_ptr = std::data(read_data);
+
+        for (auto index = size_t{0}; index < aio_request_count; ++index) {
+            auto from = batch_size * index;
+            auto to = from + batch_size;
+            if (to >= NUMBER_OF_ELEMENTS) {
+                to = NUMBER_OF_ELEMENTS;
+            }
+            io_prep_pread(&iocb_list[index], filedescriptors[index], read_data_ptr + from, (to - from) * uint32_t_size, from * uint32_t_size);
+        }
+
+        auto return_value = io_submit(ctx, aio_request_count, iocb_list.data());
+        Assert(return_value == aio_request_count, close_files_and_return_error_message(filedescriptors, "Asynchronous read using io_submit failed.", return_value));
+
+        io_event events[aio_request_count];
+        auto events_count = io_getevents(ctx, 1, aio_request_count, events, NULL);
+        for (auto i = 0; i < events_count; i++) {
+            auto request = (iocb*)events[i].obj;
+            aio_error_handling(request, request->u.c.nbytes);
+        }
+
+        state.PauseTiming();
+        const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+        Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) + " Expected: " + std::to_string(control_sum) + ".");
+          state.ResumeTiming();
+      }
+
+      io_destroy(ctx);
+      for (auto index = size_t{0}; index < aio_request_count; ++index) {
+          close(filedescriptors[index]);
+      }
+  }
+
+
 
 void FileIOMicroReadBenchmarkFixture::aio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
@@ -626,9 +683,9 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
-    aio_sequential_read_single_threaded(state);
+    libaio_sequential_read_single_threaded(state);
   } else {
-    aio_sequential_read_multi_threaded(state, thread_count);
+    //aio_sequential_read_multi_threaded(state, thread_count);
   }
 }
 
@@ -681,6 +738,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
   }
 }
 
+/*
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
@@ -694,16 +752,16 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_TH
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
-
+*/
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
-
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, AIO_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
-
+*/
 }  // namespace hyrise
