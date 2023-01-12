@@ -16,7 +16,7 @@ fio_bandwidth_mean = 44
 
 kernel_version = os.uname()[2]
 columns = "name,iterations,real_time,cpu_time,time_unit,bytes_per_second,items_per_second,label,error_occurred," \
-          "error_message "
+          "error_message"
 f = open(f"""fio_benchmark_{kernel_version}_{time.strftime("%H%M%S")}_fio.csv""", "w+")
 f.write(columns + "\n")
 
@@ -44,10 +44,9 @@ for multi_threaded in (True, False):
 
             # multithreaded
             for numjobs in thread_range:
-                iodepth = numjobs
                 command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --size={
                 fio_size} --direct=1 --rw={run} --filename=file.txt --numjobs={
-                numjobs} --iodepth={iodepth} --group_reporting --thread --refill_buffers --ioengine=libaio"""
+                numjobs} --group_reporting --thread --refill_buffers --ioengine=sync"""
 
                 fio_type_offset = 0
                 print(command)
@@ -55,7 +54,6 @@ for multi_threaded in (True, False):
 
             # single-threaded
             numjobs = 1
-            iodepth = 1
 
             command = f"""sudo fio -minimal  -name=fio-bandwidth --bs=4k --ioengine=sync --size={
             fio_size} --direct=1 --rw={
