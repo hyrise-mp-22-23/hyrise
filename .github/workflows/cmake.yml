@@ -10,7 +10,7 @@ jobs:
       - name: Clone Repository
         run: |
             git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && cd hyrise
-            git checkout ${GITHUB_REF##*/}
+            git checkout ${GITHUB_REF#refs/heads/}
 
       - name: Install Dependencies
         run: sudo apt-get install --no-install-recommends -y autoconf bash-completion bc clang-11 clang-14 clang-format-14 clang-tidy-14 cmake curl dos2unix g++-9 gcc-9 g++-11 gcc-11 gcovr git graphviz libboost-all-dev libhwloc-dev libncurses5-dev libnuma-dev libnuma1 libpq-dev libreadline-dev libsqlite3-dev libtbb-dev lld man ninja-build parallel python3 python3-pip valgrind
@@ -41,7 +41,7 @@ jobs:
       - name: Clone Repository
         run: |
             git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && cd hyrise
-            git checkout ${GITHUB_REF##*/}
+            git checkout ${GITHUB_REF#refs/heads/}
 
       - name: Install Dependencies
         run: sudo apt-get install --no-install-recommends -y autoconf bash-completion bc clang-11 clang-14 clang-format-14 clang-tidy-14 cmake curl dos2unix g++-9 gcc-9 g++-11 gcc-11 gcovr git graphviz libboost-all-dev libhwloc-dev libncurses5-dev libnuma-dev libnuma1 libpq-dev libreadline-dev libsqlite3-dev libtbb-dev lld man ninja-build parallel python3 python3-pip valgrind
@@ -72,7 +72,7 @@ jobs:
       - name: Clone Repository
         run: |
             git clone --recursive https://github.com/hyrise-mp-22-23/hyrise.git hyrise && cd hyrise
-            git checkout ${GITHUB_REF##*/}
+            git checkout ${GITHUB_REF#refs/heads/}
 
       - name: Install Dependencies
         run: brew install llvm autoconf boost cmake coreutils dos2unix graphviz libpq ncurses parallel pkg-config postgresql readline sqlite3 tbb && brew install ninja
