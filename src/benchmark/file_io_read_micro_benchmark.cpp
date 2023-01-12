@@ -752,19 +752,25 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
     auto checksum = uint64_t{0};
     for (auto iovecInd = uint32_t{0}; iovecInd < finfo.io_vectors.size(); ++iovecInd) {
       const auto io_vector = finfo.io_vectors[iovecInd];
-      const auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
+      auto iov_base = static_cast<uint32_t*>(io_vector.iov_base);
 
-      auto offset = uint32_t{0};
+      auto offset = uint64_t{0};
       while (offset < 4096) {
-
-        checksum += *(iov_base+offset);
+        //std::cout << "Checksum: " + std::to_string(checksum) + " / " + std::to_string(control_sum) << std::endl;
+        /*if (std::find(numbers.begin(), numbers.end(), *(iov_base+offset)) != numbers.end()) {
+          checksum += *(iov_base+offset);
+        } else {
+          std::cout << "Value at " + std::to_string(offset) + " not contained in numbers." << std::endl;
+        }*/
+        checksum += *iov_base;
         offset += 1;
+        ++iov_base;
       }
     }
     state.ResumeTiming();
     io_uring_cqe_seen(&ring, cqe);
 
-    Assert(checksum == control_sum, "io_uring checksum (" + std::to_string(checksum) + ") did not match control sum.");
+    Assert(checksum == control_sum, "io_uring checksum did not match control sum.");
     io_uring_queue_exit(&ring);
   }
 }
