@@ -757,15 +757,14 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IO_URING_READ_ASYNC)(benchma
       auto offset = uint64_t{0};
       while (offset < 4096) {
         //std::cout << "Checksum: " + std::to_string(checksum) + " / " + std::to_string(control_sum) << std::endl;
-        /*if (std::find(numbers.begin(), numbers.end(), *(iov_base+offset)) != numbers.end()) {
-          checksum += *(iov_base+offset);
-        } else {
-          std::cout << "Value at " + std::to_string(offset) + " not contained in numbers." << std::endl;
-        }*/
-        checksum += *iov_base;
+        if (numbers[iovecInd*4096 + offset] == *iov_base) {
+          checksum += *iov_base;
+        }
+
         offset += 1;
         ++iov_base;
       }
+      free(io_vector.iov_base);
     }
     state.ResumeTiming();
     io_uring_cqe_seen(&ring, cqe);
