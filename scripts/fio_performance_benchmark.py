@@ -3,7 +3,9 @@ import time
 from datetime import date
 import subprocess
 
-MB = 1000000
+# we use MiB instead of MB to easier calculate block-size aligned file offsets
+# this is needed for DIRECT_IO (e.g. for io_uring or libaio)
+MiB = pow(2,20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
 io_types = ["read", "randread"]
@@ -59,11 +61,11 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs, io_e
 
 
 for fio_size in filesizes:
-    filesize_mb = int(fio_size[:-1]) * MB
+    filesize_mib = int(fio_size[:-1]) * MiB
     for io_type in io_types:
         for io_engine_config in ioengine_configs:
             for numjobs in thread_range:
-                batch_size = int(filesize_mb / numjobs)
+                batch_size = int(filesize_mib / numjobs)
                 if numjobs == 1:
                     command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers -loops=10"""
                 else:
