@@ -67,7 +67,7 @@ for fio_size in filesizes:
                 if numjobs == 1:
                     command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers -loops=10"""
                 else:
-                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={batch_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers --numjobs={numjobs} --thread -loops=10 --offset_increment={batch_size}"""
+                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --io_size={batch_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers --numjobs={numjobs} --thread -loops=10 --offset_increment={batch_size}"""
 
                 fio_type_offset = 0
                 print(command)
