@@ -55,6 +55,41 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
+void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start) {
+  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
+  const auto REQUEST_COUNT = uint32_t{64};
+  const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
+
+  io_context_t ctx;
+  memset(&ctx, 0, sizeof(ctx));
+  io_setup(REQUEST_COUNT, &ctx);
+
+  auto batch_size_thread = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT));
+
+  auto iocbs = std::vector<iocb>(REQUEST_COUNT);
+  auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
+
+  for (auto index = size_t{0}; index < REQUEST_COUNT; ++index) {
+    auto from = batch_size_thread * index + thread_from;
+    auto to = from + batch_size_thread;
+    if (to >= NUMBER_OF_ELEMENTS_PER_THREAD) {
+      to = NUMBER_OF_ELEMENTS_PER_THREAD;
+    }
+
+    // io_prep_pread(struct iocb *iocb, int fd, void *buf, size_t count, long long offset);
+    io_prep_pread(&iocbs[index], fd, read_data_start + from, batch_size_thread * uint32_t_size, from * uint32_t_size);
+    iocb_list[index] = &iocbs[index];
+  }
+
+  auto return_value = io_submit(ctx, REQUEST_COUNT, iocb_list.data());
+  Assert(return_value == REQUEST_COUNT, close_file_and_return_error_message(fd, "Asynchronous read using io_submit failed.", return_value));
+
+  auto events = std::vector<io_event>(REQUEST_COUNT);
+  auto events_count = io_getevents(ctx, REQUEST_COUNT, REQUEST_COUNT, events.data(), NULL);
+  Assert(events_count == REQUEST_COUNT, close_file_and_return_error_message(fd, "Asynchronous read using io_getevents failed. ", events_count));
+
+  io_destroy(ctx);
+}
 
 // TODO(everyone): Reduce LOC by making this function more modular (do not repeat it with different function inputs).
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
@@ -406,43 +441,6 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
   close(fd);
 }
 
-
-void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start) {
-  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto REQUEST_COUNT = uint32_t{64};
-  const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
-
-  io_context_t ctx;
-  memset(&ctx, 0, sizeof(ctx));
-  io_setup(REQUEST_COUNT, &ctx);
-
-  auto batch_size_thread = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT));
-
-  auto iocbs = std::vector<iocb>(REQUEST_COUNT);
-  auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
-
-  for (auto index = size_t{0}; index < REQUEST_COUNT; ++index) {
-    auto from = batch_size_thread * index + thread_from;
-    auto to = from + batch_size_thread;
-    if (to >= NUMBER_OF_ELEMENTS_PER_THREAD) {
-        to = NUMBER_OF_ELEMENTS_PER_THREAD;
-    }
-
-    // io_prep_pread(struct iocb *iocb, int fd, void *buf, size_t count, long long offset);
-    io_prep_pread(&iocbs[index], fd, read_data_start + from, batch_size_thread * uint32_t_size, from * uint32_t_size);
-    iocb_list[index] = &iocbs[index];
-  }
-
-  auto return_value = io_submit(ctx, REQUEST_COUNT, iocb_list.data());
-  Assert(return_value == REQUEST_COUNT, close_file_and_return_error_message(fd, "Asynchronous read using io_submit failed.", return_value));
-
-  auto events = std::vector<io_event>(REQUEST_COUNT);
-  auto events_count = io_getevents(ctx, REQUEST_COUNT, REQUEST_COUNT, events.data(), NULL);
-  Assert(events_count == REQUEST_COUNT, close_file_and_return_error_message(fd, "Asynchronous read using io_getevents failed. ", events_count));
-
-  io_destroy(ctx);
-}
-
 void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benchmark::State& state, uint16_t thread_count) {
     auto filedescriptors = std::vector<int32_t>(thread_count);
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -688,7 +686,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_TH
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
-*/
+  */
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 64}})
     ->UseRealTime();
