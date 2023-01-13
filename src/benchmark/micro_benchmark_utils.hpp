@@ -10,6 +10,7 @@ namespace hyrise {
 void micro_benchmark_clear_cache();
 void micro_benchmark_clear_disk_cache();
 void micro_benchmark_clear_filedescriptor_cache(int32_t fd);
+void micro_benchmark_clear_filedescriptor_caches(std::vector<int32_t> filedescriptors);
 void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes);
 std::vector<uint32_t> generate_random_indexes(uint32_t number);
 std::vector<uint32_t> generate_random_positive_numbers(uint32_t size);

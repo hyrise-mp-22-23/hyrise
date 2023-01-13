@@ -115,6 +115,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
   for (auto _ : state) {
     state.PauseTiming();
 
+    micro_benchmark_clear_filedescriptor_caches(filedescriptors);
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -154,6 +155,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark:
   for (auto _ : state) {
     state.PauseTiming();
 
+    micro_benchmark_clear_filedescriptor_cache(fd);
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -183,6 +185,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
+    micro_benchmark_clear_filedescriptor_cache(fd);
+
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -224,6 +228,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   for (auto _ : state) {
     state.PauseTiming();
 
+    micro_benchmark_clear_filedescriptor_caches(filedescriptors);
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
@@ -265,6 +270,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
+    micro_benchmark_clear_filedescriptor_cache(fd);
+
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -293,6 +300,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
+    micro_benchmark_clear_filedescriptor_cache(fd);
+
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
@@ -329,6 +338,9 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    micro_benchmark_clear_filedescriptor_cache(fd);
+
+
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
@@ -365,6 +377,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
+    micro_benchmark_clear_filedescriptor_cache(fd);
+
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);

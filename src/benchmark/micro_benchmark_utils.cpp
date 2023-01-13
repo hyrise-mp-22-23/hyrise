@@ -35,13 +35,23 @@ void micro_benchmark_clear_disk_cache() {
 #endif
 }
 
-void micro_benchmark_clear_filedescriptor_cache(int32_t fd){
+void micro_benchmark_clear_filedescriptor_cache(const int32_t fd){
 #ifdef __APPLE__
 #else
   posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
 #endif
 }
+
+void micro_benchmark_clear_filedescriptor_caches(const std::vector<int32_t> filedescriptors){
+#ifdef __APPLE__
+#else
+  for(auto fd: filedescriptors){
+    micro_benchmark_clear_filedescriptor_cache(fd);
+  }
+#endif
+}
+
 
 void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
   const auto err = aio_error(aiocb);
