@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import date
 import subprocess
 
 thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
@@ -24,11 +25,12 @@ fio_runtime_under_test = 8
 fio_bandwidth_mean = 44
 
 kernel_version = os.uname()[2]
+today = date.today()
 columns = (
     "name,iterations,real_time,cpu_time,time_unit,bytes_per_second,items_per_second,label,error_occurred,"
     "error_message"
 )
-f = open(f"""fio_benchmark_{kernel_version}_{time.strftime("%H%M%S")}_fio.csv""", "w+")
+f = open(f"""fio_benchmark_{kernel_version}_{today.strftime("%y-%m-%d")}_{time.strftime("%H-%M-%S")}_fio.csv""", "w+")
 f.write(columns + "\n")
 
 
