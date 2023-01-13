@@ -14,9 +14,9 @@ filesizes = ["1000M"]
 async_io_io_depth = 64
 ioengine_configs = [
     # ('io_engine', 'additional parameters')
-    ("sync", ""),
-    ("psync", ""),
-    ("mmap", ""),
+    # ("sync", ""),
+    # ("psync", ""),
+    # ("mmap", ""),
     ("io_uring", f"--direct=1 --iodepth={async_io_io_depth}"),
     ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"),
     ("posixaio", f"--direct=1 --iodepth={async_io_io_depth}"),
