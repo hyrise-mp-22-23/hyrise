@@ -407,10 +407,10 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
 }
 
 
-void read_data_using_libaio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
-  const auto NUMBER_OF_ELEMENTS_PER_THREAD = (to - from);
+  const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
 
   io_context_t ctx;
   memset(&ctx, 0, sizeof(ctx));
@@ -422,14 +422,14 @@ void read_data_using_libaio(const size_t from, const size_t to, int32_t fd, uint
   auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
 
   for (auto index = size_t{0}; index < REQUEST_COUNT; ++index) {
-    auto from = batch_size_thread * index;
+    auto from = batch_size_thread * index + thread_from;
     auto to = from + batch_size_thread;
     if (to >= NUMBER_OF_ELEMENTS_PER_THREAD) {
         to = NUMBER_OF_ELEMENTS_PER_THREAD;
     }
 
     // io_prep_pread(struct iocb *iocb, int fd, void *buf, size_t count, long long offset);
-    io_prep_pread(&iocbs[index], fd, read_data_start + from, (to - from) * uint32_t_size, from * uint32_t_size);
+    io_prep_pread(&iocbs[index], fd, read_data_start + from, batch_size_thread * uint32_t_size, from * uint32_t_size);
     iocb_list[index] = &iocbs[index];
   }
 
