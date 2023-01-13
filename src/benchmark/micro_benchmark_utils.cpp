@@ -34,6 +34,14 @@ void micro_benchmark_clear_disk_cache() {
 #endif
 }
 
+void micro_benchmark_clear_filedescriptor_cache(int32_t fd){
+#ifdef __APPLE__
+#else
+  posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+
+#endif
+}
+
 void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
   const auto err = aio_error(aiocb);
   const auto ret = aio_return(aiocb);

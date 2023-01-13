@@ -22,6 +22,8 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     chmod(filename, S_IRWXU);  // enables owner to rwx file
     Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
            close_file_and_return_error_message(fd, "Write error: ", errno));
+    micro_benchmark_clear_filedescriptor_cache(fd);
+    micro_benchmark_clear_disk_cache();
     close(fd);
   }
 
