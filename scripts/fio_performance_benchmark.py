@@ -3,6 +3,8 @@ import time
 from datetime import date
 import subprocess
 
+MB = 1000000
+
 thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
 io_types = ["read", "randread"]
 filesizes = ["1000M"]
@@ -17,6 +19,8 @@ ioengine_configs = [
     ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"),
     ("posixaio", f"--direct=1 --iodepth={async_io_io_depth}"),
 ]
+
+num_repetitions = 10
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
@@ -47,7 +51,7 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs, io_e
     runtime = float(split_output[fio_type_offset + fio_runtime_under_test].decode("utf-8"))
     bandwidth_mean = float(split_output[fio_type_offset + fio_bandwidth_mean].decode("utf-8"))
     result = (
-        f'"FileIOMicroBenchmarkFixture/FIO_{io_engine}_{run}/{fio_size[:-1]}/{numjobs}/",1,{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n'
+        f'"FileIOMicroBenchmarkFixture/FIO_{io_engine}_{run}/{fio_size[:-1]}/{numjobs}/",{num_repetitions},{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n'
         ""
     )
     f.write(result)
@@ -55,13 +59,15 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs, io_e
 
 
 for fio_size in filesizes:
+    filesize_mb = int(fio_size[:-1]) * MB
     for io_type in io_types:
         for io_engine_config in ioengine_configs:
             for numjobs in thread_range:
+                batch_size = int(filesize_mb / numjobs)
                 if numjobs == 1:
-                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers"""
+                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers -loops=10 --offset_increment={batch_size}"""
                 else:
-                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={fio_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers --numjobs={numjobs} --thread"""
+                    command = f"""sudo fio -minimal -name=fio-bandwidth --bs=4k --size={batch_size} --rw={io_type} --ioengine={io_engine_config[0]} {io_engine_config[1]} --filename=file.txt --group_reporting --refill_buffers --numjobs={numjobs} --thread -loops=10 --offset_increment={batch_size}"""
 
                 fio_type_offset = 0
                 print(command)
