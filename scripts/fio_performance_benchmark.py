@@ -6,7 +6,7 @@ thread_range = [1, 2, 4, 8, 16, 32, 48, 64]
 
 run_types = ['read', 'randread']
 
-filesizes = ['1000']
+filesizes = ['1000M']
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
@@ -33,7 +33,7 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs):
     bandwidth = float(split_output[fio_type_offset + fio_bandwidth].decode("utf-8"))
     runtime = float(split_output[fio_type_offset + fio_runtime_under_test].decode("utf-8"))
     bandwidth_mean = float(split_output[fio_type_offset + fio_bandwidth_mean].decode("utf-8"))
-    result = f"\"FileIOMicroBenchmarkFixture/FIO_{run}/{fio_size}/{numjobs}/\",1,{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n"""
+    result = f"\"FileIOMicroBenchmarkFixture/FIO_{run}/{fio_size[:-1]}/{numjobs}/\",1,{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n"""
     f.write(result)
     f.flush()
 
