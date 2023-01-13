@@ -34,7 +34,7 @@ f = open(f"""fio_benchmark_{kernel_version}_{today.strftime("%y-%m-%d")}_{time.s
 f.write(columns + "\n")
 
 
-def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs):
+def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs, io_engine):
     os.system("sleep 2")  # Give time to finish inflight IOs
     output = subprocess.check_output(command, shell=True)
     if "write" in run:
@@ -47,7 +47,7 @@ def run_and_write_command(run, command, fio_type_offset, fio_size, numjobs):
     runtime = float(split_output[fio_type_offset + fio_runtime_under_test].decode("utf-8"))
     bandwidth_mean = float(split_output[fio_type_offset + fio_bandwidth_mean].decode("utf-8"))
     result = (
-        f'"FileIOMicroBenchmarkFixture/FIO_{run}/{fio_size[:-1]}/{numjobs}/",1,{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n'
+        f'"FileIOMicroBenchmarkFixture/FIO_{io_engine}_{run}/{fio_size[:-1]}/{numjobs}/",1,{str(runtime * 1000)},{str(runtime * 1000)},ns,{str(bandwidth * 1000)},,,,\n'
         ""
     )
     f.write(result)
@@ -65,6 +65,6 @@ for fio_size in filesizes:
 
                 fio_type_offset = 0
                 print(command)
-                run_and_write_command(io_type, command, fio_type_offset, fio_size, numjobs)
+                run_and_write_command(io_type, command, fio_type_offset, fio_size, numjobs, io_engine_config[0])
 
 f.closed
