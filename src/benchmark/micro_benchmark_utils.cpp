@@ -7,6 +7,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include <algorithm>
 #include <cstring>
