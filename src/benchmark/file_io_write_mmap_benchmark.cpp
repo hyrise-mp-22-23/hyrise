@@ -89,7 +89,9 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_single_threaded(benchmark::Stat
   close(fd);
 }
 
-void write_mmap_chunk_sequential(const size_t from, const size_t to, int32_t* map, uint32_t* data_to_write_start) {
+void write_mmap_chunk_sequential(const size_t from, const size_t to, int32_t* map, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_write = static_cast<ssize_t>(uint32_t_size * (to - from));
   memcpy(map + from, data_to_write_start + from, bytes_to_write);
@@ -97,7 +99,9 @@ void write_mmap_chunk_sequential(const size_t from, const size_t to, int32_t* ma
 
 void write_mmap_chunk_random(const size_t from, const size_t to, int32_t* map,
                              const std::vector<uint32_t>& data_to_write,
-                             const std::vector<uint32_t>& ind_access_order) {
+                             const std::vector<uint32_t>& ind_access_order, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   for (auto idx = from; idx < to; ++idx) {
     auto access_index = ind_access_order[idx];
     map[access_index] = data_to_write[idx];
@@ -119,6 +123,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_multi_threaded(benchmark::State
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    bool threads_ready_to_be_executed = false;
     state.ResumeTiming();
 
     // Getting the mapping to memory.
@@ -126,6 +131,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_multi_threaded(benchmark::State
     auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_WRITE, mmap_mode_flag, fd, OFFSET));
     Assert(map != MAP_FAILED, "Mapping Failed:" + std::strerror(errno));
 
+    state.PauseTiming();
     auto* data_to_write_start = std::data(data_to_write);
 
     switch (data_access_mode) {
@@ -133,22 +139,23 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_multi_threaded(benchmark::State
         for (auto i = size_t{0}; i < thread_count; i++) {
           auto from = batch_size * i;
           auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
-          threads[i] = std::thread(write_mmap_chunk_sequential, from, to, map, data_to_write_start);
+          threads[i] = std::thread(write_mmap_chunk_sequential, from, to, map, data_to_write_start, std::ref(threads_ready_to_be_executed));
         }
         break;
       case RANDOM:
-        state.PauseTiming();
         // Generating random indexes should not play a role in the benchmark.
         const auto ind_access_order = generate_random_indexes(NUMBER_OF_ELEMENTS);
-        state.ResumeTiming();
 
         for (auto i = size_t{0}; i < thread_count; i++) {
           auto from = batch_size * i;
           auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
-          threads[i] = std::thread(write_mmap_chunk_random, from, to, map, data_to_write, ind_access_order);
+          threads[i] = std::thread(write_mmap_chunk_random, from, to, map, data_to_write, ind_access_order, std::ref(threads_ready_to_be_executed));
         }
         break;
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto i = size_t{0}; i < thread_count; i++) {
       // Blocks the current thread until the thread identified by *this finishes its execution

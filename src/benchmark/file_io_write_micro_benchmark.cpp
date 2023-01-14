@@ -8,7 +8,9 @@
 
 namespace hyrise {
 
-void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start) {
+void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_write = static_cast<ssize_t>(uint32_t_size * (to - from));
   lseek(fd, from * uint32_t_size, SEEK_SET);
@@ -16,14 +18,18 @@ void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint
          close_file_and_return_error_message(fd, "Write error: ", errno));
 }
 
-void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start) {
+void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_write = static_cast<ssize_t>(uint32_t_size * (to - from));
   Assert((pwrite(fd, data_to_write_start + from, bytes_to_write, from * uint32_t_size) == bytes_to_write),
          close_file_and_return_error_message(fd, "Write error: ", errno));
 }
 
-void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start) {
+void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_write = static_cast<ssize_t>(uint32_t_size * (to - from));
 
@@ -79,7 +85,7 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    state.ResumeTiming();
+    bool threads_ready_to_be_executed = false;
 
     auto* data_to_write_start = std::data(data_to_write);
 
@@ -89,8 +95,11 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = std::thread(write_data_using_write, from, to, filedescriptors[index], data_to_write_start);
+      threads[index] = std::thread(write_data_using_write, from, to, filedescriptors[index], data_to_write_start, std::ref(threads_ready_to_be_executed));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       //Blocks the current thread until the thread identified by *this finishes its execution
@@ -144,6 +153,7 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    bool threads_ready_to_be_executed = false;
     state.ResumeTiming();
 
     auto* data_to_write_start = std::data(data_to_write);
@@ -154,8 +164,11 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = std::thread(write_data_using_pwrite, from, to, filedescriptors[index], data_to_write_start);
+      threads[index] = std::thread(write_data_using_pwrite, from, to, filedescriptors[index], data_to_write_start, std::ref(threads_ready_to_be_executed));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution
@@ -228,7 +241,7 @@ void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& stat
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    state.ResumeTiming();
+    bool threads_ready_to_be_executed = false;
 
     auto* data_to_write_start = std::data(data_to_write);
 
@@ -238,8 +251,11 @@ void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& stat
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = std::thread(write_data_using_aio, from, to, filedescriptors[index], data_to_write_start);
+      threads[index] = std::thread(write_data_using_aio, from, to, filedescriptors[index], data_to_write_start, std::ref(threads_ready_to_be_executed));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution

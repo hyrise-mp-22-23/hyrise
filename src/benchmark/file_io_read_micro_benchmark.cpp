@@ -14,7 +14,9 @@
 
 namespace hyrise {
 
-void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   lseek(fd, from * uint32_t_size, SEEK_SET);
@@ -23,8 +25,9 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
 }
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                   const std::vector<uint32_t>& random_indices) {
+                                   const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
+  while(!threads_ready_to_be_executed){}
 
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
   //  incl possible duplicates
@@ -35,7 +38,9 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
   }
 }
 
-void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   Assert((pread(fd, read_data_start + from, bytes_to_read, from * uint32_t_size) == bytes_to_read),
@@ -43,7 +48,9 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                    const std::vector<uint32_t>& random_indices) {
+                                    const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
@@ -55,7 +62,9 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
-void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   struct aiocb aiocb;
@@ -77,7 +86,9 @@ void read_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_
 }
 
 void read_data_randomly_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                  const std::vector<uint32_t>& random_indices) {
+                                  const std::vector<uint32_t>& random_indices, bool& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   struct aiocb aiocb;
   memset(&aiocb, 0, sizeof(struct aiocb));
@@ -115,12 +126,11 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
-
-    state.ResumeTiming();
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
@@ -128,8 +138,11 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start));
+      threads[index] = std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start, std::ref(threads_ready_to_be_executed));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -224,21 +237,23 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
-    state.ResumeTiming();
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data),
-                                random_indices));
+      threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -292,12 +307,11 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
-
-    state.ResumeTiming();
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
@@ -305,8 +319,11 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_pread, from, to, fd, read_data_start));
+      threads[index] = (std::thread(read_data_using_pread, from, to, fd, read_data_start, std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -364,20 +381,23 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
-    state.ResumeTiming();
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, fd, std::data(read_data), random_indices));
+      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -443,12 +463,11 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
-
-    state.ResumeTiming();
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
@@ -456,8 +475,11 @@ void FileIOMicroReadBenchmarkFixture::aio_multi_threaded(benchmark::State& state
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_aio, from, to, fd, read_data_start));
+      threads[index] = (std::thread(read_data_using_aio, from, to, fd, read_data_start, std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -529,20 +551,23 @@ void FileIOMicroReadBenchmarkFixture::aio_random_multi_threaded(benchmark::State
   for (auto _ : state) {
     state.PauseTiming();
 
+    bool threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
-    state.ResumeTiming();
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_aio, from, to, fd, std::data(read_data), random_indices));
+      threads[index] = (std::thread(read_data_randomly_using_aio, from, to, fd, std::data(read_data), random_indices, std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
