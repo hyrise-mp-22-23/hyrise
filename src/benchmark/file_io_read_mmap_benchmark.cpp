@@ -284,6 +284,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUE
   }
 }
 
+#ifdef __linux__
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)(benchmark::State& state) {
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   memory_mapped_read_user_space(state, thread_count, RANDOM);
@@ -293,6 +294,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   memory_mapped_read_user_space(state, thread_count, SEQUENTIAL);
 }
+#endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
