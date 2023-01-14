@@ -320,7 +320,6 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
 
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
-<<<<<<< HEAD
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)

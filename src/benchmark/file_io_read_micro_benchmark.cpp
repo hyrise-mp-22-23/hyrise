@@ -732,10 +732,10 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREAD
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
