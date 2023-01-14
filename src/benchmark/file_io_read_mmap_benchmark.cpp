@@ -51,6 +51,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 #else
     else if (mapping_type == UMAP) {
+      setenv("UMAP_PAGE_EVICTORS", std::to_string(thread_count).c_str(), 1);
       map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
@@ -178,6 +179,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     }
 #else
     else if (mapping_type == UMAP) {
+      setenv("UMAP_PAGE_EVICTORS", std::to_string(thread_count).c_str(), 1);
       map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
