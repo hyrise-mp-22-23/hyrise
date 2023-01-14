@@ -294,6 +294,24 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
   const auto thread_count = static_cast<uint16_t>(state.range(1));
   memory_mapped_read_user_space(state, thread_count, SEQUENTIAL);
 }
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)(benchmark::State& state) {
+  const auto thread_count = static_cast<uint16_t>(state.range(1));
+  if (thread_count == 1) {
+     memory_mapped_read_single_threaded(state, UMAP, PRIVATE, RANDOM);
+   } else {
+     memory_mapped_read_multi_threaded(state, UMAP, PRIVATE, thread_count, RANDOM);
+   }
+}
+
+BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)(benchmark::State& state) {
+  const auto thread_count = static_cast<uint16_t>(state.range(1));
+  if (thread_count == 1) {
+    memory_mapped_read_single_threaded(state, UMAP, PRIVATE, RANDOM);
+  } else {
+    memory_mapped_read_multi_threaded(state, UMAP, PRIVATE, thread_count, RANDOM);
+  }
+}
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
@@ -316,6 +334,14 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SE
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
     ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
 #endif
