@@ -9,20 +9,20 @@ MiB = pow(2,20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 64]
 io_types = ["read", "randread"]
-filesizes = ["1000M"]
+filesizes = ["100M", "1000M", "10000M"]
 
-async_io_io_depth = 64
+async_io_io_depth = 16
 ioengine_configs = [
     # ('io_engine', 'additional parameters')
     ("sync", ""),
     ("psync", ""),
     ("mmap", ""),
-    ("io_uring", f"--direct=1 --iodepth={async_io_io_depth}"),
-    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"),
-    ("posixaio", f"--direct=1 --iodepth={async_io_io_depth}"),
+    ("io_uring", f"--iodepth={async_io_io_depth}"),
+    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"), #libaio needs direct_io
+    ("posixaio", f"--iodepth={async_io_io_depth}"),
 ]
 
-num_repetitions = 10
+num_repetitions = 1
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
