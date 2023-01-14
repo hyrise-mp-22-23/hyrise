@@ -102,6 +102,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
   // Set number of threads used by UMAP.                          
   setenv("UMAP_PAGE_FILLERS", std::to_string(thread_count).c_str(), 1);
   setenv("UMAP_PAGE_EVICTORS", std::to_string(thread_count).c_str(), 1);
+  setenv("UMAP_LOG_LEVEL", std::string("ERROR").c_str(), 1);
 
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
