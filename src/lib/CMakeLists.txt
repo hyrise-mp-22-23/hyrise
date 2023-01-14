@@ -656,7 +656,7 @@ set(
     lz4
     magic_enum
     sqlparser
-    libaio
+    aio
     uninitialized_vector
     libzstd_static
     ${CMAKE_DL_LIBS}
