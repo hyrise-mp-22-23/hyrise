@@ -8,8 +8,8 @@ import subprocess
 MiB = pow(2,20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 64]
-io_types = ["read", "randread"]
-filesizes = ["100M", "1000M", "10000M"]
+io_types = ["randread"]
+filesizes = ["100M", "1000M"]
 
 async_io_io_depth = 16
 ioengine_configs = [
@@ -22,7 +22,7 @@ ioengine_configs = [
     ("posixaio", f"--iodepth={async_io_io_depth}"),
 ]
 
-num_repetitions = 1
+num_repetitions = 10
 
 # fio --minimal hardcoded positions
 fio_total_io_pos = 5
