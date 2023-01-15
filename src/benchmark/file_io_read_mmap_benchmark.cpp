@@ -8,14 +8,14 @@ namespace {
 
 // Worker function for threading.
 void read_mmap_chunk_sequential(const size_t from, const size_t to, const uint32_t* map,
-                                std::vector<uint32_t>& read_data, bool& threads_ready_to_be_executed) {
+                                std::vector<uint32_t>& read_data, std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
   memcpy(std::data(read_data) + from, map + from, (to - from) * sizeof(uint32_t));
 }
 
 // Worker function for threading.
 void read_mmap_chunk_random(const size_t from, const size_t to, const uint32_t* map, uint64_t& sum,
-                            const std::vector<uint32_t>& random_indexes, bool& threads_ready_to_be_executed) {
+                            const std::vector<uint32_t>& random_indexes, std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
 
   for (auto index = size_t{0} + from; index < to; ++index) {
@@ -118,12 +118,14 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    auto read_data = std::vector<uint32_t>{};
+    read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, PRIVATE, fd, OFFSET));
+    auto* map = reinterpret_cast<uint32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, PRIVATE, fd, OFFSET));
 
 
     Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
@@ -139,13 +141,15 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
       }
     } else /* if (access_order == SEQUENTIAL) */ {
       madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-        sum += map[index];
-      }
+      memcpy(std::data(read_data),map,NUMBER_OF_ELEMENTS);
     }
 
     state.PauseTiming();
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    if (access_order == SEQUENTIAL){
+      sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+    }
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
