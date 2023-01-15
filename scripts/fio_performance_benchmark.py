@@ -8,8 +8,8 @@ import subprocess
 MiB = pow(2,20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 64]
-io_types = ["randread"]
-filesizes = ["100M", "1000M"]
+io_types = ["read", "randread"]
+filesizes = ["100M", "1000M", "10000M"]
 
 async_io_io_depth = 16
 ioengine_configs = [
