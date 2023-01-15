@@ -342,19 +342,19 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RAN
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
 #endif
 }  // namespace hyrise
