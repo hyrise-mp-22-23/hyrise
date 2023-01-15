@@ -132,7 +132,6 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
 
     auto sum = uint64_t{0};
     if (access_order == RANDOM) {
-      madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
       state.PauseTiming();
       const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
       state.ResumeTiming();
@@ -140,13 +139,14 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
         sum += map[random_indexes[index]];
       }
     } else /* if (access_order == SEQUENTIAL) */ {
-      madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      memcpy(std::data(read_data),map,NUMBER_OF_ELEMENTS);
+      memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
     }
 
     state.PauseTiming();
     if (access_order == SEQUENTIAL){
-      sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+        sum += read_data[index];
+      }
     }
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
                                    " Expected: " + std::to_string(control_sum) + ".");
@@ -359,19 +359,19 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RAN
     ->UseRealTime();
 
 #ifdef __linux__
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
 //    ->ArgsProduct({{1000}, {1, 2}})
 //    ->UseRealTime();
-//
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
+
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
 //    ->ArgsProduct({{1000}, {1, 2}})
 //    ->UseRealTime();
-//
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
+
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
 //    ->ArgsProduct({{1000}, {1, 2}})
 //    ->UseRealTime();
-//
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
+
+// BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
 //    ->ArgsProduct({{1000}, {1, 2}})
 //    ->UseRealTime();
 #endif
