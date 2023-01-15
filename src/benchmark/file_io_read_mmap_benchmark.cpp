@@ -7,18 +7,17 @@
 namespace {
 
 // Worker function for threading.
-void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum, bool& threads_ready_to_be_executed) {
-  while(!threads_ready_to_be_executed){}
-  for (auto index = size_t{0} + from; index < to; ++index) {
-    sum += map[index];
-  }
+void read_mmap_chunk_sequential(const size_t from, const size_t to, const uint32_t* map,
+                                std::vector<uint32_t>& read_data, bool& threads_ready_to_be_executed) {
+  while (!threads_ready_to_be_executed) {}
+  memcpy(std::data(read_data) + from, map + from, (to - from) * sizeof(uint32_t));
 }
 
 // Worker function for threading.
-void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
+void read_mmap_chunk_random(const size_t from, const size_t to, const uint32_t* map, uint64_t& sum,
                             const std::vector<uint32_t>& random_indexes, bool& threads_ready_to_be_executed) {
-  while(!threads_ready_to_be_executed){}
-  
+  while (!threads_ready_to_be_executed) {}
+
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
   }
@@ -38,15 +37,17 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    auto read_data = std::vector<uint32_t>{};
+    read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+    auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
 
     if (mapping_type == MMAP) {
-      map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     }
 #ifdef __APPLE__
     else {
@@ -54,7 +55,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 #else
     else if (mapping_type == UMAP) {
-      map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
     }
@@ -73,13 +74,16 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
       }
     } else /* if (access_order == SEQUENTIAL) */ {
       madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-        sum += map[index];
-      }
+
+      memcpy(std::data(read_data), map, NUMBER_OF_BYTES);
     }
 
     state.PauseTiming();
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    if (access_order == SEQUENTIAL) {
+      sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+    }
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
 
     // Remove memory mapping after job is done.
@@ -96,6 +100,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
     }
 #endif
   }
+
   close(fd);
 }
 
@@ -112,6 +117,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    auto read_data = std::vector<uint32_t>{};
+    read_data.resize(NUMBER_OF_ELEMENTS);
     auto sums = std::vector<uint64_t>(thread_count);
     bool threads_ready_to_be_executed = false;
     state.ResumeTiming();
@@ -119,10 +126,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+    auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
 
     if (mapping_type == MMAP) {
-      map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     }
 #ifdef __APPLE__
     else {
@@ -130,7 +137,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     }
 #else
     else if (mapping_type == UMAP) {
-      map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
     }
@@ -152,7 +159,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes, std::ref(threads_ready_to_be_executed));
+        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes,
+                                 std::ref(threads_ready_to_be_executed));
       }
     } else {
       if (mapping_type == MMAP) {
@@ -164,7 +172,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]), std::ref(threads_ready_to_be_executed));
+        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(read_data),
+                                 std::ref(threads_ready_to_be_executed));
       }
     }
 
@@ -176,9 +185,15 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
       threads[index].join();
     }
     state.PauseTiming();
-    const auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
+    auto sum = uint64_t{0};
+    if (access_order == SEQUENTIAL) {
+      sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
+    } else {
+      sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
+    }
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
-    Assert(control_sum == total_sum, "Sanity check failed: Not the same result");
     state.ResumeTiming();
 
     if (mapping_type == MMAP) {
@@ -263,6 +278,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
@@ -270,6 +286,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RA
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
@@ -283,4 +300,5 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RA
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
     ->UseRealTime();
 #endif
+
 }  // namespace hyrise
