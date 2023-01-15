@@ -345,34 +345,34 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48, 64}})
+    ->ArgsProduct({{1000}, {1, 2}})
     ->UseRealTime();
 #endif
 
