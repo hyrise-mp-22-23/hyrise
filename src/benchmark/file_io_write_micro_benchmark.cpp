@@ -8,7 +8,7 @@
 
 namespace hyrise {
 
-void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, std::atomic<bool>& threads_ready_to_be_executed) {
   while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
@@ -18,7 +18,7 @@ void write_data_using_write(const size_t from, const size_t to, int32_t fd, uint
          close_file_and_return_error_message(fd, "Write error: ", errno));
 }
 
-void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, std::atomic<bool>& threads_ready_to_be_executed) {
   while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
@@ -27,7 +27,7 @@ void write_data_using_pwrite(const size_t from, const size_t to, int32_t fd, uin
          close_file_and_return_error_message(fd, "Write error: ", errno));
 }
 
-void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, bool& threads_ready_to_be_executed) {
+void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32_t* data_to_write_start, std::atomic<bool>& threads_ready_to_be_executed) {
   while(!threads_ready_to_be_executed){}
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
@@ -85,7 +85,7 @@ void FileIOWriteMicroBenchmarkFixture::write_non_atomic_multi_threaded(benchmark
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    bool threads_ready_to_be_executed = false;
+    std::atomic<bool> threads_ready_to_be_executed = false;
 
     auto* data_to_write_start = std::data(data_to_write);
 
@@ -153,7 +153,7 @@ void FileIOWriteMicroBenchmarkFixture::pwrite_atomic_multi_threaded(benchmark::S
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    bool threads_ready_to_be_executed = false;
+    std::atomic<bool> threads_ready_to_be_executed = false;
     state.ResumeTiming();
 
     auto* data_to_write_start = std::data(data_to_write);
@@ -241,7 +241,7 @@ void FileIOWriteMicroBenchmarkFixture::aio_multi_threaded(benchmark::State& stat
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    bool threads_ready_to_be_executed = false;
+    std::atomic<bool> threads_ready_to_be_executed = false;
 
     auto* data_to_write_start = std::data(data_to_write);
 
