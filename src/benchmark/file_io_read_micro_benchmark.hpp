@@ -2,6 +2,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <numeric>
+#include <filesystem>
 
 #include "micro_benchmark_basic_fixture.hpp"
 
@@ -10,19 +11,24 @@ namespace hyrise {
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
   void SetUp(::benchmark::State& state) override {
-    NUMBER_OF_BYTES = _align_to_pagesize(state.range(0));
+    auto size_parameter = state.range(0);
+    NUMBER_OF_BYTES = _align_to_pagesize(size_parameter);
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
+    filename = ("benchmark_file_" + std::to_string(size_parameter) + ".txt").c_str();
 
     // each int32_t contains four bytes
     numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
-    auto fd = int32_t{};
-    Assert(((fd = creat(filename, O_WRONLY)) >= 1), close_file_and_return_error_message(fd, "Create error: ", errno));
-    chmod(filename, S_IRWXU);  // enables owner to rwx file
-    Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
-           close_file_and_return_error_message(fd, "Write error: ", errno));
-    close(fd);
+    if (!std::filesystem::exists(filename)) {
+        auto fd = int32_t{};
+        Assert(((fd = creat(filename, O_WRONLY)) >= 1), close_file_and_return_error_message(fd, "Create error: ", errno));
+        chmod(filename, S_IRWXU);  // enables owner to rwx file
+        Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
+               close_file_and_return_error_message(fd, "Write error: ", errno));
+        close(fd);
+    }
+
   }
 
   void TearDown(::benchmark::State& /*state*/) override {
@@ -30,7 +36,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   }
 
  protected:
-  const char* filename = "file.txt";  // const char* needed for C-System Calls
+  const char* filename;  // const char* needed for C-System Calls
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
   uint64_t control_sum = uint64_t{0};
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
