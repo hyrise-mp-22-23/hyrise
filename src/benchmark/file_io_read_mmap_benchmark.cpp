@@ -1,6 +1,8 @@
 #include "file_io_read_micro_benchmark.hpp"
 
+#ifdef __linux__
 #include <umap/umap.h>
+#endif
 
 namespace {
 
@@ -23,9 +25,13 @@ void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* m
 
 namespace hyrise {
 
-void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchmark::State& state,
+                                                                         const int mapping_type,
+                                                                         const int map_mode_flag,
+                                                                         const int access_order) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -39,25 +45,35 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 
     if (mapping_type == MMAP) {
       map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
-    } else if (mapping_type == UMAP) {
+    }
+#ifdef __APPLE__
+    else {
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
+    }
+#else
+    else if (mapping_type == UMAP) {
       map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
     }
+#endif
 
-    Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
-
-    if (mapping_type == MMAP) {
-      if (access_order == RANDOM) {
-        madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
-      } else /* if (access_order == SEQUENTIAL) */ {
-        madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      }
-    }
+    Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
 
     auto sum = uint64_t{0};
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      sum += map[index];
+    if (access_order == RANDOM) {
+      madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
+      state.PauseTiming();
+      const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
+      state.ResumeTiming();
+      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+        sum += map[random_indexes[index]];
+      }
+    } else /* if (access_order == SEQUENTIAL) */ {
+      madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
+      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+        sum += map[index];
+      }
     }
 
     state.PauseTiming();
@@ -66,18 +82,28 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 
     // Remove memory mapping after job is done.
     if (mapping_type == MMAP) {
-      Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } else /* if (mapping_type == UMAP) */ {
-      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } 
+      Assert((munmap(map, NUMBER_OF_BYTES) == 0), close_file_and_return_error_message(fd, "Unmapping failed: ", errno));
+    }
+#ifdef __APPLE__
+    else {
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
+    }
+#else
+    else /* if (mapping_type == UMAP) */ {
+      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), close_file_and_return_error_message(fd, "Unmapping failed: ", errno));
+    }
+#endif
   }
-
   close(fd);
 }
 
-void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmark::State& state, const int mapping_type, const int map_mode_flag, const uint16_t thread_count, const int access_order) {
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmark::State& state, const int mapping_type,
+                                                                        const int map_mode_flag,
+                                                                        const uint16_t thread_count,
+                                                                        const int access_order) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), fail_and_close_file(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   auto threads = std::vector<std::thread>(thread_count);
   const auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
@@ -95,13 +121,20 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 
     if (mapping_type == MMAP) {
       map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
-    } else if (mapping_type == UMAP) {
+    }
+#ifdef __APPLE__
+    else {
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
+    }
+#else
+    else if (mapping_type == UMAP) {
       map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
     }
+#endif
 
-    Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+    Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
 
     if (access_order == RANDOM) {
       state.PauseTiming();
@@ -148,10 +181,17 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 
     // Remove memory mapping after job is done.
     if (mapping_type == MMAP) {
-      Assert((munmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } else /* if (mapping_type == UMAP) */ {
-      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), fail_and_close_file(fd, "Unmapping failed: ", errno));
-    } 
+      Assert((munmap(map, NUMBER_OF_BYTES) == 0), close_file_and_return_error_message(fd, "Unmapping failed: ", errno));
+    }
+#ifdef __APPLE__
+    else {
+      Fail("Error: Mapping type invalid or not supported on Apple platforms.");
+    }
+#else
+    else /* if (mapping_type == UMAP) */ {
+      Assert((uunmap(map, NUMBER_OF_BYTES) == 0), close_file_and_return_error_message(fd, "Unmapping failed: ", errno));
+    }
+#endif
     state.ResumeTiming();
   }
 
@@ -213,19 +253,20 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 }
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 24, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
+#ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
@@ -233,5 +274,5 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SE
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
     ->ArgsProduct({{100}, {1, 2, 4, 8, 16, 32}})
     ->UseRealTime();
-
+#endif
 }  // namespace hyrise
