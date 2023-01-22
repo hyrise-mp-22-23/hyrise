@@ -148,7 +148,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -192,7 +193,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
 
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -220,7 +222,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark:
 
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -257,7 +260,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -302,7 +306,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -327,7 +332,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   auto threads = std::vector<std::thread>(thread_count);
   auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
@@ -367,7 +373,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
 
 void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -399,7 +406,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
 void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchmark::State& state,
                                                                          uint16_t thread_count) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   auto threads = std::vector<std::thread>(thread_count);
   auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
@@ -441,7 +449,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
 #ifdef __linux__
 void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
-  Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+  Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+         close_file_and_return_error_message(fd, "Open error: ", errno));
 
   // The context is shared among threads.
   io_context_t ctx;
@@ -500,7 +509,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -543,7 +552,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -684,24 +693,24 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
-    ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 #endif
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();

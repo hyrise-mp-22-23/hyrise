@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <algorithm>
 #include <cstring>
@@ -23,8 +25,13 @@ void micro_benchmark_clear_cache() {
 void micro_benchmark_clear_disk_cache() {
   // TODO(phoenix): better documentation of which caches we are clearing
   sync();
-  std::ofstream ofs("/proc/sys/vm/drop_caches");
-  ofs << "3" << std::endl;
+#ifdef __APPLE__
+  auto return_val =  system("purge");
+  (void) return_val;
+#else
+  auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
+  (void) return_val;
+#endif
 }
 
 void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
