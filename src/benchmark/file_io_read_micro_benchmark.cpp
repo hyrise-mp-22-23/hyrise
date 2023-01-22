@@ -85,7 +85,9 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
 }
 
 #ifdef __linux__
-void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start,
+                            std::atomic<bool>& verbose) {
+  auto start = std::chrono::high_resolution_clock::now();
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
   const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
@@ -122,10 +124,15 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
          close_file_and_return_error_message(fd, "Asynchronous read using io_getevents failed. ", events_count));
 
   io_destroy(ctx);
+  if (verbose){
+      print_execution_time(start);
+  }
 }
 
 void read_data_randomly_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd,
-                                     uint32_t* read_data_start, const std::vector<uint32_t>& random_indices) {
+                                     uint32_t* read_data_start, const std::vector<uint32_t>& random_indices,
+                                     std::atomic<bool>& verbose) {
+  auto start = std::chrono::high_resolution_clock::now();
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
   const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
@@ -167,6 +174,9 @@ void read_data_randomly_using_libaio(const size_t thread_from, const size_t thre
          close_file_and_return_error_message(fd, "Asynchronous read using io_getevents failed. ", events_count));
 
   io_destroy(ctx);
+  if (verbose){
+      print_execution_time(start);
+  }
 }
 #endif
 
@@ -557,7 +567,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
       if (to >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_libaio, from, to, filedescriptors[index], std::data(read_data)));
+      threads[index] = (std::thread(read_data_using_libaio, from, to, filedescriptors[index], std::data(read_data),
+                                    std::ref(verbose)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -602,7 +613,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_libaio, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+                                    std::data(read_data), random_indices, std::ref(verbose)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
