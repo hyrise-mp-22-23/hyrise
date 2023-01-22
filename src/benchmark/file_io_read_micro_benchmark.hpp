@@ -24,8 +24,27 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
       Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
              close_file_and_return_error_message(fd, "Create error: ", errno));
       chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
-      Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
-             close_file_and_return_error_message(fd, "Write error: ", errno));
+
+      std::cout << "Starting loop. " << std::endl;
+
+      if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
+          auto elements_written = uint64_t {0};
+          auto elements_remaining = NUMBER_OF_ELEMENTS;
+          while (elements_remaining > 0) {
+              auto elements_to_write = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+              auto buffer = std::vector<uint32_t>(numbers.begin() + elements_written, numbers.begin() + elements_written + elements_to_write);
+              auto bytes_to_write = elements_to_write * uint32_t_size;
+              auto bytes_written_this_iteration = static_cast<uint64_t>(write(fd, std::data(buffer), bytes_to_write));
+              Assert((bytes_written_this_iteration == bytes_to_write),
+                     close_file_and_return_error_message(fd, "Write error: ", errno));
+              elements_written += elements_to_write;
+              elements_remaining -= elements_to_write;
+              std::cout << "elements_remaining: " << elements_remaining << std::endl;
+          }
+      }else{
+          Assert((static_cast<uint64_t>(write(fd, std::data(numbers), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
+                 close_file_and_return_error_message(fd, "Write error: ", errno));
+      }
     } else {
       Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
              close_file_and_return_error_message(fd, "Open error: ", errno));
@@ -39,6 +58,8 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
  protected:
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
+  // MAX_NUMBER_OF_ELEMENTS = NUMBER_OF_ELEMENTS of parameter 1000.
+  const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{250000384};
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
