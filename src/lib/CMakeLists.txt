@@ -656,7 +656,6 @@ set(
     lz4
     magic_enum
     sqlparser
-    aio
     uninitialized_vector
     libzstd_static
     ${CMAKE_DL_LIBS}
@@ -664,7 +663,7 @@ set(
 )
 
 if (NOT APPLE)
-    set(LIBRARIES ${LIBRARIES} atomic pthread umap)
+    set(LIBRARIES ${LIBRARIES} atomic pthread umap aio)
 endif()
 
 if (${ENABLE_NUMA_SUPPORT})

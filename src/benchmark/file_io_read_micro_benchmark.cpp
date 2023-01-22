@@ -1,5 +1,7 @@
 #include <fcntl.h>
+#ifdef __linux__
 #include <libaio.h>
+#endif
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -55,6 +57,7 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
   }
 }
 
+#ifdef __linux__
 void read_data_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd, uint32_t* read_data_start) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
@@ -138,6 +141,7 @@ void read_data_randomly_using_libaio(const size_t thread_from, const size_t thre
 
   io_destroy(ctx);
 }
+#endif
 
 // TODO(everyone): Reduce LOC by making this function more modular (do not repeat it with different function inputs).
 void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count) {
@@ -434,6 +438,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   close(fd);
 }
 
+#ifdef __linux__
 void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(benchmark::State& state) {
   auto fd = int32_t{};
   Assert(((fd = open(filename, O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
@@ -578,6 +583,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
     close(filedescriptors[index]);
   }
 }
+#endif
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
@@ -615,6 +621,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED
   }
 }
 
+#ifdef __linux__
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)(benchmark::State& state) {
   auto thread_count = static_cast<uint16_t>(state.range(1));
   if (thread_count == 1) {
@@ -628,6 +635,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)(benc
   auto thread_count = static_cast<uint16_t>(state.range(1));
   libaio_random_read(state, thread_count);
 }
+#endif
 
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(benchmark::State& state) {
   for (auto _ : state) {
@@ -688,12 +696,14 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREAD
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
+#ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
     ->ArgsProduct({{1000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
+#endif
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
 
