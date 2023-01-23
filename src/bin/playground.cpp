@@ -17,6 +17,15 @@
 
 using namespace hyrise;  // NOLINT
 
+struct file_header {
+  uint16_t storage_format_version_id;
+  uint16_t chunk_count;
+  uint16_t column_count;
+  uint32_t row_count;
+  std::array<uint32_t, 50> chunk_ids;
+  std::array<uint32_t, 50> chunk_offset_ends;
+};
+
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
   return message + std::strerror(error_num);
