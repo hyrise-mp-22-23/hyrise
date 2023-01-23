@@ -1,7 +1,9 @@
 #include <fcntl.h>
+#include <iostream>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <filesystem>
+#include <fstream>
 #include <numeric>
 #include <span>
 
@@ -11,6 +13,30 @@ namespace hyrise {
 
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
+
+    void create_large_file(std::string original_file_name, std::string copied_file_name, uint32_t scale_factor){
+        std::ifstream source(original_file_name, std::ios::binary);
+        std::ofstream destination(copied_file_name, std::ios::binary);
+
+        if (source.is_open() && destination.is_open()) {
+            // Create a buffer to hold the contents of the original file
+            std::vector<char> buffer(std::istreambuf_iterator<char>(source), {});
+
+            // Write the contents of the buffer to the destination file
+            destination.write(buffer.data(), buffer.size());
+
+            // Append the contents of the buffer 9 times
+            for (auto index = uint32_t{0}; index < scale_factor-1; ++index) {
+                destination.write(buffer.data(), buffer.size());
+            }
+
+            source.close();
+            destination.close();
+        } else {
+            std::cout << "Could not open one of the files" << std::endl;
+        }
+    }
+
   void SetUp(::benchmark::State& state) override {
     const auto size_parameter = state.range(0);
     NUMBER_OF_BYTES = _align_to_pagesize(size_parameter);
@@ -19,29 +45,16 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
     auto fd = int32_t{};
     if (!std::filesystem::exists(filename)) {
-      numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
-      control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
-      Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
-             close_file_and_return_error_message(fd, "Create error: ", errno));
-      chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
-
-      std::cout << "Starting loop. " << std::endl;
-
       if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
-          auto elements_written = uint64_t {0};
-          auto elements_remaining = NUMBER_OF_ELEMENTS;
-          while (elements_remaining > 0) {
-              auto elements_to_write = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-              auto buffer = std::vector<uint32_t>(numbers.begin() + elements_written, numbers.begin() + elements_written + elements_to_write);
-              auto bytes_to_write = elements_to_write * uint32_t_size;
-              auto bytes_written_this_iteration = static_cast<uint64_t>(write(fd, std::data(buffer), bytes_to_write));
-              Assert((bytes_written_this_iteration == bytes_to_write),
-                     close_file_and_return_error_message(fd, "Write error: ", errno));
-              elements_written += elements_to_write;
-              elements_remaining -= elements_to_write;
-              std::cout << "elements_remaining: " << elements_remaining << std::endl;
-          }
+          auto original_file = "benchmark_data_1000.txt";
+          create_large_file(original_file, filename, static_cast<uint32_t>(size_parameter/1000));
       }else{
+          numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
+          control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
+
+          Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
+                 close_file_and_return_error_message(fd, "Create error: ", errno));
+          chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
           Assert((static_cast<uint64_t>(write(fd, std::data(numbers), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
                  close_file_and_return_error_message(fd, "Write error: ", errno));
       }
