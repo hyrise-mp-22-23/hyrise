@@ -68,8 +68,8 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                    const std::vector<uint32_t>& random_indices, std::atomic<bool>& verbose,
-                                    std::atomic<bool>& threads_ready_to_be_executed) {
+                                    const std::vector<uint32_t>& random_indices,
+                                    std::atomic<bool>& threads_ready_to_be_executed,  std::atomic<bool>& verbose) {
     while(!threads_ready_to_be_executed){}
     auto start = std::chrono::high_resolution_clock::now();
     const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
@@ -328,7 +328,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data), random_indices,
-                                    std::ref(threads_ready_to_be_executed), std::(verbose)));
+                                    std::ref(threads_ready_to_be_executed), std::ref(verbose)));
     }
 
     state.ResumeTiming();
@@ -404,7 +404,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_using_pread, from, to, filedescriptors[index], read_data_start,
-                                    std::ref(threads_ready_to_be_executed), std::(verbose)));
+                                    std::ref(threads_ready_to_be_executed), std::ref(verbose)));
     }
 
     state.ResumeTiming();
@@ -486,7 +486,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index], std::data(read_data), random_indices,
-                                    std::ref(threads_ready_to_be_executed), std::data(verbose)));
+                                    std::ref(threads_ready_to_be_executed), std::ref(verbose)));
     }
 
     state.ResumeTiming();
