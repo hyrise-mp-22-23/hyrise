@@ -48,16 +48,16 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
       if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
           auto original_file = "benchmark_data_1000.txt";
           create_large_file(original_file, filename, static_cast<uint32_t>(size_parameter/1000));
+          chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
       }else{
           numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
           Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
                  close_file_and_return_error_message(fd, "Create error: ", errno));
-
+          chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
           Assert((static_cast<uint64_t>(write(fd, std::data(numbers), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
                  close_file_and_return_error_message(fd, "Write error: ", errno));
       }
     }
-  chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
   Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
          close_file_and_return_error_message(fd, "Open error: ", errno));
   const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, 0));
