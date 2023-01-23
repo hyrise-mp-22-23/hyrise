@@ -1,67 +1,224 @@
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <fstream>
-
+#include <iostream>
+#include <numeric>
+#include <vector>
 #include "types.hpp"
-#include "storage/value_segment.hpp"
-#include "storage/chunk.hpp"
+
+#include <unistd.h>
+
 #include "storage/chunk_encoder.hpp"
-
-
+#include "storage/dictionary_segment.hpp"
+#include "storage/value_segment.hpp"
+#include "storage/base_dictionary_segment.hpp"
+#include "storage/create_iterable_from_segment.hpp"
+#include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 
 using namespace hyrise;  // NOLINT
 
-struct file_header {
-  uint16_t storage_format_version_id;
-  uint16_t chunk_count;
-  ColumnID column_count;
-  ChunkOffset row_count;
-  std::array<ChunkID, 50> chunk_ids;
-  std::array<ChunkOffset, 50> chunk_offset_ends;
-};
-
-// struct chunk_header {
-//   ColumnID segment_count;
-//   ChunkOffset row_count;
-//   std::vector<DataType> data_types;
-// };
-
-// chunk_header create_chunk_header(const std::shared_ptr<Chunk> chunk) {
-//   auto result = chunk_header{};
-
-//   result.segment_count = chunk->column_count();
-//   result.row_count = chunk->size();
-
-//   for (auto chunk_index = ColumnID{0}; chunk_index < result.segment_count; ++chunk_index) {
-//     const auto segment = chunk->get_segment(chunk_index);
-//     result.data_types.emplace_back(segment->data_type());
-//   }
-
-//   return result;
-// }
-
-size_t get_file_size(std::string filename) {
-  std::ifstream in_file(filename, std::ios::binary);
-  Assert(in_file, "File does not exist you lovely human being!");
-  in_file.seekg(0, std::ios::end);
-  return in_file.tellg();
+std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
+  close(fd);
+  return message + std::strerror(error_num);
 }
 
-file_header create_file_header(const std::vector<std::shared_ptr<Chunk>>& chunks) {
-  auto result = file_header{};
-  
-  result.storage_format_version_id = 0;
-  result.chunk_count = chunks.size();
-  result.column_count = chunks[0]->column_count();
-  result.row_count = chunks[0]->size();
-  std::cout << "###" << result.chunk_count << std::endl;
+std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count, const uint32_t column_count) {
+  /*
+   * Create a chunk with index-times repeating elements in each segment.
+   * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...
+   * Dictionary-encode each segment and return dictionary encoded chunk.
+   */
 
-  for (auto chunk_index = size_t{0}; chunk_index < result.chunk_count; ++chunk_index) {
-    result.chunk_ids[chunk_index] = chunk_index;
+  auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
+  const auto num_values = int64_t{column_count * row_count};
+
+  std::cout << "We create a dictionary-encoded chunk with " << column_count << " columns, " << row_count << " rows and thus "
+            << num_values << " values." << std::endl;
+
+  for (auto segment_index = uint32_t{0}; segment_index < column_count; ++segment_index) {
+    auto new_value_segment = std::make_shared<ValueSegment<int>>();
+
+    auto current_value = int32_t{0};
+    auto value_count = uint32_t{1}; //start 1-indexed to avoid issues with modulo operations
+
+    while (value_count - 1 < row_count) { //as we start 1-indexed we need to adapt while-condition to create row-count many elements
+      new_value_segment->append(current_value);
+
+      //create segment-index many duplicates of each value in the segment
+      if (value_count % (segment_index + 1) == 0) {
+        ++current_value;
+      }
+      ++value_count;
+    }
+
+    auto ds_int = ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
+    segments.emplace_back(ds_int);
   }
 
-  return result;
+  const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
+
+  return dictionary_encoded_chunk;
 }
 
+/*
+ * Copied binary writing functions from `binary_writer.cpp`
+ */
+
+template <typename T>
+void export_value(std::ofstream& ofstream, const T& value) {
+  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+template <typename T, typename Alloc>
+void export_values(std::ofstream& ofstream, const std::vector<T, Alloc>& values) {
+  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+}
+
+// needed for attribute vector which is stored in a compact manner
+void export_compact_vector(std::ofstream& ofstream, const pmr_compact_vector& values) {
+  //adapted to uint32_t format of later created map (see comment in `write_dict_segment`)
+  export_value(ofstream, static_cast<uint32_t>(values.bits()));
+  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+}
+
+template <typename T>
+CompressedVectorTypeID infer_compressed_vector_type_id(
+  const AbstractEncodedSegment& abstract_encoded_segment) {
+  uint8_t compressed_vector_type_id = 0u;
+  resolve_encoded_segment_type<T>(abstract_encoded_segment, [&compressed_vector_type_id](auto& typed_segment) {
+    const auto compressed_vector_type = typed_segment.compressed_vector_type();
+    Assert(compressed_vector_type, "Expected Segment to use vector compression");
+    switch (*compressed_vector_type) {
+      case CompressedVectorType::FixedWidthInteger4Byte:
+      case CompressedVectorType::FixedWidthInteger2Byte:
+      case CompressedVectorType::FixedWidthInteger1Byte:
+      case CompressedVectorType::BitPacking:
+        compressed_vector_type_id = static_cast<uint8_t>(*compressed_vector_type);
+        break;
+      default:
+      Fail("Export of specified CompressedVectorType is not yet supported");
+    }
+  });
+  return compressed_vector_type_id;
+}
+
+void export_compressed_vector(std::ofstream& ofstream, const CompressedVectorType type,
+                                             const BaseCompressedVector& compressed_vector) {
+  switch (type) {
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data());
+      return;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data());
+      return;
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data());
+      return;
+    case CompressedVectorType::BitPacking:
+      export_compact_vector(ofstream, dynamic_cast<const BitPackingVector&>(compressed_vector).data());
+      return;
+    default:
+    Fail("Any other type should have been caught before.");
+  }
+}
+
+void write_dict_segment(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& filename) {
+  /*
+   * Write dict segment to given file using the following format:
+   * 1. Number of elements in dictionary
+   * 2. Number of elements in attribute_vector
+   * 3. AttributeVectorCompressionID aka. size of int used in attribute vector
+   * 3. Dictionary values
+   * 4. Attribute_vector values
+   *
+   * For this exercise we assume an <int>-DictionarySegment with an FixedWidthIntegerVector<uint16_t> attribute_vector.
+   * As a next step we should use the AttributeVectorCompressionID to define the type of the FixedWidthIntegerVector
+   * and perhaps also write out the type of the DictionarySegment.
+   */
+
+  std::ofstream chunk_file;
+  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
+
+  // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
+  // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
+  export_value(chunk_file, static_cast<uint32_t>(segment->dictionary()->size()));
+  export_value(chunk_file, static_cast<uint32_t>(segment->attribute_vector()->size()));
+
+  const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
+  export_value(chunk_file, compressed_vector_type_id);
+
+  export_values<int>(chunk_file, *segment->dictionary());
+
+  export_compressed_vector(chunk_file, *segment->compressed_vector_type(),
+                          *segment->attribute_vector());
+  chunk_file.close();
+}
+
+void write_chunk(const std::shared_ptr<Chunk> chunk, const std::string& chunk_filename) {
+  const auto file_extension = ".bin";
+  const auto filename = chunk_filename + file_extension;
+  const auto segment_count = chunk->column_count();
+
+  for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
+    const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(segment_index));
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
+    write_dict_segment(dict_segment, filename);
+  }
+}
+
+std::shared_ptr<Chunk> map_chunk(const std::string& chunk_name, const uint32_t segment_count) {
+  auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
+
+  auto fd = int32_t{};
+  const auto file_extension = ".bin";
+  const auto chunk_filename = chunk_name + file_extension;
+  Assert((fd = open(chunk_filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
+
+  const auto offset = off_t{0};
+
+  // As we store a variable number of bytes per segment the easiest solution is to
+  // obtain the bytes to mmap via a file system call.
+  const auto file_bytes = std::filesystem::file_size(chunk_filename);
+
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, offset));
+  Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
+  close(fd);
+
+  madvise(map, file_bytes, MADV_SEQUENTIAL);
+
+  auto currently_mapped_elements = uint32_t{0};
+  const auto meta_data_elements = uint32_t{3};
+  for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
+    const auto dictionary_size = map[currently_mapped_elements];
+    const auto attribute_vector_size = map[currently_mapped_elements + 1];
+    //const auto encoding_type = map[currently_mapped_elements + 2]; //currently unused, see `write_dict_chunk` comment
+
+    // As a first step we don't use the mmap as the underlying data structure of the DictionarySegment but
+    // copy in-memory from the mmap to the relevant vectors.
+    pmr_vector<int> dictionary_values(dictionary_size);
+    memcpy(dictionary_values.data(), map + (currently_mapped_elements + meta_data_elements), dictionary_size * sizeof(int));
+    auto dictionary = std::make_shared<pmr_vector<int>>(dictionary_values);
+
+    pmr_vector<uint16_t> attribute_values(attribute_vector_size);
+    memcpy(attribute_values.data(), map + (currently_mapped_elements + meta_data_elements + dictionary_size), attribute_vector_size * sizeof(uint16_t));
+    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
+
+    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
+    segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+    currently_mapped_elements += meta_data_elements + dictionary_size + attribute_vector_size / 2;
+  }
+
+  const auto chunk = std::make_shared<Chunk>(segments);
+  return chunk;
+}
+
+//void unmap_chunk(dict_chunk_prototype mapped_chunk, const uint32_t mapped_chunk_bytes) {
+//  Assert((munmap(mapped_chunk[0].data(), mapped_chunk_bytes) == 0), "Unmapping failed.");
+//}
+
 int main() {
+  std::cout << "Playground started." << std::endl;
+
   auto vs_int = std::make_shared<ValueSegment<int>>();
   vs_int->append(4);
   vs_int->append(6);
@@ -84,50 +241,58 @@ int main() {
 
   chunks.emplace_back(chunk);
 
-  auto test = create_file_header(chunks);
-  std::cout << "+++" << test.chunk_count << std::endl;
+  const auto segment_count = uint32_t{23};
+  const auto row_count = uint32_t{65'000};
+  const auto dictionary_chunk = create_dictionary_segment_chunk(row_count, segment_count);
+  const auto chunk_name = "test_chunk";
 
-  // std::ofstream wf("test.bin", std::ios::out | std::ios::binary);
-  // // Assert(wf, "Cannot open file!");
+  std::remove("test_chunk.bin"); //remove previously written file
+  write_chunk(dictionary_chunk, chunk_name);
+  const auto mapped_chunk = map_chunk(chunk_name, segment_count);
 
-  // auto char_chunk = (char*) &chunk;
-  // wf.write(char_chunk, );
+  // compare sum of column 17 in created and mapped chunk
+  const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(dictionary_chunk->get_segment(ColumnID{16}));
+  auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
 
-  // wf.write((char*) &test.storage_format_version_id, sizeof(test.storage_format_version_id));
-  // wf.write((char*) &test.chunk_count, sizeof(test.chunk_count));
-  // wf.write((char*) test.chunk_ids.data(), sizeof(test.chunk_ids[0]) * test.chunk_ids.size());
-  // wf.write((char*) test.chunk_offset_ends.data(), sizeof(test.chunk_offset_ends[0] * test.chunk_offset_ends.size()));
-  // wf.write((char*) test.chunks.data(), sizeof(test.chunks[0]) * test.chunks.size());
-  // wf.close();
+  auto column_sum_of_created_chunk = uint64_t{};
+  dict_segment_iterable.with_iterators([&](auto it, auto end) {
+    column_sum_of_created_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
+      return accumulator + currentValue.value();
+    });
+  });
 
-  // std::ifstream rf("test.bin", std::ios::out | std::ios::binary);
-  // Assert(rf, "Poooo");
+  std::cout << "Sum of column 17 of created chunk: " << column_sum_of_created_chunk << std::endl;
 
-  // const auto fsize = get_file_size("test.bin");
-  // char* buffer = (char*)malloc(fsize);
-  // (void)buffer;
-  // rf.read((char*)buffer, fsize);
+  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunk->get_segment(ColumnID{16}));
+  auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
 
+  auto column_sum_of_mapped_chunk = uint64_t{};
+  mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
+    column_sum_of_mapped_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
+      return accumulator + currentValue.value();
+    });
+  });
 
-  // for (size_t i = 0; i < fsize; ++i) {
-  //   std::cout << buffer[i];
-  // }
+  std::cout << "Sum of column 17 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
 
-  // auto x = uint16_t{0};
-  // auto y = uint8_t{0};
+  // print row 17 of created and mapped chunk
+  std::cout << "Row 17 of created chunk: ";
+  for (auto column_index = size_t{0}; column_index < segment_count; ++column_index) {
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(dictionary_chunk->get_segment(static_cast<ColumnID>(column_index)));
+    std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
+  }
+  std::cout << std::endl;
 
-  // memcpy(&x, &buffer[0], sizeof(x));
-  // memcpy(&y, &buffer[0], sizeof(y));
+  std::cout << "Row 17 of mapped chunk: ";
+  for (auto column_index = size_t{0}; column_index < segment_count; ++column_index) {
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunk->get_segment(static_cast<ColumnID>(column_index)));
+    std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
+  }
 
-  // std::cout << x << "+++" << fsize << std::endl;
-
-
-  // auto fformat = dynamic_cast<file_format*>(buffer);
-
-  // std::cout << fsize << "+++" << sizeof(file_format) << std::endl;
-
-  // std::cout << loaded_data.storage_format_version_id << std::endl;// "+++" << loaded_data.chunk_count << std::endl;
-
+  // Todo: Unmapping currently doesn't work, because we copy from the map and don't use underlying storage directly.
+  // We either need to get passed a direct map reference or find a way to make DictionarySegments work with std:span.
+  // const auto mapped_chunk_bytes = std::filesystem::file_size("test_chunk.bin");
+  // unmap_chunk(mapped_chunk, mapped_chunk_bytes);
 
   return 0;
 }
