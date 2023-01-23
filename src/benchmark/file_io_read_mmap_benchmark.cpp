@@ -7,7 +7,8 @@
 namespace {
 
 // Worker function for threading.
-void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum) {
+void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum, std::atomic<bool>& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[index];
   }
@@ -15,7 +16,9 @@ void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_
 
 // Worker function for threading.
 void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
-                            const std::vector<uint32_t>& random_indexes) {
+                            const std::vector<uint32_t>& random_indexes, std::atomic<bool>& threads_ready_to_be_executed) {
+  while(!threads_ready_to_be_executed){}
+  
   for (auto index = size_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
   }
@@ -165,6 +168,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
     auto sums = std::vector<uint64_t>(thread_count);
+    std::atomic<bool> threads_ready_to_be_executed = false;
     state.ResumeTiming();
 
     // Getting the mapping to memory.
@@ -198,28 +202,34 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
       if (mapping_type == MMAP) {
         madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
       }
+      state.PauseTiming();
 
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes);
+        threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes, std::ref(threads_ready_to_be_executed));
       }
     } else {
       if (mapping_type == MMAP) {
         madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
       }
+      state.PauseTiming();
 
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
         // std::ref fix from https://stackoverflow.com/a/73642536
-        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]));
+        threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]), std::ref(threads_ready_to_be_executed));
       }
     }
-    for (auto i = size_t{0}; i < thread_count; ++i) {
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
+
+    for (auto index = size_t{0}; index < thread_count; ++index) {
       // Blocks the current thread until the thread identified by *this finishes its execution
-      threads[i].join();
+      threads[index].join();
     }
     state.PauseTiming();
     const auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
