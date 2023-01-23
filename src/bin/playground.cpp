@@ -255,7 +255,30 @@ int main() {
   const auto dictionary_chunk = create_dictionary_segment_chunk(row_count, segment_count);
   const auto chunk_name = "test_chunk";
 
+  auto chunk_ids = std::vector<uint32_t>(50);
+  auto chunk_offset_ends = std::vector<uint32_t>(50);
+  for (auto ind = uint32_t{0}; ind < 50; ++ind) {
+    chunk_ids[ind] = ind;
+    chunk_offset_ends[ind] = ind;
+  }
+
   std::remove("test_chunk.bin"); //remove previously written file
+
+  file_header header;
+  header.storage.format_version_id = 1;
+  header.chunk_count = 50;
+  header.column_count = 3;
+  header.row_count = row_count;
+  header.chunk_ids = chunk_ids;
+  header.chunk_offset_ends = chunk_offset_ends;
+  
+  (void) header;
+
+  std::ofstream chunk_file;
+  chunk_file.open("test_chunk.bin", std::ios::out | std::ios::binary | std::ios::app);
+  chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
+  chunk_file.close();
+
   write_chunk(dictionary_chunk, chunk_name);
   const auto mapped_chunk = map_chunk(chunk_name, segment_count);
 
