@@ -159,7 +159,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
          close_file_and_return_error_message(fd, "Open error: ", errno));
 
   auto threads = std::vector<std::thread>(thread_count);
-  const auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -201,7 +201,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
-        const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
+        auto to = from + batch_size;
+        if (i == thread_count-1){
+            to = NUMBER_OF_ELEMENTS;
+        }
         // std::ref fix from https://stackoverflow.com/a/73642536
         threads[i] = std::thread(read_mmap_chunk_random, from, to, map, std::ref(sums[i]), random_indexes);
       }
@@ -212,7 +215,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
-        const auto to = std::min(from + batch_size, uint64_t{NUMBER_OF_ELEMENTS});
+        auto to = from + batch_size;
+        if (i == thread_count-1){
+            to = NUMBER_OF_ELEMENTS;
+        }
         // std::ref fix from https://stackoverflow.com/a/73642536
         threads[i] = std::thread(read_mmap_chunk_sequential, from, to, map, std::ref(sums[i]));
       }
@@ -224,7 +230,8 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     state.PauseTiming();
     const auto total_sum = std::accumulate(sums.begin(), sums.end(), uint64_t{0});
 
-    Assert(control_sum == total_sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == total_sum, "Sanity check failed: Not the same result. Got: " + std::to_string(total_sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
 
     if (mapping_type == MMAP) {
@@ -319,34 +326,36 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32}})
+    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
     ->UseRealTime();
 #endif
+
 }  // namespace hyrise
