@@ -9,33 +9,34 @@
 
 using namespace hyrise;  // NOLINT
 
-struct file_format {
+struct file_header {
   uint16_t storage_format_version_id;
-  uint8_t chunk_count;
+  uint16_t chunk_count;
+  ColumnID column_count;
+  ChunkOffset row_count;
   std::array<ChunkID, 50> chunk_ids;
   std::array<ChunkOffset, 50> chunk_offset_ends;
 };
 
-struct chunk_header {
-  ColumnID segment_count;
-  ChunkOffset row_count;
-  std::vector<DataType> data_types;
-};
+// struct chunk_header {
+//   ColumnID segment_count;
+//   ChunkOffset row_count;
+//   std::vector<DataType> data_types;
+// };
 
-chunk_header create_chunk_header(const std::shared_ptr<Chunk> chunk) {
-  auto result = chunk_header{};
+// chunk_header create_chunk_header(const std::shared_ptr<Chunk> chunk) {
+//   auto result = chunk_header{};
 
-  result.segment_count = chunk->column_count();
-  result.row_count = chunk->size();
+//   result.segment_count = chunk->column_count();
+//   result.row_count = chunk->size();
 
-  for (auto chunk_index = ColumnID{0}; chunk_index < result.segment_count; ++chunk_index) {
-    const auto segment = chunk->get_segment(chunk_index);
-    result.data_types.emplace_back(segment->data_type());
-  }
+//   for (auto chunk_index = ColumnID{0}; chunk_index < result.segment_count; ++chunk_index) {
+//     const auto segment = chunk->get_segment(chunk_index);
+//     result.data_types.emplace_back(segment->data_type());
+//   }
 
-  return result;
-}
-
+//   return result;
+// }
 
 size_t get_file_size(std::string filename) {
   std::ifstream in_file(filename, std::ios::binary);
@@ -44,11 +45,14 @@ size_t get_file_size(std::string filename) {
   return in_file.tellg();
 }
 
-file_format create_header_for_chunk(const std::vector<std::shared_ptr<Chunk>>& chunks) {
-  auto result = file_format{};
+file_header create_file_header(const std::vector<std::shared_ptr<Chunk>>& chunks) {
+  auto result = file_header{};
   
   result.storage_format_version_id = 0;
   result.chunk_count = chunks.size();
+  result.column_count = chunks[0]->column_count();
+  result.row_count = chunks[0]->size();
+  std::cout << "###" << result.chunk_count << std::endl;
 
   for (auto chunk_index = size_t{0}; chunk_index < result.chunk_count; ++chunk_index) {
     result.chunk_ids[chunk_index] = chunk_index;
@@ -76,9 +80,12 @@ int main() {
   empty_segments.push_back(std::make_shared<ValueSegment<pmr_string>>());
 
   auto chunk = std::make_shared<Chunk>(empty_segments);
+  auto chunks = std::vector<std::shared_ptr<Chunk>>{};
 
-  file_format test;
-  std::cout << sizeof(test.chunk_ids) << std::endl;
+  chunks.emplace_back(chunk);
+
+  auto test = create_file_header(chunks);
+  std::cout << "+++" << test.chunk_count << std::endl;
 
   // std::ofstream wf("test.bin", std::ios::out | std::ios::binary);
   // // Assert(wf, "Cannot open file!");
