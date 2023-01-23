@@ -40,7 +40,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  protected:
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
   std::string filename;
-  std::atomic<bool> verbose = true;
+  std::atomic<bool> verbose = false;
   uint64_t control_sum = uint64_t{0};
   uint32_t NUMBER_OF_BYTES = uint32_t{0};
   uint32_t NUMBER_OF_ELEMENTS = uint32_t{0};
