@@ -202,7 +202,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == thread_count-1){
+        if (i == static_cast<size_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536
@@ -216,7 +216,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
       for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == thread_count-1){
+        if (i == static_cast<size_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536
@@ -326,18 +326,18 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 #ifdef __linux__
