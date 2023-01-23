@@ -765,7 +765,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
