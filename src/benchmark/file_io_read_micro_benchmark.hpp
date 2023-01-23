@@ -48,6 +48,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
       if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
           auto original_file = "benchmark_data_1000.txt";
           create_large_file(original_file, filename, static_cast<uint32_t>(size_parameter/1000));
+          chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
       }else{
           numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
           control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
