@@ -169,7 +169,7 @@ void write_chunk(const std::shared_ptr<Chunk> chunk, const std::string& chunk_fi
   const auto segment_count = chunk->column_count();
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(segment_index));
+    const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
     write_dict_segment(dict_segment, filename);
   }
@@ -265,7 +265,7 @@ int main() {
   std::remove("test_chunk.bin"); //remove previously written file
 
   file_header header;
-  header.storage.format_version_id = 1;
+  header.storage_format_version_id = 1;
   header.chunk_count = 50;
   header.column_count = 3;
   header.row_count = row_count;
@@ -273,6 +273,7 @@ int main() {
   header.chunk_offset_ends = chunk_offset_ends;
   
   (void) header;
+  
 
   std::ofstream chunk_file;
   chunk_file.open("test_chunk.bin", std::ios::out | std::ios::binary | std::ios::app);
@@ -310,14 +311,14 @@ int main() {
   // print row 17 of created and mapped chunk
   std::cout << "Row 17 of created chunk: ";
   for (auto column_index = size_t{0}; column_index < segment_count; ++column_index) {
-    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(dictionary_chunk->get_segment(static_cast<ColumnID>(column_index)));
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(dictionary_chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(column_index))));
     std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
   }
   std::cout << std::endl;
 
   std::cout << "Row 17 of mapped chunk: ";
   for (auto column_index = size_t{0}; column_index < segment_count; ++column_index) {
-    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunk->get_segment(static_cast<ColumnID>(column_index)));
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(column_index))));
     std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
   }
 
