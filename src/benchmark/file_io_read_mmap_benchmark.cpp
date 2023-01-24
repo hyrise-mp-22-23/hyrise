@@ -326,35 +326,35 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{10000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
-    ->ArgsProduct({{10, 100, 1000, 10000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 #endif
 
