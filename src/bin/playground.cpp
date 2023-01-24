@@ -20,8 +20,6 @@ using namespace hyrise;  // NOLINT
 struct file_header {
   uint16_t storage_format_version_id;
   uint16_t chunk_count;
-  uint16_t column_count;
-  uint32_t row_count;
   std::array<uint32_t, 50> chunk_ids;
   std::array<uint32_t, 50> chunk_offset_ends;
 };
@@ -255,8 +253,8 @@ int main() {
   const auto dictionary_chunk = create_dictionary_segment_chunk(row_count, segment_count);
   const auto chunk_name = "test_chunk";
 
-  auto chunk_ids = std::vector<uint32_t>(50);
-  auto chunk_offset_ends = std::vector<uint32_t>(50);
+  auto chunk_ids = std::array<uint32_t, 50>();
+  auto chunk_offset_ends = std::array<uint32_t, 50>();
   for (auto ind = uint32_t{0}; ind < 50; ++ind) {
     chunk_ids[ind] = ind;
     chunk_offset_ends[ind] = ind;
@@ -267,13 +265,8 @@ int main() {
   file_header header;
   header.storage_format_version_id = 1;
   header.chunk_count = 50;
-  header.column_count = 3;
-  header.row_count = row_count;
   header.chunk_ids = chunk_ids;
   header.chunk_offset_ends = chunk_offset_ends;
-  
-  (void) header;
-  
 
   std::ofstream chunk_file;
   chunk_file.open("test_chunk.bin", std::ios::out | std::ios::binary | std::ios::app);
