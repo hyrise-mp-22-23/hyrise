@@ -334,9 +334,16 @@ int main() {
 
   auto chunk_ids = std::array<uint32_t, 50>();
   auto chunk_offset_ends = std::array<uint32_t, 50>();
+
+  auto offset = uint32_t{sizeof(file_header)};
   for (auto ind = uint32_t{0}; ind < 50; ++ind) {
+    // For efficiency, this could be taken out of the loop, but in reality,
+    // we would not have the same chunk written 50 times.
+    const auto segment_offsets = generate_segment_offset_ends(dictionary_chunk);
+    const auto chunk_size = uint32_t{segment_offsets.back()} + 1;
+    offset += chunk_size;
     chunk_ids[ind] = ind;
-    chunk_offset_ends[ind] = ind;
+    chunk_offset_ends[ind] = offset;
   }
 
   std::remove("test_chunk.bin"); //remove previously written file
