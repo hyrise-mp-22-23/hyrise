@@ -24,6 +24,11 @@ struct file_header {
   std::array<uint32_t, 50> chunk_offset_ends;
 };
 
+struct chunk_header {
+  uint16_t row_count;
+  std::vector<uint32_t> segment_offset_ends;
+};
+
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
   return message + std::strerror(error_num);
@@ -43,7 +48,7 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
             << num_values << " values." << std::endl;
 
   for (auto segment_index = uint32_t{0}; segment_index < column_count; ++segment_index) {
-    auto new_value_segment = std::make_shared<ValueSegment<int>>();
+    auto new_value_segment = std::make_shared<ValueSegment<int32_t>>();
 
     auto current_value = int32_t{0};
     auto value_count = uint32_t{1}; //start 1-indexed to avoid issues with modulo operations
@@ -142,7 +147,6 @@ void write_dict_segment(const std::shared_ptr<DictionarySegment<int>> segment, c
    * As a next step we should use the AttributeVectorCompressionID to define the type of the FixedWidthIntegerVector
    * and perhaps also write out the type of the DictionarySegment.
    */
-
   std::ofstream chunk_file;
   chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
 
@@ -154,17 +158,68 @@ void write_dict_segment(const std::shared_ptr<DictionarySegment<int>> segment, c
   const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
   export_value(chunk_file, compressed_vector_type_id);
 
-  export_values<int>(chunk_file, *segment->dictionary());
+  export_values<int32_t>(chunk_file, *segment->dictionary());
 
   export_compressed_vector(chunk_file, *segment->compressed_vector_type(),
                           *segment->attribute_vector());
   chunk_file.close();
 }
 
+std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
+  const auto segment_count = chunk->column_count();
+  auto segment_offset_ends = std::vector<uint32_t>();
+
+  for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
+    // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
+    auto offset_end = uint32_t{12};
+
+    const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
+
+    offset_end += dict_segment->dictionary()->size() * 4;
+
+    const auto attribute_vector = dict_segment->attribute_vector();
+    const auto attribute_vector_type = attribute_vector->type();
+
+    switch (attribute_vector_type) {
+      case CompressedVectorType::FixedWidthInteger4Byte:
+        offset_end += attribute_vector->size() * 4;
+        break;
+      case CompressedVectorType::FixedWidthInteger2Byte:
+        offset_end += attribute_vector->size() * 2;
+        break;
+      case CompressedVectorType::FixedWidthInteger1Byte:
+        offset_end += attribute_vector->size() * 1;
+        break;
+      case CompressedVectorType::BitPacking:
+        offset_end += 4;
+        offset_end += dynamic_cast<const BitPackingVector&>(*attribute_vector).data().bytes();
+        break;
+      default:
+        Fail("Any other type should have been caught before.");
+    }
+    
+    segment_offset_ends.emplace_back(offset_end);
+  }
+  return segment_offset_ends;
+}
+
 void write_chunk(const std::shared_ptr<Chunk> chunk, const std::string& chunk_filename) {
   const auto file_extension = ".bin";
   const auto filename = chunk_filename + file_extension;
   const auto segment_count = chunk->column_count();
+  const auto prior_filesize = std::filesystem::file_size(filename);
+
+  auto offset_ends = std::vector<uint32_t>(segment_count);
+
+  const auto segment_offset_ends = generate_segment_offset_ends(chunk);
+  std::ofstream chunk_file;
+  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
+  export_value(chunk_file, chunk->size());
+  for (auto offset : segment_offset_ends) {
+    export_value(chunk_file, prior_filesize + offset);
+  }
+  chunk_file.close();
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
@@ -273,7 +328,14 @@ int main() {
   chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
   chunk_file.close();
 
-  write_chunk(dictionary_chunk, chunk_name);
+  std::cout << "Headers written"  << std::endl;
+
+  for (auto ind = uint32_t{0}; ind < 50; ++ind) {
+    write_chunk(dictionary_chunk, chunk_name);
+  }
+
+  std::cout << "Chunks written"  << std::endl;
+
   const auto mapped_chunk = map_chunk(chunk_name, segment_count);
 
   // compare sum of column 17 in created and mapped chunk
