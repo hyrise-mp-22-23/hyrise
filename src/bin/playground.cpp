@@ -228,13 +228,37 @@ void write_chunk(const std::shared_ptr<Chunk> chunk, const std::string& chunk_fi
   }
 }
 
-std::shared_ptr<Chunk> map_chunk(const std::string& chunk_name, const uint32_t segment_count) {
+/*
+  GH Copilot wrote the following doc. The "me" in the follow paragraph is me, not GH Copilot.
+  (the last sentence is also not written by GH Copilot (written by GH Copilot)).
+
+  This text was taken from the Wikipedia article on the LZ4 compression algorithm.
+  But actually it was written completely by me. I just wanted to make sure that I 
+  don't get sued for plagiarism. I'm not a lawyer, but I think this is the right way
+  to do it. If you are a lawyer and you think this is not the right way to do it, please
+  contact me. I will then remove this comment and the following paragraph.
+
+  This mmap accesses data via 4 Byte Steps (size of uint32_t). Therefore, we need to convert the
+  offset to the correct position in the file. This is done by subtracting the header size (52 Byte)
+  and adding the chunk index (which starts at 1).
+*/
+uint32_t get_offset_for_chunk(uint32_t* map, const uint32_t chunk_index) {
+  const auto header_size = uint32_t{52};
+  std::cout << "header size: " << header_size << std::endl;
+  const auto offset_position = header_size + chunk_index - 1;
+  std::cout << "Access at index: " << offset_position << std::endl;
+  const auto chunk_offset = *(map + offset_position);
+  std::cout << "Chunk offset: " << chunk_offset << std::endl;
+
+  return chunk_offset;
+}
+
+std::shared_ptr<Chunk> map_chunk(const uint32_t chunk_id, uint32_t segment_count) {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
 
   auto fd = int32_t{};
-  const auto file_extension = ".bin";
-  const auto chunk_filename = chunk_name + file_extension;
-  Assert((fd = open(chunk_filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
+  auto chunk_filename = "test_chunk.bin";
+  Assert((fd = open(chunk_filename, O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
 
   const auto offset = off_t{0};
 
@@ -246,6 +270,8 @@ std::shared_ptr<Chunk> map_chunk(const std::string& chunk_name, const uint32_t s
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
 
+  // This means: Access to the sixth chunk.
+  const auto chunk_offset = get_offset_for_chunk(map, 5);
   madvise(map, file_bytes, MADV_SEQUENTIAL);
 
   auto currently_mapped_elements = uint32_t{0};
@@ -254,25 +280,23 @@ std::shared_ptr<Chunk> map_chunk(const std::string& chunk_name, const uint32_t s
     const auto dictionary_size = map[currently_mapped_elements];
     const auto attribute_vector_size = map[currently_mapped_elements + 1];
     //const auto encoding_type = map[currently_mapped_elements + 2]; //currently unused, see `write_dict_chunk` comment
-
-    // As a first step we don't use the mmap as the underlying data structure of the DictionarySegment but
     // copy in-memory from the mmap to the relevant vectors.
     pmr_vector<int> dictionary_values(dictionary_size);
-    memcpy(dictionary_values.data(), map + (currently_mapped_elements + meta_data_elements), dictionary_size * sizeof(int));
+    memcpy(dictionary_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements), dictionary_size * sizeof(int));
     auto dictionary = std::make_shared<pmr_vector<int>>(dictionary_values);
 
     pmr_vector<uint16_t> attribute_values(attribute_vector_size);
-    memcpy(attribute_values.data(), map + (currently_mapped_elements + meta_data_elements + dictionary_size), attribute_vector_size * sizeof(uint16_t));
+    memcpy(attribute_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements + dictionary_size), attribute_vector_size * sizeof(uint16_t));
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
     currently_mapped_elements += meta_data_elements + dictionary_size + attribute_vector_size / 2;
   }
-
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
 }
+
 
 //void unmap_chunk(dict_chunk_prototype mapped_chunk, const uint32_t mapped_chunk_bytes) {
 //  Assert((munmap(mapped_chunk[0].data(), mapped_chunk_bytes) == 0), "Unmapping failed.");
@@ -336,7 +360,10 @@ int main() {
 
   std::cout << "Chunks written"  << std::endl;
 
-  const auto mapped_chunk = map_chunk(chunk_name, segment_count);
+  std::shared_ptr<Chunk> mapped_chunk;
+  for (auto ind = uint32_t{0}; ind < 50; ++ind) {
+    mapped_chunk = map_chunk(ind + 1, segment_count);
+  }
 
   // compare sum of column 17 in created and mapped chunk
   const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(dictionary_chunk->get_segment(ColumnID{16}));
