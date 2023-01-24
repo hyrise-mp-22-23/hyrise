@@ -67,12 +67,12 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
       state.PauseTiming();
       const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
       state.ResumeTiming();
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
         sum += map[random_indexes[index]];
       }
     } else /* if (access_order == SEQUENTIAL) */ {
       madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
         sum += map[index];
       }
     }
@@ -199,10 +199,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
       }
 
-      for (auto i = size_t{0}; i < thread_count; ++i) {
+      for (auto i = uint64_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == static_cast<size_t>(thread_count-1)){
+        if (i == static_cast<uint64_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536
@@ -213,10 +213,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
       }
 
-      for (auto i = size_t{0}; i < thread_count; ++i) {
+      for (auto i = uint64_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == static_cast<size_t>(thread_count-1)){
+        if (i == static_cast<uint64_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536

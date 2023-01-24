@@ -48,7 +48,7 @@ void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
 /**
  * Generates a vector containing random indexes between 0 and number.
 */
-std::vector<uint32_t> generate_random_indexes(uint32_t number) {
+std::vector<uint32_t> generate_random_indexes(uint64_t number) {
   std::vector<uint32_t> sequence(number);
   std::iota(std::begin(sequence), std::end(sequence), 0);
   auto rng = std::default_random_engine{};
@@ -57,7 +57,7 @@ std::vector<uint32_t> generate_random_indexes(uint32_t number) {
   return sequence;
 }
 
-std::vector<uint32_t> generate_random_positive_numbers(uint32_t size) {
+std::vector<uint32_t> generate_random_positive_numbers(uint64_t size) {
   auto numbers = std::vector<uint32_t>(size);
   for (auto index = size_t{0}; index < size; ++index) {
     numbers[index] = std::rand() % UINT32_MAX;

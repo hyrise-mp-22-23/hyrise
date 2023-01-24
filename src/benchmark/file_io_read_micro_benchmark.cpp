@@ -216,7 +216,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -261,7 +262,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark:
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -296,7 +298,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -343,7 +346,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -387,7 +391,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -431,7 +436,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -464,7 +470,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -509,7 +516,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                 " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -569,7 +577,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
 
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -734,7 +743,8 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                           " Expected: " + std::to_string(control_sum) + ".");
     Assert(&read_data != &numbers, "Sanity check failed: Same reference");
 
     state.ResumeTiming();
@@ -756,7 +766,8 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
-    Assert(control_sum == static_cast<uint64_t>(sum), "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                           " Expected: " + std::to_string(control_sum) + ".");
     Assert(&read_data[0] != &numbers[random_indices[0]], "Sanity check failed: Same reference");
 
     state.ResumeTiming();
