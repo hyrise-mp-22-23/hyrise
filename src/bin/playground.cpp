@@ -25,7 +25,7 @@ struct file_header {
 };
 
 struct chunk_header {
-  uint16_t row_count;
+  uint32_t row_count;
   std::vector<uint32_t> segment_offset_ends;
 };
 
@@ -243,7 +243,8 @@ void write_chunk(const std::shared_ptr<Chunk> chunk, const std::string& chunk_fi
   and adding the chunk index (which starts at 1).
 */
 uint32_t get_offset_for_chunk(uint32_t* map, const uint32_t chunk_index) {
-  const auto header_size = uint32_t{52};
+  if(chunk_index == uint32_t{1}) return uint32_t{101};
+  const auto header_size = uint32_t{51};
   std::cout << "header size: " << header_size << std::endl;
   const auto offset_position = header_size + chunk_index - 1;
   std::cout << "Access at index: " << offset_position << std::endl;
@@ -270,23 +271,24 @@ std::shared_ptr<Chunk> map_chunk(const uint32_t chunk_id, uint32_t segment_count
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
 
-  // This means: Access to the sixth chunk.
-  const auto chunk_offset = get_offset_for_chunk(map, 5);
+  const auto chunk_offset = get_offset_for_chunk(map, chunk_id);
   madvise(map, file_bytes, MADV_SEQUENTIAL);
+  const auto chunk_meta_data_elements = (1 * sizeof(uint16_t)) + (segment_count * 2); //uint32_t{3}; // header of each segment: #Elem, #ElemInAttVec, CompressionType
 
-  auto currently_mapped_elements = uint32_t{0};
-  const auto meta_data_elements = uint32_t{3};
+  auto currently_mapped_elements = static_cast<uint32_t>(chunk_meta_data_elements);
+  const auto meta_data_elements = uint32_t{3}; // header of each segment: #Elem, #ElemInAttVec, CompressionType
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    const auto dictionary_size = map[currently_mapped_elements];
-    const auto attribute_vector_size = map[currently_mapped_elements + 1];
+    // -1 because of offsets being 1 indiziert and here we start 0 indexed
+    const auto dictionary_size = map[chunk_offset + currently_mapped_elements - 1];
+    const auto attribute_vector_size = map[chunk_offset + currently_mapped_elements];
     //const auto encoding_type = map[currently_mapped_elements + 2]; //currently unused, see `write_dict_chunk` comment
     // copy in-memory from the mmap to the relevant vectors.
     pmr_vector<int> dictionary_values(dictionary_size);
-    memcpy(dictionary_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements), dictionary_size * sizeof(int));
+    memcpy(dictionary_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements) - 1, dictionary_size * sizeof(int));
     auto dictionary = std::make_shared<pmr_vector<int>>(dictionary_values);
 
     pmr_vector<uint16_t> attribute_values(attribute_vector_size);
-    memcpy(attribute_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements + dictionary_size), attribute_vector_size * sizeof(uint16_t));
+    memcpy(attribute_values.data(), map + chunk_offset + (currently_mapped_elements + meta_data_elements + dictionary_size) - 1, attribute_vector_size * sizeof(uint16_t));
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
