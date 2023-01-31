@@ -275,18 +275,26 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_id, uint32_t seg
   close(fd);
 
   const auto chunk_offset = get_offset_for_chunk(map, chunk_id);
+
   madvise(map, file_bytes, MADV_SEQUENTIAL);
+  std::vector<int> segment_offsets(SEGMENT_COUNT);
+  for(auto index = uint32_t{0}; index<SEGMENT_COUNT; ++index){
+    segment_offsets[index] = map[chunk_offset + 1 + index];
+  }
+  memcpy(segment_offsets.data(), map + chunk_offset + (uint16_t{1}), SEGMENT_COUNT * sizeof(int) * 2);
+
   const auto chunk_meta_data_element_size = getChunkMetaDataElementSize(segment_count);
 
   auto currently_mapped_elements = static_cast<uint32_t>(chunk_meta_data_element_size);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
+    // TODO Why do we need currently_mapped_elems here? Shouldnt we rather use the segment offset?
     const auto dictionary_size = map[chunk_offset + currently_mapped_elements - 1];
     const auto attribute_vector_size = map[chunk_offset + currently_mapped_elements];
     //const auto encoding_type = map[currently_mapped_elements + 2]; //currently unused, see `write_dict_chunk` comment
     // copy in-memory from the mmap to the relevant vectors.
     pmr_vector<int> dictionary_values(dictionary_size);
-    memcpy(dictionary_values.data(), map + chunk_offset + (currently_mapped_elements + SEGMENT_META_DATA_ELEMENT_COUNT) - 1, dictionary_size * sizeof(int));
+    memcpy(dictionary_values.data(), map + chunk_offset + (currently_mapped_elements + SEGMENT_META_DATA_ELEMENT_COUNT) - 1, dictionary_size * sizeof(uint16_t));
     auto dictionary = std::make_shared<pmr_vector<int>>(dictionary_values);
 
     pmr_vector<uint16_t> attribute_values(attribute_vector_size);
@@ -295,6 +303,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_id, uint32_t seg
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+    // TODO why do we do this?
     currently_mapped_elements += SEGMENT_META_DATA_ELEMENT_COUNT + dictionary_size + attribute_vector_size / 2;
   }
   const auto chunk = std::make_shared<Chunk>(segments);
