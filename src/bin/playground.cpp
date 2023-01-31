@@ -220,7 +220,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   const auto file_extension = ".bin";
   const auto filename = chunk_filename + file_extension;
   const auto segment_count = chunk->column_count();
-  const auto prior_filesize = std::filesystem::file_size(filename);
+  // const auto prior_filesize = std::filesystem::file_size(filename);
 
   auto offset_ends = std::vector<uint32_t>(segment_count);
 
@@ -229,7 +229,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
   export_value(chunk_file, chunk->size());
   for (auto offset : segment_offset_ends) {
-    export_value(chunk_file, prior_filesize + offset);
+    export_value(chunk_file, offset);
   }
   chunk_file.close();
 
