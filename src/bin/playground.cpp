@@ -175,7 +175,7 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
 
 std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
   const auto segment_count = chunk->column_count();
-  auto segment_offset_ends = std::vector<uint32_t>();
+  auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
@@ -206,8 +206,12 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
       default:
         Fail("Any other type should have been caught before.");
     }
-    
-    segment_offset_ends.emplace_back(offset_end);
+
+    if(segment_index == 0){
+      segment_offset_ends[segment_index] = offset_end;
+    } else {
+      segment_offset_ends[segment_index] = segment_offset_ends[segment_index-1] + offset_end;
+    }
   }
   return segment_offset_ends;
 }
