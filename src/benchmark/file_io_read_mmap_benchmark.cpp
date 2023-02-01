@@ -8,15 +8,15 @@ namespace {
 
 // Worker function for threading.
 void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum) {
-  for (auto index = size_t{0} + from; index < to; ++index) {
+  for (auto index = uint64_t{0} + from; index < to; ++index) {
     sum += map[index];
   }
 }
 
 // Worker function for threading.
 void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
-                            const std::vector<uint32_t>& random_indexes) {
-  for (auto index = size_t{0} + from; index < to; ++index) {
+                            const std::vector<uint64_t>& random_indexes) {
+  for (auto index = uint64_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
   }
 }
@@ -128,7 +128,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
       state.PauseTiming();
       const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
       state.ResumeTiming();
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
         sum += map[random_indexes[index]];
       }
     } else /* if (access_order == SEQUENTIAL) */ {

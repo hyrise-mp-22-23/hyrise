@@ -34,45 +34,21 @@ void micro_benchmark_clear_disk_cache() {
 #endif
 }
 
-void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
-  const auto err = aio_error(aiocb);
-  const auto ret = aio_return(aiocb);
-
-  Assert(err == 0, "Error at aio_error(): " + std::strerror(errno));
-
-  Assert(ret == static_cast<int32_t>(expected_bytes),
-         "Error at aio_return(). Got: " + std::to_string(ret) + " Expected: " + std::to_string(expected_bytes) + ".");
-}
-
 
 /**
  * Generates a vector containing random indexes between 0 and number.
 */
-std::vector<uint32_t> generate_random_indexes(uint64_t number) {
-    /*
-    std::vector<uint32_t> sequence(number);
-
-    std::iota(std::begin(sequence), std::end(sequence), 0);
-    auto rng = std::default_random_engine{};
-    std::shuffle(std::begin(sequence), std::end(sequence), rng);
-     */
-  auto indexes = std::vector<uint32_t>(number);
-  auto printed_out = false;
-  for (auto index = size_t{0}; index < number; ++index) {
-      indexes[index] = index % UINT32_MAX;
-      if (index > UINT32_MAX && !printed_out){
-          std::cout << "Aha! Found the error: " << index << std::endl;
-          printed_out = true;
-      }
-  }
+std::vector<uint64_t> generate_random_indexes(uint64_t size) {
+  std::vector<uint64_t> sequence(size);
+  std::iota(std::begin(sequence), std::end(sequence), 0);
   auto rng = std::default_random_engine{};
-  std::shuffle(std::begin(indexes), std::end(indexes), rng);
-  return indexes;
+  std::shuffle(std::begin(sequence), std::end(sequence), rng);
+  return sequence;
 }
 
 std::vector<uint32_t> generate_random_positive_numbers(uint64_t size) {
   auto numbers = std::vector<uint32_t>(size);
-  for (auto index = size_t{0}; index < size; ++index) {
+  for (auto index = uint64_t{0}; index < size; ++index) {
     numbers[index] = std::rand() % UINT32_MAX;
   }
 

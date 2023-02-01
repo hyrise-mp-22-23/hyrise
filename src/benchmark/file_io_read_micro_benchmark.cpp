@@ -43,7 +43,7 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
 }
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                   const std::vector<uint32_t>& random_indices) {
+                                   const std::vector<uint64_t>& random_indices) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
@@ -79,7 +79,7 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                    const std::vector<uint32_t>& random_indices) {
+                                    const std::vector<uint64_t>& random_indices) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
@@ -132,7 +132,7 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
 }
 
 void read_data_randomly_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd,
-                                     uint32_t* read_data_start, const std::vector<uint32_t>& random_indices) {
+                                     uint32_t* read_data_start, const std::vector<uint64_t>& random_indices) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
   const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
@@ -289,7 +289,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     lseek(fd, 0, SEEK_SET);
     // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
     //  incl possible duplicates
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
       Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
              close_file_and_return_error_message(fd, "Read error: ", errno));
@@ -461,7 +461,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
     state.ResumeTiming();
 
     // TODO(everyone) Randomize inidzes to not read all the data but really randomize
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indices[index]) ==
               uint32_t_size),
              close_file_and_return_error_message(fd, "Read error: ", errno));
@@ -759,7 +759,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       read_data[index] = numbers[random_indices[index]];
     }
 
