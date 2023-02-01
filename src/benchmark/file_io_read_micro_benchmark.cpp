@@ -101,8 +101,7 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
   memset(&ctx, 0, sizeof(ctx));
   io_setup(REQUEST_COUNT, &ctx);
 
-  auto batch_size_thread =
-      static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT));
+  const auto batch_size_thread = static_cast<uint64_t>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT);
 
   auto iocbs = std::vector<iocb>(REQUEST_COUNT);
   auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
@@ -318,7 +317,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -408,7 +407,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -489,7 +488,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS) / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -596,7 +595,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -639,7 +638,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();

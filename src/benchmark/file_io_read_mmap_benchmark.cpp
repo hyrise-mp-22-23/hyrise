@@ -159,7 +159,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
          close_file_and_return_error_message(fd, "Open error: ", errno));
 
   auto threads = std::vector<std::thread>(thread_count);
-  const auto batch_size = static_cast<uint64_t>(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count);
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
