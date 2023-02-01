@@ -14,7 +14,7 @@ namespace hyrise {
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
 
-    void create_large_file(std::string original_file_name, std::string copied_file_name, uint32_t scale_factor){
+    void create_large_file(std::string original_file_name, std::string copied_file_name, size_t scale_factor){
         std::ifstream source(original_file_name, std::ios::binary);
         std::ofstream destination(copied_file_name, std::ios::binary);
 
@@ -26,7 +26,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
             destination.write(buffer.data(), buffer.size());
 
             // Append the contents of the buffer 9 times
-            for (auto index = uint32_t{0}; index < scale_factor-1; ++index) {
+            for (auto index = size_t{0}; index < scale_factor-1; ++index) {
                 destination.write(buffer.data(), buffer.size());
             }
 
@@ -47,7 +47,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     if (!std::filesystem::exists(filename)) {
       if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
           auto original_file = "benchmark_data_1000.txt";
-          create_large_file(original_file, filename, static_cast<uint32_t>(size_parameter/1000));
+          create_large_file(original_file, filename, static_cast<size_t>(size_parameter/1000));
           chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
       }else{
           numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
@@ -70,8 +70,9 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
  protected:
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
-  // MAX_NUMBER_OF_ELEMENTS = NUMBER_OF_ELEMENTS of parameter 1000.
-  const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{250000384};
+  // MAX_NUMBER_OF_ELEMENTS = max. read/write according to man page / uint32_t_size
+  // = 2,147,479,552 bytes / 4 bytes = 536869888
+  const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{536869888};
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};

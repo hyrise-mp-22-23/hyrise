@@ -9,6 +9,7 @@ namespace hyrise {
 
 void micro_benchmark_clear_cache();
 void micro_benchmark_clear_disk_cache();
+void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes);
 std::vector<uint64_t> generate_random_indexes(uint64_t size);
 std::vector<uint32_t> generate_random_positive_numbers(uint64_t size);
 

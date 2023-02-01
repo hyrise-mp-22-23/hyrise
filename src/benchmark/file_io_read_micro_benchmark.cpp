@@ -488,7 +488,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS) / thread_count);
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -735,7 +735,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       read_data[index] = numbers[index];
     }
 
