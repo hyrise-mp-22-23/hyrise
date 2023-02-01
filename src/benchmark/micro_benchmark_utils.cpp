@@ -57,10 +57,12 @@ std::vector<uint32_t> generate_random_indexes(uint64_t number) {
     std::shuffle(std::begin(sequence), std::end(sequence), rng);
      */
   auto indexes = std::vector<uint32_t>(number);
+  auto printed_out = false;
   for (auto index = size_t{0}; index < number; ++index) {
       indexes[index] = index % UINT32_MAX;
-      if (index % UINT32_MAX != 0){
+      if (index > UINT32_MAX && !printed_out){
           std::cout << "Aha! Found the error: " << index << std::endl;
+          printed_out = true;
       }
   }
   auto rng = std::default_random_engine{};
