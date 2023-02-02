@@ -7,14 +7,14 @@
 namespace {
 
 // Worker function for threading.
-void read_mmap_chunk_sequential(const size_t from, const size_t to, const int32_t* map, uint64_t& sum) {
+void read_mmap_chunk_sequential(const size_t from, const size_t to, const uint32_t* map, uint64_t& sum) {
   for (auto index = uint64_t{0} + from; index < to; ++index) {
     sum += map[index];
   }
 }
 
 // Worker function for threading.
-void read_mmap_chunk_random(const size_t from, const size_t to, const int32_t* map, uint64_t& sum,
+void read_mmap_chunk_random(const size_t from, const size_t to, const uint32_t* map, uint64_t& sum,
                             const std::vector<uint64_t>& random_indexes) {
   for (auto index = uint64_t{0} + from; index < to; ++index) {
     sum += map[random_indexes[index]];
@@ -170,10 +170,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
     // Getting the mapping to memory.
     const auto OFFSET = off_t{0};
 
-    auto* map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+    auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
 
     if (mapping_type == MMAP) {
-      map = reinterpret_cast<int32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     }
 #ifdef __APPLE__
     else {
@@ -182,7 +182,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
 #else
     else if (mapping_type == UMAP) {
       setenv("UMAP_LOG_LEVEL", std::string("ERROR").c_str(), 1);
-      map = reinterpret_cast<int32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
+      map = reinterpret_cast<uint32_t*>(umap(NULL, NUMBER_OF_BYTES, PROT_READ, map_mode_flag, fd, OFFSET));
     } else {
       Fail("Error: Invalid mapping type.");
     }
@@ -199,10 +199,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
       }
 
-      for (auto i = uint64_t{0}; i < thread_count; ++i) {
+      for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == static_cast<uint64_t>(thread_count-1)){
+        if (i == static_cast<size_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536
@@ -213,10 +213,10 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_multi_threaded(benchmar
         madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
       }
 
-      for (auto i = uint64_t{0}; i < thread_count; ++i) {
+      for (auto i = size_t{0}; i < thread_count; ++i) {
         const auto from = batch_size * i;
         auto to = from + batch_size;
-        if (i == static_cast<uint64_t>(thread_count-1)){
+        if (i == static_cast<size_t>(thread_count-1)){
             to = NUMBER_OF_ELEMENTS;
         }
         // std::ref fix from https://stackoverflow.com/a/73642536
