@@ -7,6 +7,10 @@
 #include <numeric>
 #include <span>
 
+#include <cstddef>
+#include <map>
+#include <vector>
+
 #include "micro_benchmark_basic_fixture.hpp"
 
 namespace hyrise {
@@ -36,10 +40,19 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     }
   }
 
+  void create_random_indexes_if_not_exist(size_t size_parameter, uint64_t number_of_elements) {
+    if (random_indexes_map.find(size_parameter) == random_indexes_map.end()) {
+      std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
+      const auto indexes = generate_random_indexes(number_of_elements);
+      random_indexes_map[size_parameter] = indexes;
+    }
+  }
+
   void SetUp(::benchmark::State& state) override {
     const auto size_parameter = state.range(0);
     NUMBER_OF_BYTES = _align_to_pagesize(size_parameter);
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
+    create_random_indexes_if_not_exist(size_parameter, NUMBER_OF_ELEMENTS);
     filename = "benchmark_data_" + std::to_string(size_parameter) + ".txt";
 
     auto fd = int32_t{};
@@ -63,7 +76,6 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
     const auto map_span_view = std::span{map, NUMBER_OF_ELEMENTS};
     control_sum = std::accumulate(map_span_view.begin(), map_span_view.end(), uint64_t{0});
-
     close(fd);
   }
 
@@ -77,6 +89,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
   uint64_t NUMBER_OF_ELEMENTS = uint64_t{0};
   std::vector<uint32_t> numbers = std::vector<uint32_t>{};
+  std::map<size_t, std::vector<uint64_t>> random_indexes_map = std::map<size_t, std::vector<uint64_t>>{};
   void read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
   void read_non_atomic_single_threaded(benchmark::State& state);
   void read_non_atomic_random_multi_threaded(benchmark::State& state, uint16_t thread_count);

@@ -281,7 +281,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -325,7 +326,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -457,7 +459,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -499,7 +502,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+    // const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -651,7 +655,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -761,7 +766,9 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    const auto random_indices = random_indexes_map[state.range(0)];
+
+    // const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -782,7 +789,6 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
-
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
