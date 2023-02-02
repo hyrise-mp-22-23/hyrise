@@ -133,7 +133,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
       }
     } else /* if (access_order == SEQUENTIAL) */ {
       madvise(map, NUMBER_OF_BYTES, MADV_SEQUENTIAL);
-      for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
         sum += map[index];
       }
     }

@@ -101,7 +101,7 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
   memset(&ctx, 0, sizeof(ctx));
   io_setup(REQUEST_COUNT, &ctx);
 
-  const auto batch_size_thread = static_cast<uint64_t>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT);
+  const auto batch_size_thread = static_cast<uint64_t>(NUMBER_OF_ELEMENTS_PER_THREAD / REQUEST_COUNT);
 
   auto iocbs = std::vector<iocb>(REQUEST_COUNT);
   auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
