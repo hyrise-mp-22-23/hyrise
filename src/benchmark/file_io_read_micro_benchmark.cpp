@@ -22,24 +22,24 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
   const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
   const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
 
-
-  if(elements_to_read > MAX_NUMBER_OF_ELEMENTS){
-      auto elements_read = uint64_t {0};
-      auto elements_remaining = elements_to_read;
-      while (elements_remaining > 0) {
-          lseek(fd, (from + elements_read) * uint32_t_size, SEEK_SET);
-          auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-          auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
-          auto bytes_read_this_iteration = static_cast<size_t>(read(fd, read_data_start + from + elements_read, bytes_to_read));
-          Assert((bytes_read_this_iteration == bytes_to_read),
-                 close_file_and_return_error_message(fd, "Read error: ", errno));
-          elements_read += elements_to_read_this_iteration;
-          elements_remaining -= elements_to_read_this_iteration;
-      }
-  }else{
-      lseek(fd, from * uint32_t_size, SEEK_SET);
-      Assert((read(fd, read_data_start + from, total_bytes_to_read) == total_bytes_to_read),
+  if (elements_to_read > MAX_NUMBER_OF_ELEMENTS) {
+    auto elements_read = uint64_t{0};
+    auto elements_remaining = elements_to_read;
+    while (elements_remaining > 0) {
+      lseek(fd, (from + elements_read) * uint32_t_size, SEEK_SET);
+      auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+      auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+      auto bytes_read_this_iteration =
+          static_cast<size_t>(read(fd, read_data_start + from + elements_read, bytes_to_read));
+      Assert((bytes_read_this_iteration == bytes_to_read),
              close_file_and_return_error_message(fd, "Read error: ", errno));
+      elements_read += elements_to_read_this_iteration;
+      elements_remaining -= elements_to_read_this_iteration;
+    }
+  } else {
+    lseek(fd, from * uint32_t_size, SEEK_SET);
+    Assert((read(fd, read_data_start + from, total_bytes_to_read) == total_bytes_to_read),
+           close_file_and_return_error_message(fd, "Read error: ", errno));
   }
 }
 
@@ -57,26 +57,27 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
 }
 
 void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
-    const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-    const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
-    const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
-    const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
-    if(elements_to_read > MAX_NUMBER_OF_ELEMENTS){
-        auto elements_read = uint64_t {0};
-        auto elements_remaining = elements_to_read;
-        while (elements_remaining > 0) {
-            auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-            auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
-            auto bytes_read_this_iteration = static_cast<size_t>(pread(fd, read_data_start + from + elements_read, bytes_to_read, (from + elements_read) * uint32_t_size));
-            Assert((bytes_read_this_iteration == bytes_to_read),
-                   close_file_and_return_error_message(fd, "Read error: ", errno));
-            elements_read += elements_to_read_this_iteration;
-            elements_remaining -= elements_to_read_this_iteration;
-        }
-    }else{
-        Assert((pread(fd, read_data_start + from, total_bytes_to_read, from * uint32_t_size) == total_bytes_to_read),
-               close_file_and_return_error_message(fd, "Read error: ", errno));
+  const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
+  const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
+  const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
+  const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+  if (elements_to_read > MAX_NUMBER_OF_ELEMENTS) {
+    auto elements_read = uint64_t{0};
+    auto elements_remaining = elements_to_read;
+    while (elements_remaining > 0) {
+      auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+      auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+      auto bytes_read_this_iteration = static_cast<size_t>(
+          pread(fd, read_data_start + from + elements_read, bytes_to_read, (from + elements_read) * uint32_t_size));
+      Assert((bytes_read_this_iteration == bytes_to_read),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+      elements_read += elements_to_read_this_iteration;
+      elements_remaining -= elements_to_read_this_iteration;
     }
+  } else {
+    Assert((pread(fd, read_data_start + from, total_bytes_to_read, from * uint32_t_size) == total_bytes_to_read),
+           close_file_and_return_error_message(fd, "Read error: ", errno));
+  }
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
@@ -217,7 +218,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -240,30 +241,30 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark:
 
     state.ResumeTiming();
 
-      if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
-          auto elements_read = uint64_t {0};
-          auto elements_remaining = NUMBER_OF_ELEMENTS;
-          auto read_data_start = std::data(read_data);
-          while (elements_remaining > 0) {
-              auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-              auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
-              auto bytes_read_this_iteration = static_cast<size_t>(read(fd, read_data_start + elements_read, bytes_to_read));
-              Assert((bytes_read_this_iteration == bytes_to_read),
-                     close_file_and_return_error_message(fd, "Read error: ", errno));
-              elements_read += elements_to_read_this_iteration;
-              elements_remaining -= elements_to_read_this_iteration;
-          }
-      }else{
-          lseek(fd, 0, SEEK_SET);
-          Assert((static_cast<uint64_t>(read(fd, std::data(read_data), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
-                 close_file_and_return_error_message(fd, "Read error: ", errno));
+    if (NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS) {
+      auto elements_read = uint64_t{0};
+      auto elements_remaining = NUMBER_OF_ELEMENTS;
+      auto read_data_start = std::data(read_data);
+      while (elements_remaining > 0) {
+        auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+        auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+        auto bytes_read_this_iteration = static_cast<size_t>(read(fd, read_data_start + elements_read, bytes_to_read));
+        Assert((bytes_read_this_iteration == bytes_to_read),
+               close_file_and_return_error_message(fd, "Read error: ", errno));
+        elements_read += elements_to_read_this_iteration;
+        elements_remaining -= elements_to_read_this_iteration;
       }
+    } else {
+      lseek(fd, 0, SEEK_SET);
+      Assert((static_cast<uint64_t>(read(fd, std::data(read_data), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+    }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -299,7 +300,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -336,7 +337,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+                                    std::data(read_data), std::ref(random_indices)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -347,7 +348,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -370,29 +371,30 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    if(NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS){
-        auto elements_read = uint64_t {0};
-        auto elements_remaining = NUMBER_OF_ELEMENTS;
-        auto read_data_start = std::data(read_data);
-        while (elements_remaining > 0) {
-            auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-            auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
-            auto bytes_read_this_iteration = static_cast<size_t>(pread(fd, read_data_start + elements_read, bytes_to_read, elements_read * uint32_t_size));
-            Assert((bytes_read_this_iteration == bytes_to_read),
-                   close_file_and_return_error_message(fd, "Read error: ", errno));
-            elements_read += elements_to_read_this_iteration;
-            elements_remaining -= elements_to_read_this_iteration;
-        }
-    }else{
-        Assert((static_cast<uint64_t>(pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0)) == NUMBER_OF_BYTES),
+    if (NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS) {
+      auto elements_read = uint64_t{0};
+      auto elements_remaining = NUMBER_OF_ELEMENTS;
+      auto read_data_start = std::data(read_data);
+      while (elements_remaining > 0) {
+        auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+        auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+        auto bytes_read_this_iteration = static_cast<size_t>(
+            pread(fd, read_data_start + elements_read, bytes_to_read, elements_read * uint32_t_size));
+        Assert((bytes_read_this_iteration == bytes_to_read),
                close_file_and_return_error_message(fd, "Read error: ", errno));
+        elements_read += elements_to_read_this_iteration;
+        elements_remaining -= elements_to_read_this_iteration;
+      }
+    } else {
+      Assert((static_cast<uint64_t>(pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0)) == NUMBER_OF_BYTES),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
     }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -403,7 +405,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -437,7 +440,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -471,7 +474,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -484,7 +487,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -506,7 +510,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
       if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index], std::data(read_data), random_indices));
+      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index],
+                                    std::data(read_data), std::ref(random_indices)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -517,7 +522,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                                 " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -591,7 +596,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -634,7 +640,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   auto filedescriptors = std::vector<int32_t>(thread_count);
   for (auto index = size_t{0}; index < thread_count; ++index) {
     auto fd = int32_t{};
-    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0), close_file_and_return_error_message(fd, "Open error: ", errno));
+    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
+           close_file_and_return_error_message(fd, "Open error: ", errno));
     filedescriptors[index] = fd;
   }
 
@@ -656,7 +663,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_libaio, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+                                    std::data(read_data), std::ref(random_indices)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -744,7 +751,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                           " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
     Assert(&read_data != &numbers, "Sanity check failed: Same reference");
 
     state.ResumeTiming();
@@ -767,7 +774,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
     Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
-                           " Expected: " + std::to_string(control_sum) + ".");
+                                   " Expected: " + std::to_string(control_sum) + ".");
     Assert(&read_data[0] != &numbers[random_indices[0]], "Sanity check failed: Same reference");
 
     state.ResumeTiming();
@@ -775,30 +782,29 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 }
 
 // Arguments are file size in MB
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
-
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
-
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
-    ->ArgsProduct({{10000,100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
+    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}})
     ->UseRealTime();
 #endif
 /*

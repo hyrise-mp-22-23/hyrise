@@ -3,10 +3,10 @@
 
 #include <aio.h>
 #include <stddef.h>
-#include <unistd.h>
-#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fstream>
 
 #include <algorithm>
 #include <cstring>
@@ -26,23 +26,22 @@ void micro_benchmark_clear_disk_cache() {
   // TODO(phoenix): better documentation of which caches we are clearing
   sync();
 #ifdef __APPLE__
-  auto return_val =  system("purge");
-  (void) return_val;
+  auto return_val = system("purge");
+  (void)return_val;
 #else
   auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
-  (void) return_val;
+  (void)return_val;
 #endif
 }
 
-
 void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
-    const auto err = aio_error(aiocb);
-    const auto ret = aio_return(aiocb);
+  const auto err = aio_error(aiocb);
+  const auto ret = aio_return(aiocb);
 
-    Assert(err == 0, "Error at aio_error(): " + std::strerror(errno));
+  Assert(err == 0, "Error at aio_error(): " + std::strerror(errno));
 
-    Assert(ret == static_cast<int32_t>(expected_bytes),
-           "Error at aio_return(). Got: " + std::to_string(ret) + " Expected: " + std::to_string(expected_bytes) + ".");
+  Assert(ret == static_cast<int32_t>(expected_bytes),
+         "Error at aio_return(). Got: " + std::to_string(ret) + " Expected: " + std::to_string(expected_bytes) + ".");
 }
 
 /**
@@ -70,7 +69,8 @@ std::string close_file_and_return_error_message(int32_t fd, std::string message,
   return message + std::strerror(error_num);
 }
 
-std::string close_files_and_return_error_message(std::vector<int32_t> filedescriptors, std::string message, const int error_num) {
+std::string close_files_and_return_error_message(std::vector<int32_t> filedescriptors, std::string message,
+                                                 const int error_num) {
   for (auto index = size_t{0}; index < filedescriptors.size(); ++index) {
     close(filedescriptors[index]);
   }
