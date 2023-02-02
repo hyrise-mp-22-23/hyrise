@@ -295,11 +295,11 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
   const auto header = read_chunk_header(FILENAME, COLUMN_COUNT, chunk_offset_end);
 
-  // std::cout << "RowCount: " << header.row_count << std::endl;
-  // for (const auto segment_offset_end : header.segment_offset_ends) {
-  //   std::cout << "+" << segment_offset_end;
-  // }
-  // std::cout << std::endl;
+  std::cout << "RowCount: " << header.row_count << std::endl;
+  for (const auto segment_offset_end : header.segment_offset_ends) {
+    std::cout << "+" << segment_offset_end;
+  }
+  std::cout << std::endl;
 
   const auto header_offset = chunk_offset_end / 4 + 1 + COLUMN_COUNT;
 
@@ -312,9 +312,9 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
     const auto dictionary_size = map[header_offset + segment_offset_end / 4];
     const auto attribute_vector_size = map[header_offset + segment_offset_end / 4 + 1];
-    //const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
+    const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
 
-    // std::cout << "DictionarySize: " << dictionary_size << " AttributeVectorSize: " << attribute_vector_size << " EncodingType: " << encoding_type << std::endl;
+    std::cout << "DictionarySize: " << dictionary_size << " AttributeVectorSize: " << attribute_vector_size << " EncodingType: " << encoding_type << std::endl;
   
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
     memcpy(dictionary_values.data(), &map[header_offset + segment_offset_end / 4 + 3], dictionary_size * sizeof(uint32_t));
@@ -446,7 +446,7 @@ int main() {
 
   std::cout << "##### NOW READING SECOND CHUNK #####"  << std::endl;
 
-  // std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[0]);
+  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[0] + 1);
 
   // auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
   // for (auto index = uint32_t{0}; index < 3; ++index) {
@@ -466,7 +466,7 @@ int main() {
 
   std::cout << "Sum of column 17 of created chunk: " << column_sum_of_created_chunk << std::endl;
 
-  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunk->get_segment(ColumnID{16}));
+  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunk2->get_segment(ColumnID{16}));
   auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
 
   auto column_sum_of_mapped_chunk = uint64_t{};
@@ -500,7 +500,7 @@ int main() {
   std::cout << std::endl;
 
   std::cout << "Col 0 of mapped chunk: ";
-  const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(chunk->get_segment(ColumnID{0}));
+  const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(chunk2->get_segment(ColumnID{0}));
   for (auto row_index = ChunkOffset{0}; row_index < 20; ++row_index) {
     std::cout << (original_dict_segment1->get_typed_value(row_index)).value() << " ";
   }
