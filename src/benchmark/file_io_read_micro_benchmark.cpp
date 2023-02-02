@@ -20,7 +20,8 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
-  const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{250000384};
+  const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+
 
   if(elements_to_read > MAX_NUMBER_OF_ELEMENTS){
       auto elements_read = uint64_t {0};
@@ -59,7 +60,7 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
     const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
     const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
     const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
-    const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{250000384};
+    const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
     if(elements_to_read > MAX_NUMBER_OF_ELEMENTS){
         auto elements_read = uint64_t {0};
         auto elements_remaining = elements_to_read;
