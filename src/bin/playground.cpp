@@ -342,7 +342,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
   }
 
-  std::cout << "LAST SEGMENT OFFSET END: " << header.segment_offset_ends[COLUMN_COUNT - 1] << std::endl;
+  std::cout << "LAST SEGMENT OFFSET END: " << header.segment_offset_ends.at(COLUMN_COUNT - 1) + sizeof(file_header) << std::endl;
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
 }
@@ -411,7 +411,7 @@ int main() {
 
   auto chunks = std::vector<std::shared_ptr<Chunk>>{};
 
-  for (auto index = size_t{0}; index < 3; ++index) {
+  for (auto index = size_t{0}; index < 4; ++index) {
     chunks.emplace_back(create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT));
   }
 
@@ -445,9 +445,11 @@ int main() {
 
   std::shared_ptr<Chunk> chunk = map_chunk_from_disk(sizeof(file_header)); // Start of first chunk.
 
-  std::cout << "##### NOW READING SECOND CHUNK #####" << read_header.chunk_offset_ends[0] << std::endl;
+  std::cout << "##### NOW READING SECOND CHUNK #####" << read_header.chunk_offset_ends[1] << std::endl;
 
-  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(3961229);
+  std::shared_ptr<Chunk> chunk1 = map_chunk_from_disk(read_header.chunk_offset_ends[0] + 96);
+  std::shared_ptr<Chunk> chunk2x = map_chunk_from_disk(read_header.chunk_offset_ends[1] + 96 * 2);
+  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[2]+ 96 * 3);
 
   // auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
   // for (auto index = uint32_t{0}; index < 3; ++index) {
