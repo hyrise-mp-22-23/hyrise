@@ -178,9 +178,13 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
+
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
     auto offset_end = uint32_t{12};
+    if (segment_index == 0){
+      offset_end = 12 + 4 + 4 * segment_count;
+    }
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
@@ -307,7 +311,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
     auto segment_offset_end = uint32_t{0};
     if (segment_index > 0) {
-      segment_offset_end = header.segment_offset_ends[segment_index - 1];
+      segment_offset_end = header.segment_offset_ends[segment_index - 1] - (1 + COLUMN_COUNT);
     }
 
     const auto dictionary_size = map[header_offset + segment_offset_end / 4];
@@ -355,6 +359,7 @@ std::array<uint32_t, CHUNK_COUNT> generate_chunk_offset_ends(std::vector<std::sh
   for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
     const auto segment_offsets = generate_segment_offset_ends(chunks[index]);
     offset += segment_offsets.back();
+    // offset += 96;   // WHERE THE HECK COME THESE BYTES FROM???
     chunk_offset_ends[index] = offset;
   }
 
@@ -374,7 +379,7 @@ std::array<uint32_t, CHUNK_COUNT> generate_chunk_ids(){
 file_header generate_file_header(std::vector<std::shared_ptr<Chunk>> chunks) {
   file_header file_header;
 
-  file_header.storage_format_version_id = 65535;
+  file_header.storage_format_version_id = 2;
   file_header.chunk_count = chunks.size();
   file_header.chunk_ids = generate_chunk_ids();
   file_header.chunk_offset_ends = generate_chunk_offset_ends(chunks);
@@ -447,12 +452,12 @@ int main() {
 
   std::cout << "##### NOW READING SECOND CHUNK #####" << read_header.chunk_offset_ends[1] << std::endl;
 
-  std::shared_ptr<Chunk> chunk1 = map_chunk_from_disk(read_header.chunk_offset_ends[0] + 96);
-  std::shared_ptr<Chunk> chunk2x = map_chunk_from_disk(read_header.chunk_offset_ends[1] + 96 * 2);
-  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[2]+ 96 * 3);
+  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[0]);
+  std::shared_ptr<Chunk> chunk2x = map_chunk_from_disk(read_header.chunk_offset_ends[1]);
+  std::shared_ptr<Chunk> chunk2fgasf = map_chunk_from_disk(read_header.chunk_offset_ends[2]);
 
   // auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
-  // for (auto index = uint32_t{0}; index < 3; ++index) {
+  // for (auto index = uint32_t{0}; index < 4; ++index) {
   //   mapped_chunks.emplace_back(map_chunk_from_disk(sizeof(file_header) + 4));
   // }
 
