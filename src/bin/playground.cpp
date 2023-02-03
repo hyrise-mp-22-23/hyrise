@@ -41,6 +41,13 @@ std::string fail_and_close_file(const int32_t fd, const std::string& message, co
   return message + std::strerror(error_num);
 }
 
+void print_chunk_offsets(file_header header) {
+  std::cout << "ID: " << header.storage_format_version_id << " Count: " << header.chunk_count << std::endl;
+  for (auto header_index = size_t{0}; header_index < header.chunk_count; ++header_index) {
+    std::cout << "ChunkID: " << header.chunk_ids[header_index] << " ChunkOffsetEnd: " << header.chunk_offset_ends[header_index] << std::endl;
+  }
+}
+
 std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count, const uint32_t column_count) {
   /*
    * Create a chunk with index-times repeating elements in each segment.
@@ -423,11 +430,7 @@ int main() {
   std::remove(FILENAME); //remove previously written file
 
   file_header header = generate_file_header(chunks);
-
-  std::cout << "ID: " << header.storage_format_version_id << " Count: " << header.chunk_count << std::endl;
-  for (auto header_index = size_t{0}; header_index < header.chunk_count; ++header_index) {
-    std::cout << "ChunkID: " << header.chunk_ids[header_index] << " ChunkOffsetEnd: " << header.chunk_offset_ends[header_index] << std::endl;
-  }
+  print_chunk_offsets(header);
   
   std::ofstream chunk_file;
   chunk_file.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
