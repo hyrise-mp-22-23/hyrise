@@ -305,13 +305,13 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   }
   std::cout << std::endl;
 
-  const auto header_offset = chunk_offset_end / 4 + 1 + COLUMN_COUNT;
+  const auto header_offset = chunk_offset_end / 4;
 
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
     auto segment_offset_end = uint32_t{0};
     if (segment_index > 0) {
-      segment_offset_end = header.segment_offset_ends[segment_index - 1] - (1 + COLUMN_COUNT);
+      segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
 
     const auto dictionary_size = map[header_offset + segment_offset_end / 4];
