@@ -178,13 +178,10 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
-
+  auto offset_end = static_cast<uint32_t>(4 + 4 * segment_count);
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
-    auto offset_end = uint32_t{12};
-    if (segment_index == 0){
-      offset_end = 12 + 4 + 4 * segment_count;
-    }
+    offset_end += 12;
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
@@ -212,11 +209,7 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
         Fail("Any other type should have been caught before.");
     }
 
-    if(segment_index == 0){
-      segment_offset_ends[segment_index] = offset_end;
-    } else {
-      segment_offset_ends[segment_index] = segment_offset_ends[segment_index-1] + offset_end;
-    }
+    segment_offset_ends[segment_index] = offset_end;
   }
   return segment_offset_ends;
 }
