@@ -176,13 +176,15 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
 std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
+  // Chunk Header Size
+  auto offset_end = static_cast<uint32_t>(4 + segment_count * 4);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
-    auto offset_end = uint32_t{12};
+    offset_end += 12;
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
-    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
+    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int32_t>>(abstract_segment);
 
     offset_end += dict_segment->dictionary()->size() * 4;
 
@@ -207,11 +209,7 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
         Fail("Any other type should have been caught before.");
     }
 
-    if(segment_index == 0){
-      segment_offset_ends[segment_index] = offset_end;
-    } else {
-      segment_offset_ends[segment_index] = segment_offset_ends[segment_index-1] + offset_end;
-    }
+    segment_offset_ends[segment_index] = offset_end;
   }
   return segment_offset_ends;
 }
@@ -220,11 +218,13 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   const auto file_extension = ".bin";
   const auto filename = chunk_filename + file_extension;
   const auto segment_count = chunk->column_count();
-  // const auto prior_filesize = std::filesystem::file_size(filename);
 
   auto offset_ends = std::vector<uint32_t>(segment_count);
 
   const auto segment_offset_ends = generate_segment_offset_ends(chunk);
+  const auto before_writing = std::filesystem::file_size(filename);
+  (void) before_writing;
+
   std::ofstream chunk_file;
   chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
   export_value(chunk_file, chunk->size());
@@ -248,9 +248,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
 uint32_t get_offset_for_chunk(uint32_t* map, const uint32_t chunk_index) {
   if(chunk_index == uint32_t{1}) return uint32_t{101};
   const auto header_size = uint32_t{51};
-  std::cout << "header size: " << header_size << std::endl;
   const auto offset_position = header_size + chunk_index - 1;
-  std::cout << "Access at index: " << offset_position << std::endl;
   const auto chunk_offset = *(map + offset_position);
   std::cout << "Chunk offset: " << chunk_offset << std::endl;
 
@@ -330,13 +328,13 @@ std::shared_ptr<Chunk> setupEmptyChunk(){
 
 std::array<uint32_t, CHUNK_COUNT> generate_chunk_offsets(const std::shared_ptr<Chunk> dictionary_chunk){
   auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
-  auto offset = uint32_t{sizeof(file_header)};
+  auto offset = uint32_t{0};
 
   for (auto index = uint32_t{0}; index < CHUNK_COUNT; ++index) {
     // For efficiency, this could be taken out of the loop, but in reality,
     // we would not have the same chunk written 50 times.
     const auto segment_offsets = generate_segment_offset_ends(dictionary_chunk);
-    const auto chunk_size = uint32_t{segment_offsets.back()} + 1;
+    const auto chunk_size = uint32_t{segment_offsets.back()};
     offset += chunk_size;
     chunk_offset_ends[index] = offset;
   }
@@ -374,6 +372,7 @@ int main() {
   chunk_file.open("test_chunk.bin", std::ios::out | std::ios::binary | std::ios::app);
   chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
   chunk_file.close();
+  Assert(std::filesystem::file_size("test_chunk.bin") == sizeof(file_header), "Header size does not match expected size.");
 
   std::cout << "Headers written"  << std::endl;
 
