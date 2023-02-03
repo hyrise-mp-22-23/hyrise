@@ -19,6 +19,7 @@ static const int CHUNK_COUNT = 50;
 const auto COLUMN_COUNT = uint32_t{23};
 const auto ROW_COUNT = uint32_t{65'000};
 const auto FILENAME = "z_binary_test.bin";
+const auto CREATE_COUNT = uint32_t{4};
 
 using namespace hyrise;  // NOLINT
 
@@ -229,12 +230,6 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   header.row_count = chunk->size();
   header.segment_offset_ends = generate_segment_offset_ends(chunk);
 
-  std::cout << "RowCount: " << header.row_count << std::endl;
-  for (const auto segment_offset_end : header.segment_offset_ends) {
-    std::cout << "+" << segment_offset_end;
-  }
-  std::cout << std::endl;
-
   export_value(chunk_file, header.row_count);
   for (const auto segment_offset_end : header.segment_offset_ends) {
     export_value(chunk_file, segment_offset_end);
@@ -245,18 +240,6 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
-
-    if (segment_index == 0) {
-      std::cout << "Dict: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << dict_segment->dictionary()->at(i) << " ";
-      }
-      std::cout << "\nAtt: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << dynamic_pointer_cast<const FixedWidthIntegerVector<uint16_t>>(dict_segment->attribute_vector())->data().at(i) << " ";
-      }
-      std::cout  << std::endl;
-    }
 
     write_dict_segment_to_disk(dict_segment, filename);
   }
@@ -299,12 +282,6 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
   const auto header = read_chunk_header(FILENAME, COLUMN_COUNT, chunk_offset_end);
 
-  std::cout << "RowCount: " << header.row_count << std::endl;
-  for (const auto segment_offset_end : header.segment_offset_ends) {
-    std::cout << "+" << segment_offset_end;
-  }
-  std::cout << std::endl;
-
   const auto header_offset = chunk_offset_end / 4;
 
 
@@ -316,9 +293,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
     const auto dictionary_size = map[header_offset + segment_offset_end / 4];
     const auto attribute_vector_size = map[header_offset + segment_offset_end / 4 + 1];
-    const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
-
-    std::cout << "DictionarySize: " << dictionary_size << " AttributeVectorSize: " << attribute_vector_size << " EncodingType: " << encoding_type << std::endl;
+    // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
   
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
     memcpy(dictionary_values.data(), &map[header_offset + segment_offset_end / 4 + 3], dictionary_size * sizeof(uint32_t));
@@ -328,25 +303,12 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
     memcpy(attribute_values.data(), &map[header_offset + segment_offset_end / 4 + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
-    if (segment_index == 0) {
-      std::cout << "Dict: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << dictionary->at(i) << " ";
-      }
-      std::cout << "\nAtt: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << attribute_vector->data().at(i) << " ";
-      }
-      std::cout  << std::endl;
-    }
-
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
 
 
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
   }
 
-  std::cout << "LAST SEGMENT OFFSET END: " << header.segment_offset_ends.at(COLUMN_COUNT - 1) + sizeof(file_header) << std::endl;
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
 }
@@ -416,14 +378,13 @@ int main() {
 
   auto chunks = std::vector<std::shared_ptr<Chunk>>{};
 
-  for (auto index = size_t{0}; index < 4; ++index) {
+  for (auto index = size_t{0}; index < CREATE_COUNT; ++index) {
     chunks.emplace_back(create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT));
   }
 
   std::remove(FILENAME); // Remove previously written file
 
   file_header header = generate_file_header(chunks);
-  print_file_header(header);
   
   std::ofstream chunk_file;
   chunk_file.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
@@ -433,20 +394,20 @@ int main() {
   std::cout << "File header written."  << std::endl;
 
   file_header read_header = read_file_header(FILENAME);
-  print_file_header(read_header);
 
   for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
     write_chunk_to_disk(chunks[index], FILENAME);
   }
   std::cout << "Chunks written."  << std::endl;
 
-  std::shared_ptr<Chunk> chunk = map_chunk_from_disk(sizeof(file_header)); // Start of first chunk.
-
-  std::cout << "##### NOW READING SECOND CHUNK #####" << read_header.chunk_offset_ends[1] << std::endl;
-
-  std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[0]);
-  std::shared_ptr<Chunk> chunk2x = map_chunk_from_disk(read_header.chunk_offset_ends[1]);
-  std::shared_ptr<Chunk> chunk2fgasf = map_chunk_from_disk(read_header.chunk_offset_ends[2]);
+  auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
+  for (auto index = size_t{0}; index < CREATE_COUNT; ++index) {
+    if (index == 0) {
+      mapped_chunks.emplace_back(map_chunk_from_disk(sizeof(file_header)));
+    } else {
+      mapped_chunks.emplace_back(map_chunk_from_disk(read_header.chunk_offset_ends[index - 1]));
+    }
+  }
 
   // compare sum of column 17 in created and mapped chunk
   const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
@@ -461,7 +422,7 @@ int main() {
 
   std::cout << "Sum of column 17 of created chunk: " << column_sum_of_created_chunk << std::endl;
 
-  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunk2->get_segment(ColumnID{16}));
+  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{16}));
   auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
 
   auto column_sum_of_mapped_chunk = uint64_t{};
@@ -481,7 +442,7 @@ int main() {
   std::cout << std::endl;
 
   std::cout << "Col 0 of mapped chunk: ";
-  const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(chunk2->get_segment(ColumnID{0}));
+  const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{0}));
   for (auto row_index = ChunkOffset{0}; row_index < 20; ++row_index) {
     std::cout << (original_dict_segment1->get_typed_value(row_index)).value() << " ";
   }
