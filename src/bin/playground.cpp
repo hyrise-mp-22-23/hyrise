@@ -21,6 +21,26 @@ const auto ROW_COUNT = uint32_t{65'000};
 const auto FILENAME = "z_binary_test.bin";
 const auto CREATE_COUNT = uint32_t{4};
 
+// Fileformat constants
+// File Header
+const auto FORMAT_VERSION_ID_BYTES = 2;
+const auto CHUNK_COUNT_BYTES = 2;
+const auto CHUNK_ID_BYTES = 4;
+const auto CHUNK_OFFSET_BYTES = 4;
+[[maybe_unused]] const auto FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+
+// Chunk Header
+const auto ROW_COUNT_BYTES = 4;
+const auto SEGMENT_OFFSET_BYTES = 4;
+const auto CHUNK_HEADER_BYTES = ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+
+// Segment Header
+const auto DICTIONARY_SIZE_BYTES = 4;
+const auto ELEMENT_COUNT_BYTES = 4;
+const auto COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
+const auto SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+
+
 using namespace hyrise;  // NOLINT
 
 struct file_header {
@@ -186,10 +206,9 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
-  auto offset_end = static_cast<uint32_t>(4 + 4 * segment_count);
+  auto offset_end = CHUNK_HEADER_BYTES;
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
-    offset_end += 12;
+    offset_end += SEGMENT_HEADER_BYTES;
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
@@ -293,7 +312,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
-    auto segment_offset_end = uint32_t{4 + COLUMN_COUNT * 4};
+    auto segment_offset_end = CHUNK_HEADER_BYTES;
     if (segment_index > 0) {
       segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
@@ -328,7 +347,6 @@ std::array<uint32_t, CHUNK_COUNT> generate_chunk_offset_ends(std::vector<std::sh
   for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
     const auto segment_offsets = generate_segment_offset_ends(chunks[index]);
     offset += segment_offsets.back();
-    // offset += 96;   // WHERE THE HECK COME THESE BYTES FROM???
     chunk_offset_ends[index] = offset;
   }
 
@@ -365,6 +383,8 @@ file_header read_file_header(std::string filename) {
 
   auto fd = int32_t{};
   Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
+  //TODO: Discuss if it's worth it to call combined operation on all values but storage_format_version_id and chunk_count
+  //Perhaps it would be better to just store four bytes more in the header - and able to map with an uint32_t map.
   auto* map = reinterpret_cast<uint16_t*>(mmap(NULL, sizeof(file_header), PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
@@ -372,9 +392,11 @@ file_header read_file_header(std::string filename) {
   file_header.storage_format_version_id = map[0];
   file_header.chunk_count = map[1];
 
+  const auto fixed_mapped_element_count = 2;
+
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
-    file_header.chunk_ids[header_index] = combined(map[2 + header_index * 2 ], map[2 + header_index * 2 + 1]);
-    file_header.chunk_offset_ends[header_index] = combined(map[2 + CHUNK_COUNT * 2 + header_index * 2], map[2 + CHUNK_COUNT * 2 + header_index * 2 + 1]);
+    file_header.chunk_ids[header_index] = combined(map[fixed_mapped_element_count + header_index * 2 ], map[fixed_mapped_element_count + header_index * 2 + 1]);
+    file_header.chunk_offset_ends[header_index] = combined(map[fixed_mapped_element_count + CHUNK_COUNT * 2 + header_index * 2], map[fixed_mapped_element_count + CHUNK_COUNT * 2 + header_index * 2 + 1]);
   }
 
   return file_header;
