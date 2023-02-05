@@ -35,8 +35,6 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-size_t getChunkMetaDataElementSize(uint32_t segment_count);
-
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
   return message + std::strerror(error_num);
@@ -150,6 +148,7 @@ void export_compressed_vector(std::ofstream& ofstream, const CompressedVectorTyp
 }
 
 void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& filename) {
+  //TODO: Update comment.
   /*
    * Write dict segment to given file using the following format:
    * 1. Number of elements in dictionary
@@ -165,6 +164,7 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
   std::ofstream chunk_file;
   chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
 
+  //TODO: Should this be continued?
   // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
   // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
   export_value(chunk_file, static_cast<uint32_t>(segment->dictionary()->size()));
@@ -223,17 +223,21 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
 }
 
 void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& filename) {
+  //TODO: Why open a new filestream for each chunk, when we are writing multiple chunks?
   std::ofstream chunk_file;
   chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
 
   chunk_header header;
   header.row_count = chunk->size();
+  //TODO: Remove double calculation of segment_offsets. Gets called in generate_file_header, too.
   header.segment_offset_ends = generate_segment_offset_ends(chunk);
 
   export_value(chunk_file, header.row_count);
+  //TODO: Use export_values()?
   for (const auto segment_offset_end : header.segment_offset_ends) {
     export_value(chunk_file, segment_offset_end);
   }
+  //TODO: Why does this get closed when we will continue writing?
   chunk_file.close();
 
   const auto segment_count = chunk->column_count();
@@ -246,6 +250,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
 }
 
 chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin) {
+  //TODO: Remove need to map the whole file.
   chunk_header header;
   const auto map_index = chunk_offset_begin / 4;
 
@@ -276,12 +281,14 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   // obtain the bytes to mmap via a file system call.
   const auto file_bytes = std::filesystem::file_size(FILENAME);
 
+  //TODO: Remove unneccesary map on whole file
   auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
 
   const auto header = read_chunk_header(FILENAME, COLUMN_COUNT, chunk_offset_end);
 
+  //TODO: Remove magic divisions by 4
   const auto header_offset = chunk_offset_end / 4;
 
 
@@ -385,7 +392,8 @@ int main() {
   std::remove(FILENAME); // Remove previously written file
 
   file_header header = generate_file_header(chunks);
-  
+
+  //TODO: Why close filestream?
   std::ofstream chunk_file;
   chunk_file.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
   chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
@@ -393,6 +401,7 @@ int main() {
 
   std::cout << "File header written."  << std::endl;
 
+  //TODO: Why read header again before the chunk file is written completely?
   file_header read_header = read_file_header(FILENAME);
 
   for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
@@ -432,7 +441,7 @@ int main() {
     });
   });
 
-  std::cout << "Sum of column 17 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
+  std::cout << "Sum of column 17 of third mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
 
   std::cout << "Col 0 of created chunk: ";
   const auto original_dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{0}));
@@ -441,7 +450,7 @@ int main() {
   }
   std::cout << std::endl;
 
-  std::cout << "Col 0 of mapped chunk: ";
+  std::cout << "Col 0 of third mapped chunk: ";
   const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{0}));
   for (auto row_index = ChunkOffset{0}; row_index < 20; ++row_index) {
     std::cout << (original_dict_segment1->get_typed_value(row_index)).value() << " ";
