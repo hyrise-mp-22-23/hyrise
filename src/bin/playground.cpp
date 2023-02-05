@@ -44,8 +44,8 @@ const auto SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + 
 using namespace hyrise;  // NOLINT
 
 struct file_header {
-  uint16_t storage_format_version_id;
-  uint16_t chunk_count;
+  uint32_t storage_format_version_id;
+  uint32_t chunk_count;
   std::array<uint32_t, CHUNK_COUNT> chunk_ids;
   std::array<uint32_t, CHUNK_COUNT> chunk_offset_ends;
 };
@@ -375,7 +375,7 @@ file_header generate_file_header(std::vector<std::shared_ptr<Chunk>> chunks) {
   file_header file_header;
 
   file_header.storage_format_version_id = 2;
-  file_header.chunk_count = static_cast<uint16_t>(chunks.size());
+  file_header.chunk_count = static_cast<uint32_t>(chunks.size());
   file_header.chunk_ids = generate_chunk_ids();
   file_header.chunk_offset_ends = generate_chunk_offset_ends(chunks);
 
@@ -391,9 +391,7 @@ file_header read_file_header(std::string filename) {
 
   auto fd = int32_t{};
   Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
-  //TODO: Discuss if it's worth it to call combined operation on all values but storage_format_version_id and chunk_count
-  //Perhaps it would be better to just store four bytes more in the header - and able to map with an uint32_t map.
-  auto* map = reinterpret_cast<uint16_t*>(mmap(NULL, sizeof(file_header), PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, sizeof(file_header), PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
 
@@ -403,12 +401,14 @@ file_header read_file_header(std::string filename) {
   const auto fixed_mapped_element_count = 2;
 
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
-    file_header.chunk_ids[header_index] = combined(map[fixed_mapped_element_count + header_index * 2 ], map[fixed_mapped_element_count + header_index * 2 + 1]);
-    file_header.chunk_offset_ends[header_index] = combined(map[fixed_mapped_element_count + CHUNK_COUNT * 2 + header_index * 2], map[fixed_mapped_element_count + CHUNK_COUNT * 2 + header_index * 2 + 1]);
+    file_header.chunk_ids[header_index] = map[fixed_mapped_element_count + header_index];
+    file_header.chunk_offset_ends[header_index] = map[fixed_mapped_element_count + CHUNK_COUNT + header_index];
   }
 
   return file_header;
 }
+
+
 
 int main() {
   std::cout << "Playground started." << std::endl;
