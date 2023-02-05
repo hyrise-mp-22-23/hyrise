@@ -84,6 +84,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   // MAX_NUMBER_OF_ELEMENTS = max. read/write according to man page / uint32_t_size
   // = 2,147,479,552 bytes / 4 bytes = 536,869,888
   const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+  std::atomic<bool> verbose = true;
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
