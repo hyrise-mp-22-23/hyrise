@@ -55,6 +55,14 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
+uint32_t byte_index(uint32_t element_index, size_t element_size) {
+  return element_index * element_size;
+}
+
+uint32_t element_index(uint32_t byte_index, size_t element_size) {
+  return byte_index / element_size;
+}
+
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
   return message + std::strerror(error_num);
@@ -213,20 +221,20 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
 
-    offset_end += dict_segment->dictionary()->size() * 4;
+    offset_end += byte_index(dict_segment->dictionary()->size(), 4);
 
     const auto attribute_vector = dict_segment->attribute_vector();
     const auto attribute_vector_type = attribute_vector->type();
 
     switch (attribute_vector_type) {
       case CompressedVectorType::FixedWidthInteger4Byte:
-        offset_end += attribute_vector->size() * 4;
+        offset_end += byte_index(attribute_vector->size(), 4);
         break;
       case CompressedVectorType::FixedWidthInteger2Byte:
-        offset_end += attribute_vector->size() * 2;
+        offset_end += byte_index(attribute_vector->size(), 2);
         break;
       case CompressedVectorType::FixedWidthInteger1Byte:
-        offset_end += attribute_vector->size() * 1;
+        offset_end += attribute_vector->size();
         break;
       case CompressedVectorType::BitPacking:
         offset_end += 4;
@@ -271,7 +279,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
 chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin) {
   //TODO: Remove need to map the whole file.
   chunk_header header;
-  const auto map_index = chunk_offset_begin / 4;
+  const auto map_index = element_index(chunk_offset_begin, 4);
 
   auto fd = int32_t{};
   Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
@@ -307,8 +315,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
   const auto header = read_chunk_header(FILENAME, COLUMN_COUNT, chunk_offset_end);
 
-  //TODO: Remove magic divisions by 4
-  const auto header_offset = chunk_offset_end / 4;
+  const auto header_offset = element_index(chunk_offset_end, 4);
 
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
@@ -317,16 +324,17 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
       segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
 
-    const auto dictionary_size = map[header_offset + segment_offset_end / 4];
-    const auto attribute_vector_size = map[header_offset + segment_offset_end / 4 + 1];
+    const auto segment_element_offset_index = element_index(segment_offset_end, 4);
+    const auto dictionary_size = map[header_offset + segment_element_offset_index];
+    const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
     // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
   
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
-    memcpy(dictionary_values.data(), &map[header_offset + segment_offset_end / 4 + 3], dictionary_size * sizeof(uint32_t));
+    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
     auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
-    memcpy(attribute_values.data(), &map[header_offset + segment_offset_end / 4 + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
+    memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
