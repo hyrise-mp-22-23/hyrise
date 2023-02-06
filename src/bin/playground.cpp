@@ -3,7 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <semaphore>
 #include <vector>
+
 #include "types.hpp"
 
 #include <unistd.h>
@@ -19,6 +21,8 @@ static const int CHUNK_COUNT = 50;
 const auto COLUMN_COUNT = uint32_t{23};
 const auto ROW_COUNT = uint32_t{65'000};
 const auto FILENAME = "z_binary_test.bin";
+std::ofstream FILESTREAM;
+std::binary_semaphore file_lock{1};
 
 using namespace hyrise;  // NOLINT
 
@@ -141,7 +145,7 @@ void export_compressed_vector(std::ofstream& ofstream, const CompressedVectorTyp
   }
 }
 
-void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& filename) {
+void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment) {
   /*
    * Write dict segment to given file using the following format:
    * 1. Number of elements in dictionary
@@ -154,30 +158,24 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
    * As a next step we should use the AttributeVectorCompressionID to define the type of the FixedWidthIntegerVector
    * and perhaps also write out the type of the DictionarySegment.
    */
-  std::ofstream chunk_file;
-  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
 
   // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
   // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
-  export_value(chunk_file, static_cast<uint32_t>(segment->dictionary()->size()));
-  export_value(chunk_file, static_cast<uint32_t>(segment->attribute_vector()->size()));
-
-  // std::cout << "DictionarySize: " << segment->dictionary()->size() << " AttributeVectorSize: " << segment->attribute_vector()->size() << std::endl;
+  export_value(FILESTREAM, static_cast<uint32_t>(segment->dictionary()->size()));
+  export_value(FILESTREAM, static_cast<uint32_t>(segment->attribute_vector()->size()));
 
   const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
-  export_value(chunk_file, compressed_vector_type_id);
+  export_value(FILESTREAM, compressed_vector_type_id);
 
-  export_values<int32_t>(chunk_file, *segment->dictionary());
+  export_values<int32_t>(FILESTREAM, *segment->dictionary());
 
-  export_compressed_vector(chunk_file, *segment->compressed_vector_type(),
+  export_compressed_vector(FILESTREAM, *segment->compressed_vector_type(),
                           *segment->attribute_vector());
-  chunk_file.close();
 }
 
 std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
-
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
@@ -221,13 +219,10 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   return segment_offset_ends;
 }
 
-void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& filename) {
-  std::ofstream chunk_file;
-  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
-
+void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends) {
   chunk_header header;
   header.row_count = chunk->size();
-  header.segment_offset_ends = generate_segment_offset_ends(chunk);
+  header.segment_offset_ends = segment_offset_ends;
 
   std::cout << "RowCount: " << header.row_count << std::endl;
   for (const auto segment_offset_end : header.segment_offset_ends) {
@@ -235,11 +230,10 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
   }
   std::cout << std::endl;
 
-  export_value(chunk_file, header.row_count);
+  export_value(FILESTREAM, header.row_count);
   for (const auto segment_offset_end : header.segment_offset_ends) {
-    export_value(chunk_file, segment_offset_end);
+    export_value(FILESTREAM, segment_offset_end);
   }
-  chunk_file.close();
 
   const auto segment_count = chunk->column_count();
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
@@ -258,7 +252,7 @@ void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& 
       std::cout  << std::endl;
     }
 
-    write_dict_segment_to_disk(dict_segment, filename);
+    write_dict_segment_to_disk(dict_segment);
   }
 }
 
@@ -305,13 +299,12 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   }
   std::cout << std::endl;
 
-  const auto header_offset = chunk_offset_end / 4 + 1 + COLUMN_COUNT;
-
+  const auto header_offset = chunk_offset_end / 4;
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
     auto segment_offset_end = uint32_t{0};
     if (segment_index > 0) {
-      segment_offset_end = header.segment_offset_ends[segment_index - 1] - (1 + COLUMN_COUNT);
+      segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
 
     const auto dictionary_size = map[header_offset + segment_offset_end / 4];
@@ -351,42 +344,6 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   return chunk;
 }
 
-
-std::array<uint32_t, CHUNK_COUNT> generate_chunk_offset_ends(std::vector<std::shared_ptr<Chunk>> chunks) {
-  auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
-  auto offset = uint32_t{sizeof(file_header)};
-
-  for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
-    const auto segment_offsets = generate_segment_offset_ends(chunks[index]);
-    offset += segment_offsets.back();
-    // offset += 96;   // WHERE THE HECK COME THESE BYTES FROM???
-    chunk_offset_ends[index] = offset;
-  }
-
-  return chunk_offset_ends;
-}
-
-std::array<uint32_t, CHUNK_COUNT> generate_chunk_ids(){
-  auto chunk_ids = std::array<uint32_t, CHUNK_COUNT>();
-
-  for (auto index = uint32_t{0}; index < CHUNK_COUNT; ++index) {
-    chunk_ids[index] = index;
-  }
-
-  return chunk_ids;
-}
-
-file_header generate_file_header(std::vector<std::shared_ptr<Chunk>> chunks) {
-  file_header file_header;
-
-  file_header.storage_format_version_id = 2;
-  file_header.chunk_count = chunks.size();
-  file_header.chunk_ids = generate_chunk_ids();
-  file_header.chunk_offset_ends = generate_chunk_offset_ends(chunks);
-
-  return file_header;
-}
-
 uint32_t combined(const uint16_t low, const uint16_t high) {
     return (static_cast<uint32_t>(high) << 16) | ((static_cast<uint32_t>(low)) & 0xFFFF);
 }
@@ -411,6 +368,57 @@ file_header read_file_header(std::string filename) {
   return file_header;
 }
 
+void prepare_filestream(const char* fname) {
+  std::remove(fname);
+  FILESTREAM.open(fname, std::ios::out | std::ios::binary | std::ios::app);
+}
+
+void end_filestream() {
+  FILESTREAM.close();
+}
+
+void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks) {
+  file_lock.acquire();
+
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(CHUNK_COUNT);
+  auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
+  auto chunk_ids = std::array<uint32_t, CHUNK_COUNT>();
+
+  // Chunk Offsets generally start right after the file header.
+  // i.e., an offset of 0 is equivalent to the 102nd byte in the file.
+  // Segment Offsets generally start right after the end of the last chunk.
+  auto offset = uint32_t{0};
+  for (auto chunk_ind = uint32_t{0}; chunk_ind < chunks.size(); ++chunk_ind) {
+    const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_ind]);
+    offset += segment_offset_ends.back();
+
+    chunk_segment_offset_ends[chunk_ind] = segment_offset_ends;
+    chunk_offset_ends[chunk_ind] = offset;
+  }
+  // Fill all offset fields, that are not used with 0s.
+  for (auto rest_chunk_ind = chunks.size(); rest_chunk_ind < CHUNK_COUNT; ++rest_chunk_ind) {
+    chunk_offset_ends[rest_chunk_ind] = uint32_t{0};
+  }
+
+  // TODO(everyone): Find, how to get the actual chunk id.
+  for (auto index = uint32_t{0}; index < CHUNK_COUNT; ++index) chunk_ids[index] = index;
+
+  file_header fh;
+  fh.storage_format_version_id = 2;
+  fh.chunk_count = chunks.size();
+  fh.chunk_ids = chunk_ids;
+  fh.chunk_offset_ends = chunk_offset_ends;
+
+  export_value<file_header>(FILESTREAM, fh);
+
+  for (auto chunk_ind = uint32_t{0}; chunk_ind < chunks.size(); ++chunk_ind) {
+    const auto chunk = chunks[chunk_ind];
+    write_chunk_to_disk(chunk, chunk_segment_offset_ends[chunk_ind]);
+  }
+
+  file_lock.release();
+}
+
 int main() {
   std::cout << "Playground started." << std::endl;
 
@@ -420,21 +428,11 @@ int main() {
     chunks.emplace_back(create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT));
   }
 
-  std::remove(FILENAME); //remove previously written file
+  prepare_filestream(FILENAME);
+  persist_chunks_to_disk(chunks);
+  end_filestream();
 
-  file_header header = generate_file_header(chunks);
-
-  std::cout << "ID: " << header.storage_format_version_id << " Count: " << header.chunk_count << std::endl;
-  for (auto header_index = size_t{0}; header_index < header.chunk_count; ++header_index) {
-    std::cout << "ChunkID: " << header.chunk_ids[header_index] << " ChunkOffsetEnd: " << header.chunk_offset_ends[header_index] << std::endl;
-  }
-  
-  std::ofstream chunk_file;
-  chunk_file.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
-  chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
-  chunk_file.close();
-
-  std::cout << "File header written."  << std::endl;
+  std::cout << "Data written to disc." << std::endl;
 
   file_header read_header = read_file_header(FILENAME);
 
@@ -442,11 +440,6 @@ int main() {
   for (auto header_index = size_t{0}; header_index < read_header.chunk_count; ++header_index) {
     std::cout << "ChunkID: " << read_header.chunk_ids[header_index] << " ChunkOffsetEnd: " << read_header.chunk_offset_ends[header_index] << std::endl;
   }
-
-  for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
-    write_chunk_to_disk(chunks[index], FILENAME);
-  }
-  std::cout << "Chunks written."  << std::endl;
 
   std::shared_ptr<Chunk> chunk = map_chunk_from_disk(sizeof(file_header)); // Start of first chunk.
 
