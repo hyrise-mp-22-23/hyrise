@@ -698,8 +698,6 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = random_indexes_map[state.range(0)];
-    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -711,7 +709,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_libaio, from, to, filedescriptors[index],
-                                    std::data(read_data), std::ref(random_indices)));
+                                    std::data(read_data), std::ref(random_indexes)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -833,13 +831,13 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 
 // Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->ArgsProduct({{100000}, {1, 2, 4, 8}, {0}})
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
+    ->ArgsProduct({{100000}, {1, 2, 4, 8}, {1}})
     ->UseRealTime();
-
+/*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
     ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
     ->UseRealTime();
@@ -856,7 +854,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
     ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
     ->UseRealTime();
 #endif
-/*
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
 */
