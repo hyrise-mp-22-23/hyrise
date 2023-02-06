@@ -128,7 +128,7 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::S
     if (access_order == RANDOM) {
       madvise(map, NUMBER_OF_BYTES, MADV_RANDOM);
       state.PauseTiming();
-      const auto random_indexes = random_indexes_map[state.range(0)];
+      //const auto random_indexes = random_indexes_map[state.range(0)];
       //const auto random_indexes = generate_random_indexes(NUMBER_OF_ELEMENTS);
       state.ResumeTiming();
       for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
