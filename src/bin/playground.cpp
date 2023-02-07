@@ -21,9 +21,12 @@ static const int CHUNK_COUNT = 50;
 const auto COLUMN_COUNT = uint32_t{23};
 const auto ROW_COUNT = uint32_t{65'000};
 
-const auto CHUNK_HEADER_SIZE = static_cast<uint32_t>(sizeof(uint32_t) + COLUMN_COUNT * sizeof(uint32_t));
-const auto SEGMENT_HEADER_SIZE = static_cast<uint32_t>(3 * sizeof(uint32_t));
-const auto SEGMENT_OFFSET_SIZE = static_cast<uint32_t>(COLUMN_COUNT * sizeof(uint32_t));
+const auto INDEX_ENTRY_SIZE = uint32_t{sizeof(uint32_t)};
+// 4 Byte for the Row Count and for each Segment Offset 4 Byte.
+const auto CHUNK_HEADER_SIZE = static_cast<uint32_t>(INDEX_ENTRY_SIZE + COLUMN_COUNT * INDEX_ENTRY_SIZE);
+// 4 Byte for each of the Header Entries.
+const auto SEGMENT_HEADER_SIZE = static_cast<uint32_t>(3 * INDEX_ENTRY_SIZE);
+const auto SEGMENT_OFFSET_SIZE = static_cast<uint32_t>(COLUMN_COUNT * INDEX_ENTRY_SIZE); // Size of Array of Segments
 
 const auto FILENAME = "z_binary_test.bin";
 std::ofstream FILESTREAM;
@@ -54,7 +57,6 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
    * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...
    * Dictionary-encode each segment and return dictionary encoded chunk.
    */
-
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   const auto num_values = int64_t{column_count * row_count};
 
@@ -82,7 +84,6 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
   }
 
   const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
-
   return dictionary_encoded_chunk;
 }
 
@@ -171,7 +172,6 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
   export_value(FILESTREAM, compressed_vector_type_id);
 
   export_values<int32_t>(FILESTREAM, *segment->dictionary());
-
   export_compressed_vector(FILESTREAM, *segment->compressed_vector_type(),
                           *segment->attribute_vector());
 }
@@ -281,10 +281,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   auto fd = int32_t{};
   Assert((fd = open(FILENAME, O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
 
-  // As we store a variable number of bytes per segment the easiest solution is to
-  // obtain the bytes to mmap via a file system call.
   const auto file_bytes = std::filesystem::file_size(FILENAME);
-
   auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), fail_and_close_file(fd, "Mapping Failed: ", errno));
   close(fd);
@@ -297,26 +294,26 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   }
   std::cout << std::endl;
 
-  const auto header_offset = chunk_offset_end / sizeof(uint32_t);
+  const auto header_offset = chunk_offset_end / INDEX_ENTRY_SIZE;
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
-    auto segment_offset_end = SEGMENT_OFFSET_SIZE + sizeof(uint32_t);
+    auto segment_offset_end = SEGMENT_OFFSET_SIZE + INDEX_ENTRY_SIZE;
     if (segment_index > 0) {
       segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
 
-    const auto dictionary_size = map[header_offset + segment_offset_end / sizeof(uint32_t)];
-    const auto attribute_vector_size = map[header_offset + segment_offset_end / sizeof(uint32_t) + 1];
-    const auto encoding_type = map[header_offset + segment_offset_end / sizeof(uint32_t) + 2];
+    const auto dictionary_size = map[header_offset + segment_offset_end / INDEX_ENTRY_SIZE];
+    const auto attribute_vector_size = map[header_offset + segment_offset_end / INDEX_ENTRY_SIZE + 1];
+    const auto encoding_type = map[header_offset + segment_offset_end / INDEX_ENTRY_SIZE + 2];
 
     std::cout << "DictionarySize: " << dictionary_size << " AttributeVectorSize: " << attribute_vector_size << " EncodingType: " << encoding_type << std::endl;
   
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
-    memcpy(dictionary_values.data(), &map[header_offset + segment_offset_end / sizeof(uint32_t) + 3], dictionary_size * sizeof(uint32_t));
+    memcpy(dictionary_values.data(), &map[header_offset + segment_offset_end / INDEX_ENTRY_SIZE + 3], dictionary_size * INDEX_ENTRY_SIZE);
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
     auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
-    memcpy(attribute_values.data(), &map[header_offset + segment_offset_end / sizeof(uint32_t) + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
+    memcpy(attribute_values.data(), &map[header_offset + segment_offset_end / INDEX_ENTRY_SIZE + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
     if (segment_index == 0) {
