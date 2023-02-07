@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <numeric>
 
 #include "base_test.hpp"
 
@@ -231,5 +232,114 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
   auto& sm = Hyrise::get().storage_manager;
   EXPECT_EQ(sm.has_prepared_plan("first_prepared_plan"), true);
 }
+
+std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count, const uint32_t column_count) {
+  /*
+   * Create a chunk with index-times repeating elements in each segment.
+   * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...
+   * Dictionary-encode each segment and return dictionary encoded chunk.
+   */
+  auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
+  const auto num_values = int64_t{column_count * row_count};
+
+  std::cout << "We create a dictionary-encoded chunk with " << column_count << " columns, " << row_count << " rows and thus "
+            << num_values << " values." << std::endl;
+
+  for (auto segment_index = uint32_t{0}; segment_index < column_count; ++segment_index) {
+    auto new_value_segment = std::make_shared<ValueSegment<int32_t>>();
+
+    auto current_value = int32_t{65'000};
+    auto value_count = uint32_t{1}; //start 1-indexed to avoid issues with modulo operations
+
+    while (value_count - 1 < row_count) { //as we start 1-indexed we need to adapt while-condition to create row-count many elements
+      new_value_segment->append(current_value);
+
+      //create segment-index many duplicates of each value in the segment
+      if (value_count % (segment_index + 1) == 0) {
+        --current_value;
+      }
+      ++value_count;
+    }
+
+    auto ds_int = ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
+    segments.emplace_back(ds_int);
+  }
+
+  const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
+  return dictionary_encoded_chunk;
+}
+
+TEST_F(StorageManagerTest, WritesChunkToFileFormat) {
+  static const int CHUNK_COUNT = 50;
+  const static auto COLUMN_COUNT = uint32_t{23};
+  const static auto ROW_COUNT = uint32_t{65'000};
+  const auto CREATE_COUNT = uint32_t{4};
+
+  auto& sm = Hyrise::get().storage_manager;
+
+  auto chunks = std::vector<std::shared_ptr<Chunk>>{};
+
+  for (auto index = size_t{0}; index < CREATE_COUNT; ++index) {
+    chunks.emplace_back(create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT));
+  }
+
+  sm.prepare_filestream();
+  sm.persist_chunks_to_disk(chunks);
+  sm.end_filestream();
+
+  std::cout << "Data written to disc." << std::endl;
+
+  //TODO: Why read header again before the chunk file is written completely?
+  file_header read_header = read_file_header(FILENAME);
+
+  std::cout << "Chunks written."  << std::endl;
+
+  auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
+  for (auto index = size_t{0}; index < CREATE_COUNT; ++index) {
+    if (index == 0) {
+      mapped_chunks.emplace_back(map_chunk_from_disk(sizeof(file_header)));
+    } else {
+      mapped_chunks.emplace_back(map_chunk_from_disk(read_header.chunk_offset_ends[index - 1]));
+    }
+  }
+  const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
+  auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
+
+  auto column_sum_of_created_chunk = uint64_t{};
+  dict_segment_iterable.with_iterators([&](auto it, auto end) {
+    column_sum_of_created_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
+      return accumulator + currentValue.value();
+    });
+  });
+
+  std::cout << "Sum of column 17 of created chunk: " << column_sum_of_created_chunk << std::endl;
+
+  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{16}));
+  auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
+
+  auto column_sum_of_mapped_chunk = uint64_t{};
+  mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
+    column_sum_of_mapped_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
+      return accumulator + currentValue.value();
+    });
+  });
+
+  std::cout << "Sum of column 17 of third mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
+
+  std::cout << "Col 0 of created chunk: ";
+  const auto original_dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{0}));
+  for (auto row_index = ChunkOffset{0}; row_index < 20; ++row_index) {
+    std::cout << (original_dict_segment->get_typed_value(row_index)).value() << " ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "Col 0 of third mapped chunk: ";
+  const auto original_dict_segment1 = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{0}));
+  for (auto row_index = ChunkOffset{0}; row_index < 20; ++row_index) {
+    std::cout << (original_dict_segment1->get_typed_value(row_index)).value() << " ";
+  }
+  std::cout << std::endl;
+}
+
 
 }  // namespace hyrise

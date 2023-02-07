@@ -8,15 +8,36 @@
 #include <shared_mutex>
 #include <string>
 #include <vector>
+#include <semaphore>
+#include <fstream>
 
+#include "storage/chunk_encoder.hpp"
 #include "lqp_view.hpp"
 #include "prepared_plan.hpp"
 #include "types.hpp"
+
+#include "storage/dictionary_segment.hpp"
+#include "storage/value_segment.hpp"
+#include "storage/base_dictionary_segment.hpp"
+#include "storage/create_iterable_from_segment.hpp"
+#include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 
 namespace hyrise {
 
 class Table;
 class AbstractLQPNode;
+
+struct file_header {
+  uint32_t storage_format_version_id;
+  uint32_t chunk_count;
+  std::array<uint32_t, 50> chunk_ids;
+  std::array<uint32_t, 50> chunk_offset_ends;
+};
+
+struct chunk_header {
+  uint32_t row_count;
+  std::vector<uint32_t> segment_offset_ends;
+};
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
@@ -70,6 +91,44 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
+
+  void prepare_filestream();
+  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks);
+  void end_filestream();
+  file_header read_file_header(std::string filename);
+
+ private:
+  static const int CHUNK_COUNT = 50;
+  const uint32_t COLUMN_COUNT = uint32_t{23};
+  const uint32_t ROW_COUNT = uint32_t{65'000};
+
+  std::string FILENAME = "z_binary_test.bin";
+  std::ofstream FILESTREAM;
+  // std::counting_semaphore<1> file_lock;
+  const uint32_t CREATE_COUNT = uint32_t{4};
+
+  // Fileformat constants
+  // File Header
+  const uint32_t FORMAT_VERSION_ID_BYTES = 2;
+  const uint32_t CHUNK_COUNT_BYTES = 2;
+  const uint32_t CHUNK_ID_BYTES = 4;
+  const uint32_t CHUNK_OFFSET_BYTES = 4;
+  [[maybe_unused]] const uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+
+  // Chunk Header
+  const uint32_t ROW_COUNT_BYTES = 4;
+  const uint32_t SEGMENT_OFFSET_BYTES = 4;
+  const uint32_t CHUNK_HEADER_BYTES = ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+
+  // Segment Header
+  const uint32_t DICTIONARY_SIZE_BYTES = 4;
+  const uint32_t ELEMENT_COUNT_BYTES = 4;
+  const uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
+  const uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+
+  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment);
+  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
