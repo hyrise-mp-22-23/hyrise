@@ -3,7 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <semaphore>
 #include <vector>
+
 #include "types.hpp"
 
 #include <unistd.h>
@@ -18,7 +20,10 @@
 static const int CHUNK_COUNT = 50;
 const auto COLUMN_COUNT = uint32_t{23};
 const auto ROW_COUNT = uint32_t{65'000};
+
 const auto FILENAME = "z_binary_test.bin";
+std::ofstream FILESTREAM;
+std::binary_semaphore file_lock{1};
 const auto CREATE_COUNT = uint32_t{4};
 
 // Fileformat constants
@@ -39,7 +44,6 @@ const auto DICTIONARY_SIZE_BYTES = 4;
 const auto ELEMENT_COUNT_BYTES = 4;
 const auto COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
 const auto SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
-
 
 using namespace hyrise;  // NOLINT
 
@@ -81,7 +85,6 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
    * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...
    * Dictionary-encode each segment and return dictionary encoded chunk.
    */
-
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   const auto num_values = int64_t{column_count * row_count};
 
@@ -109,7 +112,6 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
   }
 
   const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
-
   return dictionary_encoded_chunk;
 }
 
@@ -175,8 +177,7 @@ void export_compressed_vector(std::ofstream& ofstream, const CompressedVectorTyp
   }
 }
 
-void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& filename) {
-  //TODO: Update comment.
+void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment) {
   /*
    * Write dict segment to given file using the following format:
    * 1. Number of elements in dictionary
@@ -189,25 +190,19 @@ void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> se
    * As a next step we should use the AttributeVectorCompressionID to define the type of the FixedWidthIntegerVector
    * and perhaps also write out the type of the DictionarySegment.
    */
-  std::ofstream chunk_file;
-  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
 
   //TODO: Should this be continued?
   // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
   // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
-  export_value(chunk_file, static_cast<uint32_t>(segment->dictionary()->size()));
-  export_value(chunk_file, static_cast<uint32_t>(segment->attribute_vector()->size()));
-
-  // std::cout << "DictionarySize: " << segment->dictionary()->size() << " AttributeVectorSize: " << segment->attribute_vector()->size() << std::endl;
+  export_value(FILESTREAM, static_cast<uint32_t>(segment->dictionary()->size()));
+  export_value(FILESTREAM, static_cast<uint32_t>(segment->attribute_vector()->size()));
 
   const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
-  export_value(chunk_file, compressed_vector_type_id);
+  export_value(FILESTREAM, compressed_vector_type_id);
 
-  export_values<int32_t>(chunk_file, *segment->dictionary());
-
-  export_compressed_vector(chunk_file, *segment->compressed_vector_type(),
+  export_values<int32_t>(FILESTREAM, *segment->dictionary());
+  export_compressed_vector(FILESTREAM, *segment->compressed_vector_type(),
                           *segment->attribute_vector());
-  chunk_file.close();
 }
 
 std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
@@ -249,30 +244,42 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   return segment_offset_ends;
 }
 
-void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::string& filename) {
-  //TODO: Why open a new filestream for each chunk, when we are writing multiple chunks?
-  std::ofstream chunk_file;
-  chunk_file.open(filename, std::ios::out | std::ios::binary | std::ios::app);
-
+void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends) {
   chunk_header header;
   header.row_count = chunk->size();
-  //TODO: Remove double calculation of segment_offsets. Gets called in generate_file_header, too.
-  header.segment_offset_ends = generate_segment_offset_ends(chunk);
+  header.segment_offset_ends = segment_offset_ends;
 
-  export_value(chunk_file, header.row_count);
-  //TODO: Use export_values()?
+  std::cout << "RowCount: " << header.row_count << std::endl;
   for (const auto segment_offset_end : header.segment_offset_ends) {
-    export_value(chunk_file, segment_offset_end);
+    std::cout << "+" << segment_offset_end;
   }
-  //TODO: Why does this get closed when we will continue writing?
-  chunk_file.close();
+  std::cout << std::endl;
+
+  export_value(FILESTREAM, header.row_count);
+
+  for (const auto segment_offset_end : header.segment_offset_ends) {
+    export_value(FILESTREAM, segment_offset_end);
+  }
 
   const auto segment_count = chunk->column_count();
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
 
-    write_dict_segment_to_disk(dict_segment, filename);
+    // debug print to verify written content
+    if (segment_index == 0) {
+      std::cout << "Dict: ";
+      for (auto i = size_t{0}; i < 20; ++i) {
+        std::cout << dict_segment->dictionary()->at(i) << " ";
+      }
+      std::cout << "\nAtt: ";
+      for (auto i = size_t{0}; i < 20; ++i) {
+        std::cout << dynamic_pointer_cast<const FixedWidthIntegerVector<uint16_t>>(dict_segment->attribute_vector())->data().at(i) << " ";
+      }
+      std::cout  << std::endl;
+    }
+
+    write_dict_segment_to_disk(dict_segment);
   }
 }
 
@@ -304,8 +311,6 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   auto fd = int32_t{};
   Assert((fd = open(FILENAME, O_RDONLY)) >= 0, fail_and_close_file(fd, "Open error: ", errno));
 
-  // As we store a variable number of bytes per segment the easiest solution is to
-  // obtain the bytes to mmap via a file system call.
   const auto file_bytes = std::filesystem::file_size(FILENAME);
 
   //TODO: Remove unneccesary map on whole file
@@ -315,8 +320,13 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
 
   const auto header = read_chunk_header(FILENAME, COLUMN_COUNT, chunk_offset_end);
 
-  const auto header_offset = element_index(chunk_offset_end, 4);
+  std::cout << "RowCount: " << header.row_count << std::endl;
+  for (const auto segment_offset_end : header.segment_offset_ends) {
+    std::cout << "+" << segment_offset_end;
+  }
+  std::cout << std::endl;
 
+  const auto header_offset = element_index(chunk_offset_end, 4);
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
     auto segment_offset_end = CHUNK_HEADER_BYTES;
@@ -327,8 +337,10 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
     const auto segment_element_offset_index = element_index(segment_offset_end, 4);
     const auto dictionary_size = map[header_offset + segment_element_offset_index];
     const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
-    // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
-  
+    const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
+
+    std::cout << "DictionarySize: " << dictionary_size << " AttributeVectorSize: " << attribute_vector_size << " EncodingType: " << encoding_type << std::endl;
+
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
     memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
@@ -338,15 +350,12 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
-
-
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
 }
-
 
 std::array<uint32_t, CHUNK_COUNT> generate_chunk_offset_ends(std::vector<std::shared_ptr<Chunk>> chunks) {
   auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
@@ -408,7 +417,55 @@ file_header read_file_header(std::string filename) {
   return file_header;
 }
 
+void prepare_filestream(const char* fname) {
+  std::remove(fname);
+  FILESTREAM.open(fname, std::ios::out | std::ios::binary | std::ios::app);
+}
 
+void end_filestream() {
+  FILESTREAM.close();
+}
+
+void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks) {
+  file_lock.acquire();
+
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(CHUNK_COUNT);
+  auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
+  auto chunk_ids = std::array<uint32_t, CHUNK_COUNT>();
+
+  auto offset = uint32_t{sizeof(file_header)};
+  for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
+    const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_index]);
+    offset += segment_offset_ends.back();
+
+    chunk_segment_offset_ends[chunk_index] = segment_offset_ends;
+    chunk_offset_ends[chunk_index] = offset;
+  }
+  // Fill all offset fields, that are not used with 0s.
+  for (auto rest_chunk_index = chunks.size(); rest_chunk_index < CHUNK_COUNT; ++rest_chunk_index) {
+    chunk_offset_ends[rest_chunk_index] = uint32_t{0};
+  }
+
+  // TODO(everyone): Find, how to get the actual chunk id.
+  for (auto index = uint32_t{0}; index < CHUNK_COUNT; ++index) { 
+    chunk_ids[index] = index;
+  }
+
+  file_header fh;
+  fh.storage_format_version_id = 2;
+  fh.chunk_count = static_cast<uint16_t>(chunks.size());
+  fh.chunk_ids = chunk_ids;
+  fh.chunk_offset_ends = chunk_offset_ends;
+
+  export_value<file_header>(FILESTREAM, fh);
+
+  for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
+    const auto chunk = chunks[chunk_index];
+    write_chunk_to_disk(chunk, chunk_segment_offset_ends[chunk_index]);
+  }
+
+  file_lock.release();
+}
 
 int main() {
   std::cout << "Playground started." << std::endl;
@@ -419,24 +476,15 @@ int main() {
     chunks.emplace_back(create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT));
   }
 
-  std::remove(FILENAME); // Remove previously written file
+  prepare_filestream(FILENAME);
+  persist_chunks_to_disk(chunks);
+  end_filestream();
 
-  file_header header = generate_file_header(chunks);
-
-  //TODO: Why close filestream?
-  std::ofstream chunk_file;
-  chunk_file.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
-  chunk_file.write(reinterpret_cast<char*>(&header), sizeof(file_header));
-  chunk_file.close();
-
-  std::cout << "File header written."  << std::endl;
+  std::cout << "Data written to disc." << std::endl;
 
   //TODO: Why read header again before the chunk file is written completely?
   file_header read_header = read_file_header(FILENAME);
 
-  for (auto index = uint32_t{0}; index < chunks.size(); ++index) {
-    write_chunk_to_disk(chunks[index], FILENAME);
-  }
   std::cout << "Chunks written."  << std::endl;
 
   auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
@@ -447,8 +495,6 @@ int main() {
       mapped_chunks.emplace_back(map_chunk_from_disk(read_header.chunk_offset_ends[index - 1]));
     }
   }
-
-  // compare sum of column 17 in created and mapped chunk
   const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
   auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
 
