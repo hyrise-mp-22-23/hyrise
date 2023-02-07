@@ -296,7 +296,7 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
   const auto header_offset = chunk_offset_end / 4;
 
   for (auto segment_index = size_t{0}; segment_index < COLUMN_COUNT; ++segment_index) {
-    auto segment_offset_end = uint32_t{0};
+    auto segment_offset_end = uint32_t{24 * 4};
     if (segment_index > 0) {
       segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }
@@ -381,7 +381,7 @@ void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks) {
   // Chunk Offsets generally start right after the file header.
   // i.e., an offset of 0 is equivalent to the 102nd byte in the file.
   // Segment Offsets generally start right after the end of the last chunk.
-  auto offset = uint32_t{0};
+  auto offset = uint32_t{sizeof(file_header)};
   for (auto chunk_ind = uint32_t{0}; chunk_ind < chunks.size(); ++chunk_ind) {
     const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_ind]);
     offset += segment_offset_ends.back();
