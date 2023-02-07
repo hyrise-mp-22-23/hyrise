@@ -38,8 +38,6 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-size_t getChunkMetaDataElementSize(uint32_t segment_count);
-
 std::string fail_and_close_file(const int32_t fd, const std::string& message, const int error_num) {
   close(fd);
   return message + std::strerror(error_num);
@@ -177,9 +175,10 @@ std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> 
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
+  // Actually, Row Count is 2 Byte long, but 4 Byte are reflected in the file.
   auto offset_end = static_cast<uint32_t>(4 + 4 * segment_count);
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Compressed Vector Type ID
+    // 4 Byte Dictionary Size + 4 Byte Attribute Vector Size + 4 Byte Compressed Vector Type ID
     offset_end += uint32_t{12};
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
@@ -328,8 +327,6 @@ std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end) {
     }
 
     const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
-
-
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
   }
 
@@ -378,9 +375,6 @@ void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks) {
   auto chunk_offset_ends = std::array<uint32_t, CHUNK_COUNT>();
   auto chunk_ids = std::array<uint32_t, CHUNK_COUNT>();
 
-  // Chunk Offsets generally start right after the file header.
-  // i.e., an offset of 0 is equivalent to the 102nd byte in the file.
-  // Segment Offsets generally start right after the end of the last chunk.
   auto offset = uint32_t{sizeof(file_header)};
   for (auto chunk_ind = uint32_t{0}; chunk_ind < chunks.size(); ++chunk_ind) {
     const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_ind]);
@@ -438,17 +432,9 @@ int main() {
   std::shared_ptr<Chunk> chunk = map_chunk_from_disk(sizeof(file_header)); // Start of first chunk.
 
   std::cout << "##### NOW READING SECOND CHUNK #####" << read_header.chunk_offset_ends[1] << std::endl;
-
   std::shared_ptr<Chunk> chunk2 = map_chunk_from_disk(read_header.chunk_offset_ends[0]);
-  std::shared_ptr<Chunk> chunk2x = map_chunk_from_disk(read_header.chunk_offset_ends[1]);
-  std::shared_ptr<Chunk> chunk2fgasf = map_chunk_from_disk(read_header.chunk_offset_ends[2]);
 
-  // auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
-  // for (auto index = uint32_t{0}; index < 4; ++index) {
-  //   mapped_chunks.emplace_back(map_chunk_from_disk(sizeof(file_header) + 4));
-  // }
-
-  // compare sum of column 17 in created and mapped chunk
+  // Compare sum of column 17 in created and mapped chunk.
   const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
   auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
 
@@ -472,20 +458,6 @@ int main() {
   });
 
   std::cout << "Sum of column 17 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
-
-  // // print row 17 of created and mapped chunk
-  // std::cout << "Row 17 of created chunk: ";
-  // for (auto column_index = size_t{0}; column_index < COLUMN_COUNT; ++column_index) {
-  //   const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(column_index))));
-  //   std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
-  // }
-  // std::cout << std::endl;
-
-  // std::cout << "Row 17 of mapped chunk: ";
-  // for (auto column_index = size_t{0}; column_index < COLUMN_COUNT; ++column_index) {
-  //   const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(column_index))));
-  //   std::cout << (dict_segment->get_typed_value(ChunkOffset{16})).value() << " ";
-  // }
 
   std::cout << "Col 0 of created chunk: ";
   const auto original_dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{0}));
