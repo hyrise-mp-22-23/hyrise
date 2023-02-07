@@ -17,10 +17,6 @@
 #include "types.hpp"
 
 #include "storage/dictionary_segment.hpp"
-#include "storage/value_segment.hpp"
-#include "storage/base_dictionary_segment.hpp"
-#include "storage/create_iterable_from_segment.hpp"
-#include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 
 namespace hyrise {
 
@@ -113,7 +109,7 @@ class StorageManager : public Noncopyable {
   const uint32_t CHUNK_COUNT_BYTES = 2;
   const uint32_t CHUNK_ID_BYTES = 4;
   const uint32_t CHUNK_OFFSET_BYTES = 4;
-  [[maybe_unused]] const uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+  const uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
 
   // Chunk Header
   const uint32_t ROW_COUNT_BYTES = 4;

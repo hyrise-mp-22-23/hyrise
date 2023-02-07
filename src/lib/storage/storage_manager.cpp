@@ -315,7 +315,6 @@ std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::sh
 }
 
 void StorageManager::prepare_filestream() {
-  // std::remove(FILENAME);
   FILESTREAM.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
 }
 
