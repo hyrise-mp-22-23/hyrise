@@ -42,8 +42,13 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
   void create_random_indexes_if_not_exist(size_t size_parameter, uint64_t number_of_elements) {
     if (random_indexes.size() == 0) {
+        const auto start = std::chrono::high_resolution_clock::now();
+
       std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
       random_indexes = generate_random_indexes(number_of_elements);
+      const auto stop = std::chrono::high_resolution_clock::now();
+      const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "Elapes seconds: " << elapsed.count() <<  std::endl;
     }
   }
 
