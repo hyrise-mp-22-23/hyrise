@@ -36,10 +36,10 @@ class DictionarySegment : public BaseDictionarySegment {
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
     const auto value_id = _decompressor->get(chunk_offset);
-    if (value_id == _dictionary->size()) {
+    if (value_id == _dictionary_span->size()) {
       return std::nullopt;
     }
-    return (*_dictionary)[value_id];
+    return (*_dictionary_span)[value_id];
   }
 
   ChunkOffset size() const final;
@@ -86,11 +86,8 @@ class DictionarySegment : public BaseDictionarySegment {
   /**@}*/
 
  protected:
-  const std::shared_ptr<std::span<T>> _dictionary_span;
-  const std::shared_ptr<std::span<T>> _attribute_vector_span;
-
- private:
   const std::shared_ptr<const pmr_vector<T>> _dictionary;
+  const std::shared_ptr<std::span<const T>> _dictionary_span;
   const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 };
