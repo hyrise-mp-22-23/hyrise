@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "chunk.hpp"
 #include "lqp_view.hpp"
 #include "prepared_plan.hpp"
 #include "types.hpp"
@@ -57,6 +58,14 @@ class StorageManager : public Noncopyable {
   std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> prepared_plans() const;
   /** @} */
 
+    /**
+     * @defgroup Manage writing Chunks to disk and keep storage.json synchronized.
+     * @{
+     */
+    void write_to_disk(const Chunk* chunk);
+    void update_json(const std::string& table_name) const;
+    /** @} */
+
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
@@ -66,6 +75,7 @@ class StorageManager : public Noncopyable {
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
+  const char* storage_json_path = "./resources/storage.json";
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};

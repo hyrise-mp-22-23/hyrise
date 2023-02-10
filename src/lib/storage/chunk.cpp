@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "abstract_segment.hpp"
+#include "hyrise.hpp"
 #include "index/abstract_index.hpp"
 #include "reference_segment.hpp"
 #include "resolve_type.hpp"
@@ -122,6 +123,9 @@ void Chunk::finalize() {
            "max_begin_cid should not be MAX_COMMIT_ID when finalizing a chunk. This probably means the chunk was "
            "finalized before all transactions committed/rolled back.");
   }
+
+  auto& storage_manager = Hyrise::get().storage_manager;
+  storage_manager.write_to_disk(this);
 }
 
 std::vector<std::shared_ptr<AbstractIndex>> Chunk::get_indexes(const std::vector<ColumnID>& column_ids) const {

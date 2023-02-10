@@ -1,6 +1,8 @@
 #include "storage_manager.hpp"
 
+#include <fstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +17,7 @@
 #include "statistics/table_statistics.hpp"
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
+using json = nlohmann::json;
 
 namespace hyrise {
 
@@ -37,8 +40,9 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 
   table->set_table_statistics(TableStatistics::from_table(*table));
   generate_chunk_pruning_statistics(table);
-
   _tables[name] = std::move(table);
+
+  update_json(name);
 }
 
 void StorageManager::drop_table(const std::string& name) {
@@ -47,6 +51,7 @@ void StorageManager::drop_table(const std::string& name) {
 
   // The concurrent_unordered_map does not support concurrency-safe erasure. Thus, we simply reset the table pointer.
   _tables[name] = nullptr;
+    update_json(name);
 }
 
 std::shared_ptr<Table> StorageManager::get_table(const std::string& name) const {
@@ -202,6 +207,94 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
   }
 
   return result;
+}
+
+void StorageManager::update_json(const std::string& table_name) const{
+    // Check if "storage.json" file exists.
+    std::ifstream json_file(storage_json_path);
+    json storage;
+
+
+    // If the file exists, load the contents into the json object.
+    if (json_file.good()) {
+        json_file >> storage;
+    }
+
+    auto table_index = ssize_t{-1};
+    for (auto index = size_t{0}; index < storage["tables"].size(); ++index) {
+        if (storage["tables"][index]["name"] == table_name) {
+            table_index = static_cast<ssize_t>(index);
+            break;
+        }
+    }
+
+    if(has_table(table_name)){
+        const auto table = get_table(table_name);
+
+        // Create current table object with attributes.
+        const json table_object = {
+                {"name", table_name},
+                {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
+                {"row_count", table->row_count()},
+                {"column_count", static_cast<uint32_t>(table->column_count())},
+        };
+
+        const auto chunk_count = table->chunk_count();
+        for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
+            const auto current_chunk = table->get_chunk(chunk_id);
+            const json chunk_object = {
+                    {"is_mutable", current_chunk->is_mutable()},
+                    {"column_count", static_cast<uint32_t>(current_chunk->column_count())},
+                    {"row_count", static_cast<uint32_t>(current_chunk->size())},
+                    {"invalid_row_count", static_cast<uint32_t>(current_chunk->invalid_row_count())},
+            };
+            table_object["chunks"].push_back(chunk_object);
+        }
+
+        // If table entry in json already exist, overwrite it. Otherwise, append the table entry.
+        if (table_index != -1) {
+            storage["tables"][table_index] = table_object;
+        }else{
+            storage["tables"].push_back(table_object);
+        }
+
+
+    }else{
+        if (table_index != -1) {
+            storage["tables"].erase(table_index);
+        }
+    }
+
+    // Write the json object to disk.
+    std::ofstream output_file(storage_json_path);
+    output_file << storage.dump(4);
+    output_file.close();
+}
+
+void StorageManager::write_to_disk(const Chunk* chunk){
+    // find table to which the chunk belongs.
+    auto table_name = std::string("");
+    const auto column_count = chunk->column_count();
+    const auto has_mvcc = chunk->has_mvcc_data();
+    const auto invalid_row_count = chunk->has_mvcc_data();
+    for (const auto& table_item : _tables) {
+        const auto& table = table_item.second;
+        const auto chunk_count = table->chunk_count();
+        for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
+            const auto current_chunk = table->get_chunk(chunk_id);
+            if ((current_chunk->column_count() == column_count)
+                && (current_chunk->has_mvcc_data() == has_mvcc)
+                && (current_chunk->invalid_row_count() == invalid_row_count)){
+                table_name = table_item.first;
+                break;
+            }
+        }
+    }
+
+    if (table_name != std::string("")){
+        update_json(table_name);
+    }
+
 }
 
 void StorageManager::export_all_tables_as_csv(const std::string& path) {
