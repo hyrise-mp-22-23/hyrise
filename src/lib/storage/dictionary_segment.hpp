@@ -23,8 +23,14 @@ class DictionarySegment : public BaseDictionarySegment {
   explicit DictionarySegment(const std::shared_ptr<const pmr_vector<T>>& dictionary,
                              const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
 
+  explicit DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
+                             const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
+
   // returns an underlying dictionary
   std::shared_ptr<const pmr_vector<T>> dictionary() const;
+
+  // returns an underlying dictionary
+  std::shared_ptr<const std::span<const T>> dictionary_span() const;
 
   /**
    * @defgroup AbstractSegment interface
@@ -87,7 +93,7 @@ class DictionarySegment : public BaseDictionarySegment {
 
  protected:
   const std::shared_ptr<const pmr_vector<T>> _dictionary;
-  const std::shared_ptr<std::span<const T>> _dictionary_span;
+  const std::shared_ptr<const std::span<const T>> _dictionary_span;
   const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 };
