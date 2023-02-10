@@ -58,13 +58,13 @@ class StorageManager : public Noncopyable {
   std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> prepared_plans() const;
   /** @} */
 
-    /**
+  /**
      * @defgroup Manage writing Chunks to disk and keep storage.json synchronized.
      * @{
      */
-    void write_to_disk(const Chunk* chunk);
-    void update_json(const std::string& table_name) const;
-    /** @} */
+  void write_to_disk(const Chunk* chunk);
+  void update_json(const std::string& table_name) const;
+  /** @} */
 
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
