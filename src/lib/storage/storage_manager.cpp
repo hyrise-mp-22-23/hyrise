@@ -210,6 +210,7 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
 }
 
 void StorageManager::update_json(const std::string& table_name) const{
+    std::cout << "Json for " << table_name << std::endl;
     // Check if "storage.json" file exists.
     std::ifstream json_file(storage_json_path);
     json storage;
@@ -232,7 +233,7 @@ void StorageManager::update_json(const std::string& table_name) const{
         const auto table = get_table(table_name);
 
         // Create current table object with attributes.
-        const json table_object = {
+        json table_object = {
                 {"name", table_name},
                 {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
                 {"row_count", table->row_count()},
@@ -243,10 +244,10 @@ void StorageManager::update_json(const std::string& table_name) const{
         for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
             const auto current_chunk = table->get_chunk(chunk_id);
             const json chunk_object = {
+                    {"chunk_id", static_cast<uint32_t>(chunk_id)},
                     {"is_mutable", current_chunk->is_mutable()},
-                    {"column_count", static_cast<uint32_t>(current_chunk->column_count())},
                     {"row_count", static_cast<uint32_t>(current_chunk->size())},
-                    {"invalid_row_count", static_cast<uint32_t>(current_chunk->invalid_row_count())},
+                    {"saved_at", "IN_MEMORY"},
             };
             table_object["chunks"].push_back(chunk_object);
         }
@@ -292,6 +293,7 @@ void StorageManager::write_to_disk(const Chunk* chunk){
     }
 
     if (table_name != std::string("")){
+        std::cout << "Found table: " << table_name << std::endl;
         update_json(table_name);
     }
 
