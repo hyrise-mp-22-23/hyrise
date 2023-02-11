@@ -357,7 +357,9 @@ CompressedVectorTypeID infer_compressed_vector_type_id(
 void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
   //adapted to uint32_t format of later created map (see comment in `write_dict_segment_to_disk`)
   export_value(static_cast<uint32_t>(values.bits()), file_name);
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
   ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+  ofstream.close();
 }
 
 void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector, 
@@ -424,7 +426,7 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, con
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
 
-    write_dict_segment_to_disk(dict_segment);
+    write_dict_segment_to_disk(dict_segment, file_name);
   }
 }
 
@@ -463,7 +465,7 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
 
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
     const auto chunk = chunks[chunk_index];
-    write_chunk_to_disk(chunk, chunk_segment_offset_ends[chunk_index]);
+    write_chunk_to_disk(chunk, chunk_segment_offset_ends[chunk_index], file_name);
   }
 
   // file_lock.release();

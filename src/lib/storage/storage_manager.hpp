@@ -116,8 +116,8 @@ class StorageManager : public Noncopyable {
   uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends);
+  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name);
+  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends, std::string file_name);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
