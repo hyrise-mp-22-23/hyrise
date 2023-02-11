@@ -279,7 +279,7 @@ std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::sh
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
-  auto offset_end = CHUNK_HEADER_BYTES;
+  auto offset_end = CHUNK_HEADER_BYTES(segment_count);
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     offset_end += SEGMENT_HEADER_BYTES;
 
@@ -314,26 +314,22 @@ std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::sh
   return segment_offset_ends;
 }
 
-void StorageManager::prepare_filestream() {
-  FILESTREAM.open(FILENAME, std::ios::out | std::ios::binary | std::ios::app);
-}
-
-void StorageManager::end_filestream() {
-  FILESTREAM.close();
-}
-
 /*
  * Copied binary writing functions from `binary_writer.cpp`
  */
 
 template <typename T>
-void export_value(std::ofstream& ofstream, const T& value) {
+void export_value(const T& value, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
   ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+  ofstream.close();
 }
 
 template <typename T, typename Alloc>
-void export_values(std::ofstream& ofstream, const std::vector<T, Alloc>& values) {
+void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+  ofstream.close();
 }
 
 template <typename T>
@@ -358,33 +354,33 @@ CompressedVectorTypeID infer_compressed_vector_type_id(
 }
 
 // needed for attribute vector which is stored in a compact manner
-void export_compact_vector(std::ofstream& ofstream, const pmr_compact_vector& values) {
+void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
   //adapted to uint32_t format of later created map (see comment in `write_dict_segment_to_disk`)
-  export_value(ofstream, static_cast<uint32_t>(values.bits()));
+  export_value(static_cast<uint32_t>(values.bits()), file_name);
   ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
 }
 
-void export_compressed_vector(std::ofstream& ofstream, const CompressedVectorType type,
-                              const BaseCompressedVector& compressed_vector) {
+void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector, 
+                              std::string file_name) {
   switch (type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
-      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data());
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), file_name);
       return;
     case CompressedVectorType::FixedWidthInteger2Byte:
-      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data());
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), file_name);
       return;
     case CompressedVectorType::FixedWidthInteger1Byte:
-      export_values(ofstream, dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data());
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), file_name);
       return;
     case CompressedVectorType::BitPacking:
-      export_compact_vector(ofstream, dynamic_cast<const BitPackingVector&>(compressed_vector).data());
+      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), file_name);
       return;
     default:
       Fail("Any other type should have been caught before.");
   }
 }
 
-void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment) {
+void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name) {
   /*
    * Write dict segment to given file using the following format:
    * 1. Number of elements in dictionary
@@ -401,26 +397,26 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   //TODO: Should this be continued?
   // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
   // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
-  export_value(FILESTREAM, static_cast<uint32_t>(segment->dictionary()->size()));
-  export_value(FILESTREAM, static_cast<uint32_t>(segment->attribute_vector()->size()));
+  export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
+  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
 
   const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
-  export_value(FILESTREAM, compressed_vector_type_id);
+  export_value(compressed_vector_type_id, file_name);
 
-  export_values<int32_t>(FILESTREAM, *segment->dictionary());
-  export_compressed_vector(FILESTREAM, *segment->compressed_vector_type(),
-                           *segment->attribute_vector());
+  export_values<int32_t>(*segment->dictionary(), file_name);
+  export_compressed_vector(*segment->compressed_vector_type(),
+                           *segment->attribute_vector(), file_name);
 }
 
-void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends) {
+void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends, std::string file_name) {
   chunk_header header;
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
-  export_value(FILESTREAM, header.row_count);
+  export_value(header.row_count, file_name);
 
   for (const auto segment_offset_end : header.segment_offset_ends) {
-    export_value(FILESTREAM, segment_offset_end);
+    export_value(segment_offset_end, file_name);
   }
 
   const auto segment_count = chunk->column_count();
@@ -432,7 +428,7 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, con
   }
 }
 
-void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks) {
+void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name) {
   // file_lock.acquire();
 
   auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::CHUNK_COUNT);
@@ -459,11 +455,11 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
 
   file_header fh;
   fh.storage_format_version_id = 2;
-  fh.chunk_count = static_cast<uint16_t>(chunks.size());
+  fh.chunk_count = static_cast<uint32_t>(chunks.size());
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
 
-  export_value<file_header>(StorageManager::FILESTREAM, fh);
+  export_value<file_header>(fh, file_name);
 
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
     const auto chunk = chunks[chunk_index];
@@ -494,9 +490,5 @@ file_header StorageManager::read_file_header(std::string filename) {
 
   return file_header;
 }
-
-
-
-
 
 }  // namespace hyrise

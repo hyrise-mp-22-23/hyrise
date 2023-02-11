@@ -88,20 +88,11 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
-  void prepare_filestream();
-  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks);
-  void end_filestream();
+  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name);
   file_header read_file_header(std::string filename);
 
  private:
   static const uint32_t CHUNK_COUNT = 50;
-  uint32_t COLUMN_COUNT = uint32_t{23};
-  uint32_t ROW_COUNT = uint32_t{65'000};
-
-  std::string FILENAME = "z_binary_test.bin";
-  std::ofstream FILESTREAM;
-  // std::counting_semaphore<1> file_lock;
-  uint32_t CREATE_COUNT = uint32_t{4};
 
   // Fileformat constants
   // File Header
@@ -114,7 +105,9 @@ class StorageManager : public Noncopyable {
   // Chunk Header
   uint32_t ROW_COUNT_BYTES = 4;
   uint32_t SEGMENT_OFFSET_BYTES = 4;
-  uint32_t CHUNK_HEADER_BYTES = ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+  uint32_t CHUNK_HEADER_BYTES(uint32_t COLUMN_COUNT) {
+    return ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+  }
 
   // Segment Header
   uint32_t DICTIONARY_SIZE_BYTES = 4;
