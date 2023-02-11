@@ -77,6 +77,19 @@ class StorageManager : public Noncopyable {
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
+  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name);
+
+  // These functions are for the moment public, to test them properly.
+  file_header read_file_header(std::string filename);
+  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename, const uint32_t segment_count);
+
+  uint32_t get_max_chunk_count() {
+    return CHUNK_COUNT;
+  }
+  uint32_t get_storage_format_version_id() {
+    return STORAGE_FORMAT_VERSION_ID;
+  }
+
  protected:
   StorageManager() = default;
   friend class Hyrise;
@@ -88,11 +101,9 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
-  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name);
-  file_header read_file_header(std::string filename);
-
  private:
   static const uint32_t CHUNK_COUNT = 50;
+  uint32_t STORAGE_FORMAT_VERSION_ID = 1;
 
   // Fileformat constants
   // File Header
@@ -114,6 +125,8 @@ class StorageManager : public Noncopyable {
   uint32_t ELEMENT_COUNT_BYTES = 4;
   uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
   uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+
+  chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin);
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
   void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name);

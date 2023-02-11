@@ -456,7 +456,7 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
   }
 
   file_header fh;
-  fh.storage_format_version_id = 2;
+  fh.storage_format_version_id = STORAGE_FORMAT_VERSION_ID;
   fh.chunk_count = static_cast<uint32_t>(chunks.size());
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
@@ -473,10 +473,10 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
 
 file_header StorageManager::read_file_header(std::string filename) {
   file_header file_header;
-
   auto fd = int32_t{};
+
   Assert((fd = open(filename.c_str(), O_RDONLY) >= 0), "Open error");
-  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, sizeof(file_header), PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, FILE_HEADER_BYTES, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), "Mapping Failed");
   close(fd);
 
@@ -492,5 +492,72 @@ file_header StorageManager::read_file_header(std::string filename) {
 
   return file_header;
 }
+
+chunk_header StorageManager::read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin) {
+  // TODO: Remove need to map the whole file.
+  chunk_header header;
+  const auto map_index = element_index(chunk_offset_begin, 4);
+
+  auto fd = int32_t{};
+  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+
+  const auto file_bytes = std::filesystem::file_size(filename);
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  Assert((map != MAP_FAILED), "Mapping of Chunk Failed.");
+  close(fd);
+
+  header.row_count = map[map_index];
+
+  for (auto header_index = size_t{1}; header_index < segment_count + 1; ++header_index) {
+    header.segment_offset_ends.emplace_back(map[header_index + map_index]);
+  }
+
+  return header;
+}
+
+std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename, const uint32_t segment_count) {
+  auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
+
+  auto fd = int32_t{};
+  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+
+  const auto file_bytes = std::filesystem::file_size(filename);
+
+  // TODO: Remove unneccesary map on whole file
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  Assert((map != MAP_FAILED), "Mapping of File Failed.");
+  close(fd);
+
+  const auto header = read_chunk_header(filename, segment_count, chunk_offset_end);
+  const auto header_offset = element_index(chunk_offset_end, 4);
+
+  for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
+    auto segment_offset_end = CHUNK_HEADER_BYTES(segment_count);
+    if (segment_index > 0) {
+      segment_offset_end = header.segment_offset_ends[segment_index - 1];
+    }
+
+    const auto segment_element_offset_index = element_index(segment_offset_end, 4);
+    const auto dictionary_size = map[header_offset + segment_element_offset_index];
+    const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
+    // Encoding type is not used yet.
+    // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
+
+    auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
+    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
+    auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
+
+    auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
+    memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
+    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
+
+    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
+    segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+  }
+
+  const auto chunk = std::make_shared<Chunk>(segments);
+  return chunk;
+}
+
 
 }  // namespace hyrise
