@@ -417,12 +417,6 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, con
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
-  std::cout << "RowCount: " << header.row_count << std::endl;
-  for (const auto segment_offset_end : header.segment_offset_ends) {
-    std::cout << "+" << segment_offset_end;
-  }
-  std::cout << std::endl;
-
   export_value(FILESTREAM, header.row_count);
 
   for (const auto segment_offset_end : header.segment_offset_ends) {
@@ -433,19 +427,6 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, con
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
-
-    // debug print to verify written content
-    if (segment_index == 0) {
-      std::cout << "Dict: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << dict_segment->dictionary()->at(i) << " ";
-      }
-      std::cout << "\nAtt: ";
-      for (auto i = size_t{0}; i < 20; ++i) {
-        std::cout << dynamic_pointer_cast<const FixedWidthIntegerVector<uint16_t>>(dict_segment->attribute_vector())->data().at(i) << " ";
-      }
-      std::cout  << std::endl;
-    }
 
     write_dict_segment_to_disk(dict_segment);
   }
