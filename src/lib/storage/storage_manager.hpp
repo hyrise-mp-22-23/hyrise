@@ -94,33 +94,33 @@ class StorageManager : public Noncopyable {
   file_header read_file_header(std::string filename);
 
  private:
-  static const int CHUNK_COUNT = 50;
-  const uint32_t COLUMN_COUNT = uint32_t{23};
-  const uint32_t ROW_COUNT = uint32_t{65'000};
+  static const uint32_t CHUNK_COUNT = 50;
+  uint32_t COLUMN_COUNT = uint32_t{23};
+  uint32_t ROW_COUNT = uint32_t{65'000};
 
   std::string FILENAME = "z_binary_test.bin";
   std::ofstream FILESTREAM;
   // std::counting_semaphore<1> file_lock;
-  const uint32_t CREATE_COUNT = uint32_t{4};
+  uint32_t CREATE_COUNT = uint32_t{4};
 
   // Fileformat constants
   // File Header
-  const uint32_t FORMAT_VERSION_ID_BYTES = 2;
-  const uint32_t CHUNK_COUNT_BYTES = 2;
-  const uint32_t CHUNK_ID_BYTES = 4;
-  const uint32_t CHUNK_OFFSET_BYTES = 4;
-  const uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+  uint32_t FORMAT_VERSION_ID_BYTES = 2;
+  uint32_t CHUNK_COUNT_BYTES = 2;
+  uint32_t CHUNK_ID_BYTES = 4;
+  uint32_t CHUNK_OFFSET_BYTES = 4;
+  uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
 
   // Chunk Header
-  const uint32_t ROW_COUNT_BYTES = 4;
-  const uint32_t SEGMENT_OFFSET_BYTES = 4;
-  const uint32_t CHUNK_HEADER_BYTES = ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+  uint32_t ROW_COUNT_BYTES = 4;
+  uint32_t SEGMENT_OFFSET_BYTES = 4;
+  uint32_t CHUNK_HEADER_BYTES = ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
 
   // Segment Header
-  const uint32_t DICTIONARY_SIZE_BYTES = 4;
-  const uint32_t ELEMENT_COUNT_BYTES = 4;
-  const uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
-  const uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+  uint32_t DICTIONARY_SIZE_BYTES = 4;
+  uint32_t ELEMENT_COUNT_BYTES = 4;
+  uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
+  uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
   void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment);
