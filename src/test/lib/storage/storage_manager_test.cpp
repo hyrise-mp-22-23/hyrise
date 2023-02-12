@@ -265,15 +265,16 @@ std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count,
 
 TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   const auto file_name = "test_chunks_file.bin";
+  std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{100};
-  const auto COLUMN_COUNT = uint32_t{10};
+  const auto ROW_COUNT = uint32_t{65000}; // fails when set to 100
+  const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count();
 
   const auto chunk = create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
-  for (auto i = 0u; i < chunks.size(); ++i) {
+  for (auto i = size_t{0}; i < chunks.size(); ++i) {
     chunks[i] = chunk;
   }
   sm.persist_chunks_to_disk(chunks, file_name);
