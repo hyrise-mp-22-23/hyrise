@@ -25,23 +25,23 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
                 "UnsignedIntType must be any of the three listed unsigned integer types.");
 
  public:
-  explicit FixedWidthIntegerVector(pmr_vector<UnsignedIntType> data) : _data{std::move(data)} {}
+  explicit FixedWidthIntegerVector(pmr_vector<UnsignedIntType> data) : _data{std::move(data)}, _data_span{_data.data(), _data.size()} {}
 
   const pmr_vector<UnsignedIntType>& data() const {
     return _data;
   }
 
   void* data_pointer() const override{
-    return (void*) _data.data();
+    return (void*) _data_span.data();
   }
 
  public:
   size_t on_size() const {
-    return _data.size();
+    return _data_span.size();
   }
 
   size_t on_data_size() const {
-    return sizeof(UnsignedIntType) * _data.size();
+    return sizeof(UnsignedIntType) * _data_span.size();
   }
 
   auto on_create_base_decompressor() const {
@@ -53,11 +53,11 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
   }
 
   auto on_begin() const {
-    return _data.cbegin();
+    return _data_span.begin();
   }
 
   auto on_end() const {
-    return _data.cend();
+    return _data_span.end();
   }
 
   std::unique_ptr<const BaseCompressedVector> on_copy_using_allocator(const PolymorphicAllocator<size_t>& alloc) const {
@@ -67,6 +67,7 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
 
  private:
   const pmr_vector<UnsignedIntType> _data;
+  const std::span<const UnsignedIntType> _data_span;
 };
 
 }  // namespace hyrise
