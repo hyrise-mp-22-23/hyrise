@@ -107,7 +107,7 @@ ValueID DictionarySegment<T>::lower_bound(const AllTypeVariant& value) const {
   const auto typed_value = boost::get<T>(value);
 
   auto iter = std::lower_bound(_dictionary_span->begin(), _dictionary_span->end(), typed_value);
-  if (iter == _dictionary->cend()) {
+  if (iter == _dictionary_span->end()) {
     return INVALID_VALUE_ID;
   }
   return ValueID{static_cast<ValueID::base_type>(std::distance(_dictionary_span->begin(), iter))};
