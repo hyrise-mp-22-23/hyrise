@@ -8,6 +8,7 @@
 #include <shared_mutex>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include "storage/chunk_encoder.hpp"
 #include "lqp_view.hpp"
