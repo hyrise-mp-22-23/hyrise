@@ -26,6 +26,7 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
 
  public:
   explicit FixedWidthIntegerVector(pmr_vector<UnsignedIntType> data) : _data{std::move(data)}, _data_span{_data.data(), _data.size()} {}
+  explicit FixedWidthIntegerVector(const std::span<const UnsignedIntType> data_span) : _data_span{data_span} {}
 
   const pmr_vector<UnsignedIntType>& data() const {
     return _data;
@@ -45,11 +46,11 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
   }
 
   auto on_create_base_decompressor() const {
-    return std::make_unique<FixedWidthIntegerDecompressor<UnsignedIntType>>(_data);
+    return std::make_unique<FixedWidthIntegerDecompressor<UnsignedIntType>>(_data_span);
   }
 
   auto on_create_decompressor() const {
-    return FixedWidthIntegerDecompressor<UnsignedIntType>(_data);
+    return FixedWidthIntegerDecompressor<UnsignedIntType>(_data_span);
   }
 
   auto on_begin() const {
