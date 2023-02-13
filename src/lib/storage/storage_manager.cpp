@@ -540,19 +540,38 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
     const auto segment_element_offset_index = element_index(segment_offset_end, 4);
     const auto dictionary_size = map[header_offset + segment_element_offset_index];
     const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
-    // Encoding type is not used yet.
-    // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
 
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
     memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
-    auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
-    memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
-    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
+    const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
+    (void) encoding_type;
 
-    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
-    segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+    switch (encoding_type) {
+      case DICT_ENCODING_8_BYTE: {
+        auto attribute_values = pmr_vector<uint8_t>(attribute_vector_size);
+        memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
+               attribute_vector_size * sizeof(uint8_t));
+        auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_values);
+
+        const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
+        segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+        break;
+      }
+      case DICT_ENCODING_16_BYTE: {
+        auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
+        memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
+               attribute_vector_size * sizeof(uint16_t));
+        auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
+
+        const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
+        segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+        break;
+      }
+      default:
+        Fail("Unknown Compression Type");
+    }
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);

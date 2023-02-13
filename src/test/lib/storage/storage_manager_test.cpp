@@ -268,7 +268,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{65000}; // fails when set to 100
+  const auto ROW_COUNT = uint32_t{100}; // can't be greater than INT32_MAX
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count();
 
