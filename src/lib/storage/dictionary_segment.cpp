@@ -42,6 +42,52 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 }
 
 template <typename T>
+std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_t* map, const uint32_t segment_start_offset_bytes) {
+  if constexpr (std::is_same_v<T, int32_t>) {
+    const auto segment_start_map_index = segment_start_offset_bytes / 4;
+    const auto dictionary_size = map[segment_start_map_index];
+    const auto attribute_vector_size = map[segment_start_map_index + 1];
+    // const auto encoding_type = map[segment_start_map_index + 2];
+
+    auto* dictionary_map = reinterpret_cast<const T*>(map);
+    auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
+    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
+
+
+    auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+    auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size) * 2], attribute_vector_size);
+    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
+
+    return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+  } else {
+    Fail("Das tun wir hier nicht.");
+  }
+}
+
+// template <typename T>
+// DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segment_start_offset_bytes)
+//   : BaseDictionarySegment(data_type_from_type<T>()),
+//     _decompressor{_attribute_vector->create_base_decompressor()} {
+//   const auto segment_start_map_index = segment_start_offset_bytes / 4;
+//   const auto dictionary_size = map[segment_start_map_index];
+//   const auto attribute_vector_size = map[segment_start_map_index + 1];
+//   // const auto encoding_type = map[segment_start_map_index + 2];
+
+//   auto* dictionary_map = reinterpret_cast<const T*>(map);
+//   auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
+//   auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
+
+
+//   auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+//   auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size) * 2], attribute_vector_size);
+//   auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
+
+//   _dictionary_span = dictionary_span;
+//   _attribute_vector = attribute_vector;
+//   // this->DictionarySegment<T>(dictionary_span, attribute_vector);
+// }
+
+template <typename T>
 AllTypeVariant DictionarySegment<T>::operator[](const ChunkOffset chunk_offset) const {
   PerformanceWarning("operator[] used");
   DebugAssert(chunk_offset != INVALID_CHUNK_OFFSET, "Passed chunk offset must be valid.");

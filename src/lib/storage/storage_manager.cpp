@@ -530,36 +530,15 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
   close(fd);
 
   const auto header = read_chunk_header(filename, segment_count, chunk_offset_end);
-  const auto header_offset = element_index(chunk_offset_end, 4);
+  // const auto header_offset = element_index(chunk_offset_end, 4);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    auto segment_offset_end = CHUNK_HEADER_BYTES(segment_count);
+    auto segment_offset_end = CHUNK_HEADER_BYTES(segment_count) + chunk_offset_end;
     if (segment_index > 0) {
-      segment_offset_end = header.segment_offset_ends[segment_index - 1];
+      segment_offset_end = header.segment_offset_ends[segment_index - 1] + chunk_offset_end;
     }
 
-    const auto segment_element_offset_index = element_index(segment_offset_end, 4);
-    const auto dictionary_size = map[header_offset + segment_element_offset_index];
-    const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
-    // Encoding type is not used yet.
-    // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
-
-
-
-    auto* dict_map = reinterpret_cast<const int32_t*>(map);
-    auto dictionary_span = std::span<const int32_t>(&dict_map[header_offset + segment_element_offset_index + 3], dictionary_size);
-    auto dictionary_span_pointer = std::make_shared<std::span<const int32_t>>(dictionary_span);
-
-
-    auto* attribute_map = reinterpret_cast<uint16_t*>(map);
-    auto testspan = std::span<uint16_t>(&attribute_map[(header_offset + segment_element_offset_index + 3 + dictionary_size) * 2], attribute_vector_size);
-
-
-    (void)attribute_map;
-    auto spanned_attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(testspan);
-
-    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary_span_pointer, spanned_attribute_vector);
-    segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
+    segments.emplace_back(DictionarySegment<int32_t>::create(map, segment_offset_end));
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);

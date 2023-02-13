@@ -26,6 +26,8 @@ class DictionarySegment : public BaseDictionarySegment {
   explicit DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
                              const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
 
+  static std::shared_ptr<DictionarySegment> create(const uint32_t* map, const uint32_t segment_start_offset_bytes);
+
   // returns an underlying dictionary
   std::shared_ptr<const pmr_vector<T>> dictionary() const;
 
