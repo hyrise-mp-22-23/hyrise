@@ -48,6 +48,8 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
     const auto dictionary_size = map[segment_start_map_index];
     const auto attribute_vector_size = map[segment_start_map_index + 1];
     // const auto encoding_type = map[segment_start_map_index + 2];
+    const auto type_size_as_index = sizeof(T) / 4;
+
 
     auto* dictionary_map = reinterpret_cast<const T*>(map);
     auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
@@ -55,7 +57,7 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
 
 
     auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
-    auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size) * 2], attribute_vector_size);
+    auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2], attribute_vector_size);
     auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
     return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
