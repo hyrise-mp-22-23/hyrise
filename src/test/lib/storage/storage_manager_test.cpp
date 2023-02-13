@@ -268,14 +268,14 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{100}; // can't be greater than INT32_MAX
+  const auto ROW_COUNT = uint32_t{65000}; // can't be greater than INT32_MAX
   const auto COLUMN_COUNT = uint32_t{23};
-  const auto CHUNK_COUNT = sm.get_max_chunk_count();
+  const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
   const auto chunk = create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
-  for (auto i = size_t{0}; i < chunks.size(); ++i) {
-    chunks[i] = chunk;
+  for (auto index = size_t{0}; index < chunks.size(); ++index) {
+    chunks[index] = chunk;
   }
   sm.persist_chunks_to_disk(chunks, file_name);
 
@@ -306,7 +306,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
     });
   });
 
-  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[3]->get_segment(ColumnID{16}));
+  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
   auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
 
   auto column_sum_of_mapped_chunk = uint64_t{};

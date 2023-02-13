@@ -8,8 +8,6 @@
 #include <shared_mutex>
 #include <string>
 #include <vector>
-#include <semaphore>
-#include <fstream>
 
 #include "storage/chunk_encoder.hpp"
 #include "lqp_view.hpp"
@@ -35,7 +33,7 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum ENCODING_TYPE {NO_ENCODING = 0, DICT_ENCODING_8_BYTE = 1, DICT_ENCODING_16_BYTE = 2};
+enum ENCODING_TYPE {NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2};
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
@@ -85,7 +83,7 @@ class StorageManager : public Noncopyable {
   file_header read_file_header(std::string filename);
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename, const uint32_t segment_count);
 
-  uint32_t get_max_chunk_count() {
+  uint32_t get_max_chunk_count_per_file() {
     return CHUNK_COUNT;
   }
   uint32_t get_storage_format_version_id() {
@@ -109,8 +107,8 @@ class StorageManager : public Noncopyable {
 
   // Fileformat constants
   // File Header
-  uint32_t FORMAT_VERSION_ID_BYTES = 2;
-  uint32_t CHUNK_COUNT_BYTES = 2;
+  uint32_t FORMAT_VERSION_ID_BYTES = 4;
+  uint32_t CHUNK_COUNT_BYTES = 4;
   uint32_t CHUNK_ID_BYTES = 4;
   uint32_t CHUNK_OFFSET_BYTES = 4;
   uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
