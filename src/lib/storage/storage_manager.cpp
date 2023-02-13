@@ -525,6 +525,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
   // TODO: Remove unneccesary map on whole file
   auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  _maps.emplace_back(map);
   Assert((map != MAP_FAILED), "Mapping of File Failed.");
   close(fd);
 
@@ -543,15 +544,21 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
     // Encoding type is not used yet.
     // const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
 
-    auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
-    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
-    auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
-    auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
-    memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size], attribute_vector_size * sizeof(uint16_t));
-    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
 
-    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
+    auto* dict_map = reinterpret_cast<const int32_t*>(map);
+    auto dictionary_span = std::span<const int32_t>(&dict_map[header_offset + segment_element_offset_index + 3], dictionary_size);
+    auto dictionary_span_pointer = std::make_shared<std::span<const int32_t>>(dictionary_span);
+
+
+    auto* attribute_map = reinterpret_cast<uint16_t*>(map);
+    auto testspan = std::span<uint16_t>(&attribute_map[(header_offset + segment_element_offset_index + 3 + dictionary_size) * 2], attribute_vector_size);
+
+
+    (void)attribute_map;
+    auto spanned_attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(testspan);
+
+    const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary_span_pointer, spanned_attribute_vector);
     segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
   }
 

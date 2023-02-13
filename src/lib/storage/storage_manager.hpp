@@ -100,6 +100,7 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
+  std::vector<uint32_t*> _maps;
 
  private:
   static const uint32_t CHUNK_COUNT = 50;
