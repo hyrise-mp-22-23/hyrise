@@ -475,9 +475,7 @@ file_header StorageManager::read_file_header(std::string filename) {
   file_header file_header;
   auto fd = int32_t{};
 
-  Assert((fd = ((size_t) open(filename.c_str(), O_RDONLY)) >= 0), "Open error");
-  // You might wonder why it's doubled, but without the second call it doesn't work
-  fd = (size_t) open(filename.c_str(), O_RDONLY);
+  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
   auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, FILE_HEADER_BYTES, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), "Mapping Failed");
   close(fd);
