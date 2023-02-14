@@ -47,7 +47,7 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
     const auto segment_start_map_index = segment_start_offset_bytes / 4;
     const auto dictionary_size = map[segment_start_map_index];
     const auto attribute_vector_size = map[segment_start_map_index + 1];
-    // const auto encoding_type = map[segment_start_map_index + 2];
+    const auto encoding_type = map[segment_start_map_index + 2];
     const auto type_size_as_index = sizeof(T) / 4;
 
 
@@ -55,12 +55,30 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
     auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
     auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
 
+    if (encoding_type == 1) {
+      auto* attribute_vector_map = reinterpret_cast<const uint8_t*>(map);
+      auto attribute_data_span = std::span<const uint8_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 4], attribute_vector_size);
+      auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
-    auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
-    auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2], attribute_vector_size);
-    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
+      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+    } else if (encoding_type == 2) {
+      auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+      auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2], attribute_vector_size);
+      auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
-    return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+    } else if (encoding_type == 3) {
+      auto* attribute_vector_map = reinterpret_cast<const uint32_t*>(map);
+      auto attribute_data_span = std::span<const uint32_t>(&attribute_vector_map[segment_start_map_index + 3 + dictionary_size * type_size_as_index], attribute_vector_size);
+      auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
+
+      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+    } else if (encoding_type == 4) {
+      Fail("BitPacking not implemented yet.");
+    } else {
+      Fail("Unsupported EncodingType.");
+    }
+  
   } else {
     Fail("Das tun wir hier nicht.");
   }
