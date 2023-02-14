@@ -9,19 +9,19 @@
 
 #include "hyrise.hpp"
 #include "import_export/file_type.hpp"
-#include "logical_query_plan/abstract_lqp_node.hpp"
 #include "operators/export.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
 #include "statistics/generate_pruning_statistics.hpp"
 #include "statistics/table_statistics.hpp"
 #include "storage/base_dictionary_segment.hpp"
-#include "storage/create_iterable_from_segment.hpp"
 #include "storage/dictionary_segment.hpp"
 #include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
 #include "storage/value_segment.hpp"
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
+#include "import_export/binary/binary_writer.hpp"
+
 
 namespace hyrise {
 
@@ -332,27 +332,6 @@ void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
   ofstream.close();
 }
 
-template <typename T>
-CompressedVectorTypeID infer_compressed_vector_type_id(
-    const AbstractEncodedSegment& abstract_encoded_segment) {
-  uint8_t compressed_vector_type_id = 0u;
-  resolve_encoded_segment_type<T>(abstract_encoded_segment, [&compressed_vector_type_id](auto& typed_segment) {
-    const auto compressed_vector_type = typed_segment.compressed_vector_type();
-    Assert(compressed_vector_type, "Expected Segment to use vector compression");
-    switch (*compressed_vector_type) {
-      case CompressedVectorType::FixedWidthInteger4Byte:
-      case CompressedVectorType::FixedWidthInteger2Byte:
-      case CompressedVectorType::FixedWidthInteger1Byte:
-      case CompressedVectorType::BitPacking:
-        compressed_vector_type_id = static_cast<uint8_t>(*compressed_vector_type);
-        break;
-      default:
-        Fail("Export of specified CompressedVectorType is not yet supported");
-    }
-  });
-  return compressed_vector_type_id;
-}
-
 // needed for attribute vector which is stored in a compact manner
 void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
   //adapted to uint32_t format of later created map (see comment in `write_dict_segment_to_disk`)
@@ -402,7 +381,7 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
 
-  const auto compressed_vector_type_id = static_cast<uint32_t>(infer_compressed_vector_type_id<int>(*segment));
+  const auto compressed_vector_type_id = static_cast<uint32_t>(BinaryWriter::_compressed_vector_type_id<int>(*segment));
   export_value(compressed_vector_type_id, file_name);
 
   export_values<int32_t>(*segment->dictionary(), file_name);
