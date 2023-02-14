@@ -10,6 +10,7 @@
 #include "logical_query_plan/stored_table_node.hpp"
 #include "storage/table.hpp"
 #include "utils/meta_table_manager.hpp"
+#include "./storage_manager_test_util.cpp"
 
 namespace hyrise {
 
@@ -233,36 +234,6 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
   EXPECT_EQ(sm.has_prepared_plan("first_prepared_plan"), true);
 }
 
-std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count, const uint32_t column_count) {
-  /*
-   * Create a chunk with index-times repeating elements in each segment.
-   * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...
-   * Dictionary-encode each segment and return dictionary encoded chunk.
-   */
-  auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
-  for (auto segment_index = uint32_t{0}; segment_index < column_count; ++segment_index) {
-    auto new_value_segment = std::make_shared<ValueSegment<int32_t>>();
-
-    auto current_value = int32_t{65'000};
-    auto value_count = uint32_t{1}; //start 1-indexed to avoid issues with modulo operations
-    while (value_count - 1 < row_count) { //as we start 1-indexed we need to adapt while-condition to create row-count many elements
-      new_value_segment->append(current_value);
-
-      //create segment-index many duplicates of each value in the segment
-      if (value_count % (segment_index + 1) == 0) {
-        --current_value;
-      }
-      ++value_count;
-    }
-
-    auto ds_int = ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
-    segments.emplace_back(ds_int);
-  }
-
-  const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
-  return dictionary_encoded_chunk;
-}
-
 TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   const auto file_name = "test_chunks_file.bin";
   std::remove(file_name);
@@ -272,7 +243,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunk = create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
+  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;

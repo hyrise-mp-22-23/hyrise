@@ -22,11 +22,13 @@ namespace hyrise {
 class Table;
 class AbstractLQPNode;
 
+const auto MAX_CHUNK_COUNT = uint8_t{50};
+
 struct file_header {
   uint32_t storage_format_version_id;
   uint32_t chunk_count;
-  std::array<uint32_t, 50> chunk_ids;
-  std::array<uint32_t, 50> chunk_offset_ends;
+  std::array<uint32_t, MAX_CHUNK_COUNT> chunk_ids;
+  std::array<uint32_t, MAX_CHUNK_COUNT> chunk_offset_ends;
 };
 
 struct chunk_header {
