@@ -16,14 +16,78 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const pmr_vector<T
                                         const std::shared_ptr<const BaseCompressedVector>& attribute_vector)
     : BaseDictionarySegment(data_type_from_type<T>()),
       _dictionary{dictionary},
+      _dictionary_span{std::make_shared<std::span<const T>>(_dictionary->data(), _dictionary->size())},
       _attribute_vector{attribute_vector},
       _decompressor{_attribute_vector->create_base_decompressor()} {
+
   // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
   // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
-
   Assert(_dictionary->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
 }
+
+template <typename T>
+DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
+                                        const std::shared_ptr<const BaseCompressedVector>& attribute_vector)
+  : BaseDictionarySegment(data_type_from_type<T>()),
+    _dictionary{},
+    _dictionary_span{dictionary},
+    _attribute_vector{attribute_vector},
+    _decompressor{_attribute_vector->create_base_decompressor()} {
+
+  // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
+  // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
+  // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
+  Assert(_dictionary_span->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
+}
+
+template <typename T>
+std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_t* map, const uint32_t segment_start_offset_bytes) {
+  if constexpr (std::is_same_v<T, int32_t>) {
+    const auto segment_start_map_index = segment_start_offset_bytes / 4;
+    const auto dictionary_size = map[segment_start_map_index];
+    const auto attribute_vector_size = map[segment_start_map_index + 1];
+    // const auto encoding_type = map[segment_start_map_index + 2];
+    const auto type_size_as_index = sizeof(T) / 4;
+
+
+    auto* dictionary_map = reinterpret_cast<const T*>(map);
+    auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
+    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
+
+
+    auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+    auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2], attribute_vector_size);
+    auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
+
+    return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+  } else {
+    Fail("Das tun wir hier nicht.");
+  }
+}
+
+// template <typename T>
+// DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segment_start_offset_bytes)
+//   : BaseDictionarySegment(data_type_from_type<T>()),
+//     _decompressor{_attribute_vector->create_base_decompressor()} {
+//   const auto segment_start_map_index = segment_start_offset_bytes / 4;
+//   const auto dictionary_size = map[segment_start_map_index];
+//   const auto attribute_vector_size = map[segment_start_map_index + 1];
+//   // const auto encoding_type = map[segment_start_map_index + 2];
+
+//   auto* dictionary_map = reinterpret_cast<const T*>(map);
+//   auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
+//   auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
+
+
+//   auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+//   auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size) * 2], attribute_vector_size);
+//   auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
+
+//   _dictionary_span = dictionary_span;
+//   _attribute_vector = attribute_vector;
+//   // this->DictionarySegment<T>(dictionary_span, attribute_vector);
+// }
 
 template <typename T>
 AllTypeVariant DictionarySegment<T>::operator[](const ChunkOffset chunk_offset) const {
@@ -41,6 +105,11 @@ template <typename T>
 std::shared_ptr<const pmr_vector<T>> DictionarySegment<T>::dictionary() const {
   // We have no idea how the dictionary will be used, so we do not increment the access counters here
   return _dictionary;
+}
+
+template <typename T>
+std::shared_ptr<const std::span<const T>> DictionarySegment<T>::dictionary_span() const {
+  return _dictionary_span;
 }
 
 template <typename T>
@@ -65,7 +134,7 @@ size_t DictionarySegment<T>::memory_usage(const MemoryUsageCalculationMode mode)
   if constexpr (std::is_same_v<T, pmr_string>) {
     return common_elements_size + string_vector_memory_usage(*_dictionary, mode);
   }
-  return common_elements_size + _dictionary->size() * sizeof(typename decltype(_dictionary)::element_type::value_type);
+  return common_elements_size + _dictionary_span->size() * sizeof(typename decltype(_dictionary_span)::element_type::value_type);
 }
 
 template <typename T>
@@ -82,40 +151,40 @@ template <typename T>
 ValueID DictionarySegment<T>::lower_bound(const AllTypeVariant& value) const {
   DebugAssert(!variant_is_null(value), "Null value passed.");
   access_counter[SegmentAccessCounter::AccessType::Dictionary] +=
-      static_cast<uint64_t>(std::ceil(std::log2(_dictionary->size())));
+      static_cast<uint64_t>(std::ceil(std::log2(_dictionary_span->size())));
   const auto typed_value = boost::get<T>(value);
 
-  auto iter = std::lower_bound(_dictionary->cbegin(), _dictionary->cend(), typed_value);
-  if (iter == _dictionary->cend()) {
+  auto iter = std::lower_bound(_dictionary_span->begin(), _dictionary_span->end(), typed_value);
+  if (iter == _dictionary_span->end()) {
     return INVALID_VALUE_ID;
   }
-  return ValueID{static_cast<ValueID::base_type>(std::distance(_dictionary->cbegin(), iter))};
+  return ValueID{static_cast<ValueID::base_type>(std::distance(_dictionary_span->begin(), iter))};
 }
 
 template <typename T>
 ValueID DictionarySegment<T>::upper_bound(const AllTypeVariant& value) const {
   DebugAssert(!variant_is_null(value), "Null value passed.");
   access_counter[SegmentAccessCounter::AccessType::Dictionary] +=
-      static_cast<uint64_t>(std::ceil(std::log2(_dictionary->size())));
+      static_cast<uint64_t>(std::ceil(std::log2(_dictionary_span->size())));
   const auto typed_value = boost::get<T>(value);
 
-  auto iter = std::upper_bound(_dictionary->cbegin(), _dictionary->cend(), typed_value);
-  if (iter == _dictionary->cend()) {
+  auto iter = std::upper_bound(_dictionary_span->begin(), _dictionary_span->end(), typed_value);
+  if (iter == _dictionary_span->end()) {
     return INVALID_VALUE_ID;
   }
-  return ValueID{static_cast<ValueID::base_type>(std::distance(_dictionary->cbegin(), iter))};
+  return ValueID{static_cast<ValueID::base_type>(std::distance(_dictionary_span->begin(), iter))};
 }
 
 template <typename T>
 AllTypeVariant DictionarySegment<T>::value_of_value_id(const ValueID value_id) const {
-  DebugAssert(value_id < _dictionary->size(), "ValueID out of bounds");
+  DebugAssert(value_id < _dictionary_span->size(), "ValueID out of bounds");
   access_counter[SegmentAccessCounter::AccessType::Dictionary] += 1;
-  return (*_dictionary)[value_id];
+  return (*_dictionary_span)[value_id];
 }
 
 template <typename T>
 ValueID::base_type DictionarySegment<T>::unique_values_count() const {
-  return static_cast<ValueID::base_type>(_dictionary->size());
+  return static_cast<ValueID::base_type>(_dictionary_span->size());
 }
 
 template <typename T>
@@ -125,7 +194,7 @@ std::shared_ptr<const BaseCompressedVector> DictionarySegment<T>::attribute_vect
 
 template <typename T>
 ValueID DictionarySegment<T>::null_value_id() const {
-  return ValueID{static_cast<ValueID::base_type>(_dictionary->size())};
+  return ValueID{static_cast<ValueID::base_type>(_dictionary_span->size())};
 }
 
 EXPLICITLY_INSTANTIATE_DATA_TYPES(DictionarySegment);
