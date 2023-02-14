@@ -483,8 +483,8 @@ chunk_header StorageManager::read_chunk_header(const std::string& filename, cons
 
   header.row_count = map[map_index];
 
-  for (auto header_index = size_t{1}; header_index < segment_count + 1; ++header_index) {
-    header.segment_offset_ends.emplace_back(map[header_index + map_index]);
+  for (auto segment_offset_index = size_t{0}; segment_offset_index < segment_count + 1; ++segment_offset_index) {
+    header.segment_offset_ends.emplace_back(map[segment_offset_index + map_index + 1]);
   }
 
   return header;
