@@ -14,7 +14,6 @@
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "types.hpp"
-
 #include "storage/dictionary_segment.hpp"
 
 namespace hyrise {
@@ -36,7 +35,7 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum ENCODING_TYPE { NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2 };
+enum ENCODING_TYPE { NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2, DICT_ENCODING_32_BIT = 3, DICT_ENCODING_BITPACKING = 4 };
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
@@ -80,11 +79,11 @@ class StorageManager : public Noncopyable {
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
-  void persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name);
+  void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
 
   // These functions are for the moment public, to test them properly.
-  file_header read_file_header(std::string filename);
-  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename,
+  file_header read_file_header(const std::string& filename);
+  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
 
   uint32_t get_max_chunk_count_per_file() {
@@ -108,38 +107,38 @@ class StorageManager : public Noncopyable {
 
  private:
   static const uint32_t CHUNK_COUNT = 50;
-  uint32_t STORAGE_FORMAT_VERSION_ID = 1;
+  static const uint32_t STORAGE_FORMAT_VERSION_ID = 1;
 
   // Fileformat constants
   // File Header
-  uint32_t FORMAT_VERSION_ID_BYTES = 4;
-  uint32_t CHUNK_COUNT_BYTES = 4;
-  uint32_t CHUNK_ID_BYTES = 4;
-  uint32_t CHUNK_OFFSET_BYTES = 4;
-  uint32_t FILE_HEADER_BYTES =
+  static const uint32_t FORMAT_VERSION_ID_BYTES = 4;
+  static const uint32_t CHUNK_COUNT_BYTES = 4;
+  static const uint32_t CHUNK_ID_BYTES = 4;
+  static const uint32_t CHUNK_OFFSET_BYTES = 4;
+  static const uint32_t FILE_HEADER_BYTES =
       FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
 
   // Chunk Header
-  uint32_t ROW_COUNT_BYTES = 4;
-  uint32_t SEGMENT_OFFSET_BYTES = 4;
+  static const uint32_t ROW_COUNT_BYTES = 4;
+  static const uint32_t SEGMENT_OFFSET_BYTES = 4;
 
   uint32_t CHUNK_HEADER_BYTES(uint32_t COLUMN_COUNT) {
     return ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
   }
 
   // Segment Header
-  uint32_t DICTIONARY_SIZE_BYTES = 4;
-  uint32_t ELEMENT_COUNT_BYTES = 4;
-  uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
-  uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+  static const uint32_t DICTIONARY_SIZE_BYTES = 4;
+  static const uint32_t ELEMENT_COUNT_BYTES = 4;
+  static const uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
+  static const uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
 
-  chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count,
+  chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends,
-                           std::string file_name);
+  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
+  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
+                           const std::string& file_name);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

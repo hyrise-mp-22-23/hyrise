@@ -361,7 +361,7 @@ void export_compressed_vector(const CompressedVectorType type, const BaseCompres
 }
 
 void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment,
-                                                std::string file_name) {
+                                                const std::string& file_name) {
   /*
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
@@ -376,8 +376,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
 }
 
-void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
-                                         const std::vector<uint32_t> segment_offset_ends, std::string file_name) {
+void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
+                                         const std::vector<uint32_t>& segment_offset_ends, const std::string& file_name) {
   chunk_header header;
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
@@ -397,7 +397,7 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
   }
 }
 
-void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name) {
+void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name) {
   /*
     TODO(everyone): Think about a proper implementation of a locking method. Each written file needs to be
     locked prior to writing (and released afterwards). It was decided to use the mutex class by cpp.
@@ -418,8 +418,8 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
     chunk_offset_ends[chunk_index] = offset;
   }
   // Fill all offset fields, that are not used with 0s.
-  for (auto rest_chunk_index = chunks.size(); rest_chunk_index < StorageManager::CHUNK_COUNT; ++rest_chunk_index) {
-    chunk_offset_ends[rest_chunk_index] = uint32_t{0};
+  for (auto chunk_index = chunks.size(); chunk_index < StorageManager::CHUNK_COUNT; ++chunk_index) {
+    chunk_offset_ends[chunk_index] = uint32_t{0};
   }
 
   // TODO(everyone): Find, how to get the actual chunk id.
@@ -443,7 +443,7 @@ void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> 
   // file_lock.release();
 }
 
-file_header StorageManager::read_file_header(std::string filename) {
+file_header StorageManager::read_file_header(const std::string& filename) {
   file_header file_header;
   auto fd = int32_t{};
 
@@ -467,7 +467,7 @@ file_header StorageManager::read_file_header(std::string filename) {
   return file_header;
 }
 
-chunk_header StorageManager::read_chunk_header(const std::string filename, const uint32_t segment_count,
+chunk_header StorageManager::read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                                const uint32_t chunk_offset_begin) {
   // TODO: Remove need to map the whole file.
   chunk_header header;
@@ -490,7 +490,7 @@ chunk_header StorageManager::read_chunk_header(const std::string filename, const
   return header;
 }
 
-std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename,
+std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                                            const uint32_t segment_count) {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
 
@@ -500,7 +500,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
   const auto file_bytes = std::filesystem::file_size(filename);
 
   // TODO: Remove unneccesary map on whole file
-  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), "Mapping of File Failed.");
   close(fd);
 
