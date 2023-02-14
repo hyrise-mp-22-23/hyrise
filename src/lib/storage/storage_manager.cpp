@@ -503,53 +503,20 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
   // TODO: Remove unneccesary map on whole file
   const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  _maps.emplace_back(map);
   Assert((map != MAP_FAILED), "Mapping of File Failed.");
   close(fd);
 
-  const auto header = read_chunk_header(filename, segment_count, chunk_offset_end);
-  const auto header_offset = element_index(chunk_offset_end, 4);
+  const auto chunk_header = read_chunk_header(filename, segment_count, chunk_offset_end);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    auto segment_offset_end = _chunk_header_bytes(segment_count);
+    auto segment_offset_end = _chunk_header_bytes(segment_count) + chunk_offset_end;
+
     if (segment_index > 0) {
-      segment_offset_end = header.segment_offset_ends[segment_index - 1];
+      segment_offset_end = chunk_header.segment_offset_ends[segment_index - 1] + chunk_offset_end;
     }
 
-    const auto segment_element_offset_index = element_index(segment_offset_end, 4);
-    const auto dictionary_size = map[header_offset + segment_element_offset_index];
-    const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
-
-    auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
-    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3],
-           dictionary_size * sizeof(uint32_t));
-    auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
-
-    const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
-
-    switch (encoding_type) {
-      case dict_encoding_8_bit: {
-        auto attribute_values = pmr_vector<uint8_t>(attribute_vector_size);
-        memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
-               attribute_vector_size * sizeof(uint8_t));
-        auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_values);
-
-        const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
-        segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
-        break;
-      }
-      case dict_encoding_16_bit: {
-        auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
-        memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
-               attribute_vector_size * sizeof(uint16_t));
-        auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_values);
-
-        const auto dictionary_segment = std::make_shared<DictionarySegment<int>>(dictionary, attribute_vector);
-        segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
-        break;
-      }
-      default:
-        Fail("Unknown Compression Type");
-    }
+    segments.emplace_back(DictionarySegment<int32_t>::create(map, segment_offset_end));
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);
