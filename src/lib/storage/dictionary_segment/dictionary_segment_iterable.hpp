@@ -11,7 +11,8 @@
 namespace hyrise {
 
 template <typename T, typename Dictionary, typename DictionarySpan>
-class DictionarySegmentIterable : public PointAccessibleSegmentIterable<DictionarySegmentIterable<T, Dictionary, DictionarySpan>> {
+class DictionarySegmentIterable
+    : public PointAccessibleSegmentIterable<DictionarySegmentIterable<T, Dictionary, DictionarySpan>> {
  public:
   using ValueType = T;
 
@@ -32,8 +33,9 @@ class DictionarySegmentIterable : public PointAccessibleSegmentIterable<Dictiona
 
       auto begin = Iterator<CompressedVectorIterator, DictionaryIteratorType>{
           _dictionary_span->begin(), _segment.null_value_id(), vector.cbegin(), ChunkOffset{0u}};
-      auto end = Iterator<CompressedVectorIterator, DictionaryIteratorType>{
-          _dictionary_span->begin(), _segment.null_value_id(), vector.cend(), static_cast<ChunkOffset>(_segment.size())};
+      auto end = Iterator<CompressedVectorIterator, DictionaryIteratorType>{_dictionary_span->begin(),
+                                                                            _segment.null_value_id(), vector.cend(),
+                                                                            static_cast<ChunkOffset>(_segment.size())};
 
       functor(begin, end);
     });
@@ -173,9 +175,11 @@ struct is_dictionary_segment_iterable {
   static constexpr auto value = false;
 };
 
-template <template <typename T, typename Dictionary, typename DictionarySpan> typename Iterable, typename T, typename Dictionary, typename DictionarySpan>
+template <template <typename T, typename Dictionary, typename DictionarySpan> typename Iterable, typename T,
+          typename Dictionary, typename DictionarySpan>
 struct is_dictionary_segment_iterable<Iterable<T, Dictionary, DictionarySpan>> {
-  static constexpr auto value = std::is_same_v<DictionarySegmentIterable<T, Dictionary, DictionarySpan>, Iterable<T, Dictionary, DictionarySpan>>;
+  static constexpr auto value =
+      std::is_same_v<DictionarySegmentIterable<T, Dictionary, DictionarySpan>, Iterable<T, Dictionary, DictionarySpan>>;
 };
 
 template <typename T>

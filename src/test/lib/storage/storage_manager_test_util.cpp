@@ -40,7 +40,8 @@ class StorageManagerTestUtil {
     return dictionary_encoded_chunk;
   }
 
-  static std::shared_ptr<Chunk> create_dictionary_segment_chunk_large(const uint32_t row_count, const uint32_t column_count) {
+  static std::shared_ptr<Chunk> create_dictionary_segment_chunk_large(const uint32_t row_count,
+                                                                      const uint32_t column_count) {
     /*
    * Create a chunk with index-times repeating elements in each segment.
    * Example: in segment 0 every value is unique, in segment 1 every value appears twice, in segment 2 thrice ...

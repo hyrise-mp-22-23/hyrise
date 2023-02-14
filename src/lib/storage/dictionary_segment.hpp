@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <span>
+#include <string>
 
 #include "base_dictionary_segment.hpp"
 #include "storage/vector_compression/base_compressed_vector.hpp"

@@ -19,7 +19,6 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const pmr_vector<T
       _dictionary_span{std::make_shared<std::span<const T>>(_dictionary->data(), _dictionary->size())},
       _attribute_vector{attribute_vector},
       _decompressor{_attribute_vector->create_base_decompressor()} {
-
   // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
   // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
@@ -29,12 +28,11 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const pmr_vector<T
 template <typename T>
 DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
                                         const std::shared_ptr<const BaseCompressedVector>& attribute_vector)
-  : BaseDictionarySegment(data_type_from_type<T>()),
-    _dictionary{},
-    _dictionary_span{dictionary},
-    _attribute_vector{attribute_vector},
-    _decompressor{_attribute_vector->create_base_decompressor()} {
-
+    : BaseDictionarySegment(data_type_from_type<T>()),
+      _dictionary{},
+      _dictionary_span{dictionary},
+      _attribute_vector{attribute_vector},
+      _decompressor{_attribute_vector->create_base_decompressor()} {
   // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
   // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
@@ -42,7 +40,8 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 }
 
 template <typename T>
-std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_t* map, const uint32_t segment_start_offset_bytes) {
+std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_t* map,
+                                                                   const uint32_t segment_start_offset_bytes) {
   if constexpr (std::is_same_v<T, int32_t>) {
     const auto segment_start_map_index = segment_start_offset_bytes / 4;
     const auto dictionary_size = map[segment_start_map_index];
@@ -50,26 +49,31 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
     const auto encoding_type = map[segment_start_map_index + 2];
     const auto type_size_as_index = sizeof(T) / 4;
 
-
     auto* dictionary_map = reinterpret_cast<const T*>(map);
     auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
     auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
 
     if (encoding_type == 1) {
       auto* attribute_vector_map = reinterpret_cast<const uint8_t*>(map);
-      auto attribute_data_span = std::span<const uint8_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 4], attribute_vector_size);
+      auto attribute_data_span = std::span<const uint8_t>(
+          &attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 4],
+          attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
       return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
     } else if (encoding_type == 2) {
       auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
-      auto attribute_data_span = std::span<const uint16_t>(&attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2], attribute_vector_size);
+      auto attribute_data_span = std::span<const uint16_t>(
+          &attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2],
+          attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
       return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
     } else if (encoding_type == 3) {
       auto* attribute_vector_map = reinterpret_cast<const uint32_t*>(map);
-      auto attribute_data_span = std::span<const uint32_t>(&attribute_vector_map[segment_start_map_index + 3 + dictionary_size * type_size_as_index], attribute_vector_size);
+      auto attribute_data_span = std::span<const uint32_t>(
+          &attribute_vector_map[segment_start_map_index + 3 + dictionary_size * type_size_as_index],
+          attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
 
       return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
@@ -78,7 +82,7 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
     } else {
       Fail("Unsupported EncodingType.");
     }
-  
+
   } else {
     Fail("Das tun wir hier nicht.");
   }
@@ -129,7 +133,8 @@ size_t DictionarySegment<T>::memory_usage(const MemoryUsageCalculationMode mode)
   if constexpr (std::is_same_v<T, pmr_string>) {
     return common_elements_size + string_vector_memory_usage(*_dictionary, mode);
   }
-  return common_elements_size + _dictionary_span->size() * sizeof(typename decltype(_dictionary_span)::element_type::value_type);
+  return common_elements_size +
+         _dictionary_span->size() * sizeof(typename decltype(_dictionary_span)::element_type::value_type);
 }
 
 template <typename T>

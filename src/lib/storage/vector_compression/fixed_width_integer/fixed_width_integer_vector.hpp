@@ -25,15 +25,17 @@ class FixedWidthIntegerVector : public CompressedVector<FixedWidthIntegerVector<
                 "UnsignedIntType must be any of the three listed unsigned integer types.");
 
  public:
-  explicit FixedWidthIntegerVector(pmr_vector<UnsignedIntType> data) : _data{std::move(data)}, _data_span{_data.data(), _data.size()} {}
+  explicit FixedWidthIntegerVector(pmr_vector<UnsignedIntType> data)
+      : _data{std::move(data)}, _data_span{_data.data(), _data.size()} {}
+
   explicit FixedWidthIntegerVector(const std::span<const UnsignedIntType> data_span) : _data_span{data_span} {}
 
   const pmr_vector<UnsignedIntType>& data() const {
     return _data;
   }
 
-  void* data_pointer() const override{
-    return (void*) _data_span.data();
+  void* data_pointer() const override {
+    return (void*)_data_span.data();
   }
 
  public:

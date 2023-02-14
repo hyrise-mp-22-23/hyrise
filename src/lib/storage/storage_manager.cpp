@@ -23,14 +23,14 @@
 #include "utils/meta_table_manager.hpp"
 
 namespace {
-  uint32_t byte_index(uint32_t element_index, size_t element_size) {
-    return element_index * element_size;
-  }
-
-  uint32_t element_index(uint32_t byte_index, size_t element_size) {
-    return byte_index / element_size;
-  }
+uint32_t byte_index(uint32_t element_index, size_t element_size) {
+  return element_index * element_size;
 }
+
+uint32_t element_index(uint32_t byte_index, size_t element_size) {
+  return byte_index / element_size;
+}
+}  // namespace
 
 namespace hyrise {
 
@@ -379,7 +379,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
 }
 
 void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
-                                         const std::vector<uint32_t>& segment_offset_ends, const std::string& file_name) {
+                                         const std::vector<uint32_t>& segment_offset_ends,
+                                         const std::string& file_name) {
   chunk_header header;
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
@@ -399,7 +400,8 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
   }
 }
 
-void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name) {
+void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks,
+                                            const std::string& file_name) {
   /*
     TODO(everyone): Think about a proper implementation of a locking method. Each written file needs to be
     locked prior to writing (and released afterwards). It was decided to use the mutex class by cpp.

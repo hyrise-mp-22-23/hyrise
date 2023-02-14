@@ -13,8 +13,8 @@
 #include "lqp_view.hpp"
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
-#include "types.hpp"
 #include "storage/dictionary_segment.hpp"
+#include "types.hpp"
 
 namespace hyrise {
 
@@ -35,12 +35,19 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum encoding_types { no_encoding = 0, dict_encoding_8_bit = 1, dict_encoding_16_bit = 2, dict_encoding_32_bit = 3, dict_encoding_bitpacking = 4 };
+enum encoding_types {
+  no_encoding = 0,
+  dict_encoding_8_bit = 1,
+  dict_encoding_16_bit = 2,
+  dict_encoding_32_bit = 3,
+  dict_encoding_bitpacking = 4
+};
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
 class StorageManager : public Noncopyable {
   friend class Hyrise;
+
  public:
   /**
    * @defgroup Manage Tables, this is only thread-safe for operations on tables with different names
@@ -116,8 +123,8 @@ class StorageManager : public Noncopyable {
   static const uint32_t _chunk_count_bytes = 4;
   static const uint32_t _chunk_id_bytes = 4;
   static const uint32_t _chunk_offset_bytes = 4;
-  static const uint32_t _file_header_bytes =
-      _format_version_id_bytes + _chunk_count_bytes + _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
+  static const uint32_t _file_header_bytes = _format_version_id_bytes + _chunk_count_bytes +
+                                             _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
 
   // Chunk Header
   static const uint32_t _row_count_bytes = 4;
@@ -128,10 +135,11 @@ class StorageManager : public Noncopyable {
   }
 
   // Segment Header
-    static const uint32_t _dictionary_size_bytes = 4;
-    static const uint32_t _element_count_bytes = 4;
-    static const uint32_t _compressed_vector_type_id_bytes = 4;
-    static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
+  static const uint32_t _dictionary_size_bytes = 4;
+  static const uint32_t _element_count_bytes = 4;
+  static const uint32_t _compressed_vector_type_id_bytes = 4;
+  static const uint32_t _segment_header_bytes =
+      _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
   chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
