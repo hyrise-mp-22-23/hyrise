@@ -2,17 +2,17 @@
 
 #include <tbb/concurrent_unordered_map.h>
 
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <shared_mutex>
 #include <string>
 #include <vector>
-#include <fstream>
 
-#include "storage/chunk_encoder.hpp"
 #include "lqp_view.hpp"
 #include "prepared_plan.hpp"
+#include "storage/chunk_encoder.hpp"
 #include "types.hpp"
 
 #include "storage/dictionary_segment.hpp"
@@ -36,7 +36,7 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum ENCODING_TYPE {NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2};
+enum ENCODING_TYPE { NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2 };
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
@@ -84,11 +84,13 @@ class StorageManager : public Noncopyable {
 
   // These functions are for the moment public, to test them properly.
   file_header read_file_header(std::string filename);
-  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename, const uint32_t segment_count);
+  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename,
+                                             const uint32_t segment_count);
 
   uint32_t get_max_chunk_count_per_file() {
     return CHUNK_COUNT;
   }
+
   uint32_t get_storage_format_version_id() {
     return STORAGE_FORMAT_VERSION_ID;
   }
@@ -114,11 +116,13 @@ class StorageManager : public Noncopyable {
   uint32_t CHUNK_COUNT_BYTES = 4;
   uint32_t CHUNK_ID_BYTES = 4;
   uint32_t CHUNK_OFFSET_BYTES = 4;
-  uint32_t FILE_HEADER_BYTES = FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+  uint32_t FILE_HEADER_BYTES =
+      FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
 
   // Chunk Header
   uint32_t ROW_COUNT_BYTES = 4;
   uint32_t SEGMENT_OFFSET_BYTES = 4;
+
   uint32_t CHUNK_HEADER_BYTES(uint32_t COLUMN_COUNT) {
     return ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
   }
@@ -129,11 +133,13 @@ class StorageManager : public Noncopyable {
   uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
   uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
 
-  chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin);
+  chunk_header read_chunk_header(const std::string filename, const uint32_t segment_count,
+                                 const uint32_t chunk_offset_begin);
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
   void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends, std::string file_name);
+  void write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends,
+                           std::string file_name);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

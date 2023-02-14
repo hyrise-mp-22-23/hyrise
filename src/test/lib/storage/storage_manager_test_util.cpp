@@ -19,8 +19,9 @@ class StorageManagerTestUtil {
       auto new_value_segment = std::make_shared<ValueSegment<int32_t>>();
 
       auto current_value = static_cast<int32_t>(row_count);
-      auto value_count = uint32_t{1}; //start 1-indexed to avoid issues with modulo operations
-      while (value_count - 1 < row_count) { //as we start 1-indexed we need to adapt while-condition to create row-count many elements
+      auto value_count = uint32_t{1};  //start 1-indexed to avoid issues with modulo operations
+      while (value_count - 1 <
+             row_count) {  //as we start 1-indexed we need to adapt while-condition to create row-count many elements
         new_value_segment->append(current_value);
 
         //create segment-index many duplicates of each value in the segment
@@ -30,14 +31,14 @@ class StorageManagerTestUtil {
         ++value_count;
       }
 
-      auto ds_int = ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
+      auto ds_int =
+          ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
       segments.emplace_back(ds_int);
     }
 
     const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);
     return dictionary_encoded_chunk;
   }
-
 };
 
 }  // namespace hyrise

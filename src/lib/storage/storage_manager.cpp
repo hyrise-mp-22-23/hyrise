@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "hyrise.hpp"
+#include "import_export/binary/binary_writer.hpp"
 #include "import_export/file_type.hpp"
 #include "operators/export.hpp"
 #include "operators/table_wrapper.hpp"
@@ -20,8 +21,6 @@
 #include "storage/value_segment.hpp"
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
-#include "import_export/binary/binary_writer.hpp"
-
 
 namespace hyrise {
 
@@ -341,7 +340,7 @@ void export_compact_vector(const pmr_compact_vector& values, std::string file_na
   ofstream.close();
 }
 
-void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector, 
+void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
                               std::string file_name) {
   switch (type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
@@ -361,7 +360,8 @@ void export_compressed_vector(const CompressedVectorType type, const BaseCompres
   }
 }
 
-void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name) {
+void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment,
+                                                std::string file_name) {
   /*
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
@@ -373,11 +373,11 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   export_value(compressed_vector_type_id, file_name);
 
   export_values<int32_t>(*segment->dictionary(), file_name);
-  export_compressed_vector(*segment->compressed_vector_type(),
-                           *segment->attribute_vector(), file_name);
+  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
 }
 
-void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t> segment_offset_ends, std::string file_name) {
+void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
+                                         const std::vector<uint32_t> segment_offset_ends, std::string file_name) {
   chunk_header header;
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
@@ -459,14 +459,16 @@ file_header StorageManager::read_file_header(std::string filename) {
 
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
     file_header.chunk_ids[header_index] = map[header_constants_size + header_index];
-    file_header.chunk_offset_ends[header_index] = map[header_constants_size + StorageManager::CHUNK_COUNT + header_index];
+    file_header.chunk_offset_ends[header_index] =
+        map[header_constants_size + StorageManager::CHUNK_COUNT + header_index];
   }
   munmap(map, FILE_HEADER_BYTES);
 
   return file_header;
 }
 
-chunk_header StorageManager::read_chunk_header(const std::string filename, const uint32_t segment_count, const uint32_t chunk_offset_begin) {
+chunk_header StorageManager::read_chunk_header(const std::string filename, const uint32_t segment_count,
+                                               const uint32_t chunk_offset_begin) {
   // TODO: Remove need to map the whole file.
   chunk_header header;
   const auto map_index = element_index(chunk_offset_begin, 4);
@@ -488,7 +490,8 @@ chunk_header StorageManager::read_chunk_header(const std::string filename, const
   return header;
 }
 
-std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename, const uint32_t segment_count) {
+std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string filename,
+                                                           const uint32_t segment_count) {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
 
   auto fd = int32_t{};
@@ -515,7 +518,8 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
     const auto attribute_vector_size = map[header_offset + segment_element_offset_index + 1];
 
     auto dictionary_values = pmr_vector<int32_t>(dictionary_size);
-    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3], dictionary_size * sizeof(uint32_t));
+    memcpy(dictionary_values.data(), &map[header_offset + segment_element_offset_index + 3],
+           dictionary_size * sizeof(uint32_t));
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
     const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
@@ -549,6 +553,5 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
 }
-
 
 }  // namespace hyrise

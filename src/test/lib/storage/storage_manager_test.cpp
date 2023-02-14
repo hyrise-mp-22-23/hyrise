@@ -1,16 +1,16 @@
 #include <filesystem>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <vector>
-#include <numeric>
 
 #include "base_test.hpp"
 
+#include "./storage_manager_test_util.cpp"
 #include "hyrise.hpp"
 #include "logical_query_plan/stored_table_node.hpp"
 #include "storage/table.hpp"
 #include "utils/meta_table_manager.hpp"
-#include "./storage_manager_test_util.cpp"
 
 namespace hyrise {
 
@@ -239,7 +239,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
   std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{65000}; // can't be greater than INT32_MAX
+  const auto ROW_COUNT = uint32_t{65000};  // can't be greater than INT32_MAX
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
@@ -264,7 +264,8 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
     if (index == 0) {
       mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(file_header), file_name, COLUMN_COUNT));
     } else {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
+      mapped_chunks.emplace_back(
+          sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
     }
   }
   const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
@@ -272,23 +273,23 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFile) {
 
   auto column_sum_of_created_chunk = uint64_t{};
   dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_created_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
-      return accumulator + currentValue.value();
-    });
+    column_sum_of_created_chunk = std::accumulate(
+        it, end, uint64_t{0},
+        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
   });
 
-  const auto mapped_dictionary_segment = dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
+  const auto mapped_dictionary_segment =
+      dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
   auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
 
   auto column_sum_of_mapped_chunk = uint64_t{};
   mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_mapped_chunk = std::accumulate(it, end, uint64_t{0}, [](const auto& accumulator, const auto& currentValue) {
-      return accumulator + currentValue.value();
-    });
+    column_sum_of_mapped_chunk = std::accumulate(
+        it, end, uint64_t{0},
+        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
   });
-  
-  EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
 
+  EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
 }
 
 }  // namespace hyrise
