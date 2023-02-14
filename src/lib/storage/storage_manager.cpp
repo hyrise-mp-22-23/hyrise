@@ -527,7 +527,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
     const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
 
     switch (encoding_type) {
-      case DICT_ENCODING_8_BIT: {
+      case dict_encoding_8_bit: {
         auto attribute_values = pmr_vector<uint8_t>(attribute_vector_size);
         memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
                attribute_vector_size * sizeof(uint8_t));
@@ -537,7 +537,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
         segments.emplace_back(dynamic_pointer_cast<AbstractSegment>(dictionary_segment));
         break;
       }
-      case DICT_ENCODING_16_BIT: {
+      case dict_encoding_16_bit: {
         auto attribute_values = pmr_vector<uint16_t>(attribute_vector_size);
         memcpy(attribute_values.data(), &map[header_offset + segment_element_offset_index + 3 + dictionary_size],
                attribute_vector_size * sizeof(uint16_t));

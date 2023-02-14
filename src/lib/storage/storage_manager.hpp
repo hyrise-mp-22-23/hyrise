@@ -35,7 +35,7 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum ENCODING_TYPE { NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_BIT = 2, DICT_ENCODING_32_BIT = 3, DICT_ENCODING_BITPACKING = 4 };
+enum encoding_types { no_encoding = 0, dict_encoding_8_bit = 1, dict_encoding_16_bit = 2, dict_encoding_32_bit = 3, dict_encoding_bitpacking = 4 };
 
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
