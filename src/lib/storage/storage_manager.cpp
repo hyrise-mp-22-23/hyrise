@@ -363,21 +363,9 @@ void export_compressed_vector(const CompressedVectorType type, const BaseCompres
 
 void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, std::string file_name) {
   /*
-   * Write dict segment to given file using the following format:
-   * 1. Number of elements in dictionary
-   * 2. Number of elements in attribute_vector
-   * 3. AttributeVectorCompressionID aka. size of int used in attribute vector
-   * 3. Dictionary values
-   * 4. Attribute_vector values
-   *
-   * For this exercise we assume an <int>-DictionarySegment with an FixedWidthIntegerVector<uint16_t> attribute_vector.
-   * As a next step we should use the AttributeVectorCompressionID to define the type of the FixedWidthIntegerVector
-   * and perhaps also write out the type of the DictionarySegment.
+   * For a description of how dictionary segments look, see the following PR:
+   *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
-
-  //TODO: Should this be continued?
-  // We will later mmap to an uint32_t vector/array. Therefore, we store all metadata points as uint32_t.
-  // This wastes up to three bytes of compression per metadata point but makes mapping much easier.
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
 
@@ -410,6 +398,11 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, con
 }
 
 void StorageManager::persist_chunks_to_disk(std::vector<std::shared_ptr<Chunk>> chunks, std::string file_name) {
+  /*
+    TODO(everyone): Think about a proper implementation of a locking method. Each written file needs to be
+    locked prior to writing (and released afterwards). It was decided to use the mutex class by cpp.
+    (see https://en.cppreference.com/w/cpp/thread/mutex).
+  */
   // file_lock.acquire();
 
   auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::CHUNK_COUNT);
@@ -462,12 +455,13 @@ file_header StorageManager::read_file_header(std::string filename) {
   file_header.storage_format_version_id = map[0];
   file_header.chunk_count = map[1];
 
-  const auto fixed_mapped_element_count = 2;
+  const auto header_constants_size = element_index(FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES, 4);
 
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
-    file_header.chunk_ids[header_index] = map[fixed_mapped_element_count + header_index];
-    file_header.chunk_offset_ends[header_index] = map[fixed_mapped_element_count + StorageManager::CHUNK_COUNT + header_index];
+    file_header.chunk_ids[header_index] = map[header_constants_size + header_index];
+    file_header.chunk_offset_ends[header_index] = map[header_constants_size + StorageManager::CHUNK_COUNT + header_index];
   }
+  munmap(map, FILE_HEADER_BYTES);
 
   return file_header;
 }
@@ -525,7 +519,6 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
     auto dictionary = std::make_shared<pmr_vector<int32_t>>(dictionary_values);
 
     const auto encoding_type = map[header_offset + segment_offset_end / 4 + 2];
-    (void) encoding_type;
 
     switch (encoding_type) {
       case DICT_ENCODING_8_BIT: {
