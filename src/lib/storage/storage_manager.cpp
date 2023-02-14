@@ -22,6 +22,16 @@
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
 
+namespace {
+  uint32_t byte_index(uint32_t element_index, size_t element_size) {
+    return element_index * element_size;
+  }
+
+  uint32_t element_index(uint32_t byte_index, size_t element_size) {
+    return byte_index / element_size;
+  }
+}
+
 namespace hyrise {
 
 void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) {
@@ -266,21 +276,13 @@ std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_man
   return stream;
 }
 
-uint32_t byte_index(uint32_t element_index, size_t element_size) {
-  return element_index * element_size;
-}
-
-uint32_t element_index(uint32_t byte_index, size_t element_size) {
-  return byte_index / element_size;
-}
-
 std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
   const auto segment_count = chunk->column_count();
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
-  auto offset_end = CHUNK_HEADER_BYTES(segment_count);
+  auto offset_end = _chunk_header_bytes(segment_count);
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    offset_end += SEGMENT_HEADER_BYTES;
+    offset_end += _segment_header_bytes;
 
     const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
     const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
@@ -405,9 +407,9 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   */
   // file_lock.acquire();
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::CHUNK_COUNT);
-  auto chunk_offset_ends = std::array<uint32_t, StorageManager::CHUNK_COUNT>();
-  auto chunk_ids = std::array<uint32_t, StorageManager::CHUNK_COUNT>();
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count);
+  auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
+  auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
 
   auto offset = uint32_t{sizeof(file_header)};
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
@@ -418,17 +420,17 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
     chunk_offset_ends[chunk_index] = offset;
   }
   // Fill all offset fields, that are not used with 0s.
-  for (auto chunk_index = chunks.size(); chunk_index < StorageManager::CHUNK_COUNT; ++chunk_index) {
+  for (auto chunk_index = chunks.size(); chunk_index < StorageManager::_chunk_count; ++chunk_index) {
     chunk_offset_ends[chunk_index] = uint32_t{0};
   }
 
   // TODO(everyone): Find, how to get the actual chunk id.
-  for (auto index = uint32_t{0}; index < StorageManager::CHUNK_COUNT; ++index) {
+  for (auto index = uint32_t{0}; index < StorageManager::_chunk_count; ++index) {
     chunk_ids[index] = index;
   }
 
   file_header fh;
-  fh.storage_format_version_id = STORAGE_FORMAT_VERSION_ID;
+  fh.storage_format_version_id = _storage_format_version_id;
   fh.chunk_count = static_cast<uint32_t>(chunks.size());
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
@@ -448,21 +450,21 @@ file_header StorageManager::read_file_header(const std::string& filename) {
   auto fd = int32_t{};
 
   Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
-  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, FILE_HEADER_BYTES, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((map != MAP_FAILED), "Mapping Failed");
   close(fd);
 
   file_header.storage_format_version_id = map[0];
   file_header.chunk_count = map[1];
 
-  const auto header_constants_size = element_index(FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES, 4);
+  const auto header_constants_size = element_index(_format_version_id_bytes + _chunk_count_bytes, 4);
 
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
     file_header.chunk_ids[header_index] = map[header_constants_size + header_index];
     file_header.chunk_offset_ends[header_index] =
-        map[header_constants_size + StorageManager::CHUNK_COUNT + header_index];
+        map[header_constants_size + StorageManager::_chunk_count + header_index];
   }
-  munmap(map, FILE_HEADER_BYTES);
+  munmap(map, _file_header_bytes);
 
   return file_header;
 }
@@ -508,7 +510,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
   const auto header_offset = element_index(chunk_offset_end, 4);
 
   for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    auto segment_offset_end = CHUNK_HEADER_BYTES(segment_count);
+    auto segment_offset_end = _chunk_header_bytes(segment_count);
     if (segment_index > 0) {
       segment_offset_end = header.segment_offset_ends[segment_index - 1];
     }

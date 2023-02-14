@@ -21,13 +21,13 @@ namespace hyrise {
 class Table;
 class AbstractLQPNode;
 
-const auto MAX_CHUNK_COUNT = uint8_t{50};
+const auto MAX_CHUNK_COUNT_PER_FILE = uint8_t{50};
 
 struct file_header {
   uint32_t storage_format_version_id;
   uint32_t chunk_count;
-  std::array<uint32_t, MAX_CHUNK_COUNT> chunk_ids;
-  std::array<uint32_t, MAX_CHUNK_COUNT> chunk_offset_ends;
+  std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_ids;
+  std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_offset_ends;
 };
 
 struct chunk_header {
@@ -40,6 +40,7 @@ enum ENCODING_TYPE { NO_ENCODING = 0, DICT_ENCODING_8_BIT = 1, DICT_ENCODING_16_
 // The StorageManager is a class that maintains all tables
 // by mapping table names to table instances.
 class StorageManager : public Noncopyable {
+  friend class Hyrise;
  public:
   /**
    * @defgroup Manage Tables, this is only thread-safe for operations on tables with different names
@@ -87,16 +88,15 @@ class StorageManager : public Noncopyable {
                                              const uint32_t segment_count);
 
   uint32_t get_max_chunk_count_per_file() {
-    return CHUNK_COUNT;
+    return _chunk_count;
   }
 
   uint32_t get_storage_format_version_id() {
-    return STORAGE_FORMAT_VERSION_ID;
+    return _storage_format_version_id;
   }
 
  protected:
   StorageManager() = default;
-  friend class Hyrise;
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
@@ -106,31 +106,31 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
  private:
-  static const uint32_t CHUNK_COUNT = 50;
-  static const uint32_t STORAGE_FORMAT_VERSION_ID = 1;
+  static const uint32_t _chunk_count = 50;
+  static const uint32_t _storage_format_version_id = 1;
 
   // Fileformat constants
   // File Header
-  static const uint32_t FORMAT_VERSION_ID_BYTES = 4;
-  static const uint32_t CHUNK_COUNT_BYTES = 4;
-  static const uint32_t CHUNK_ID_BYTES = 4;
-  static const uint32_t CHUNK_OFFSET_BYTES = 4;
-  static const uint32_t FILE_HEADER_BYTES =
-      FORMAT_VERSION_ID_BYTES + CHUNK_COUNT_BYTES + CHUNK_COUNT * CHUNK_ID_BYTES + CHUNK_COUNT * CHUNK_OFFSET_BYTES;
+  static const uint32_t _format_version_id_bytes = 4;
+  static const uint32_t _chunk_count_bytes = 4;
+  static const uint32_t _chunk_id_bytes = 4;
+  static const uint32_t _chunk_offset_bytes = 4;
+  static const uint32_t _file_header_bytes =
+      _format_version_id_bytes + _chunk_count_bytes + _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
 
   // Chunk Header
-  static const uint32_t ROW_COUNT_BYTES = 4;
-  static const uint32_t SEGMENT_OFFSET_BYTES = 4;
+  static const uint32_t _row_count_bytes = 4;
+  static const uint32_t _segment_offset_bytes = 4;
 
-  uint32_t CHUNK_HEADER_BYTES(uint32_t COLUMN_COUNT) {
-    return ROW_COUNT_BYTES + COLUMN_COUNT * SEGMENT_OFFSET_BYTES;
+  uint32_t _chunk_header_bytes(uint32_t column_count) {
+    return _row_count_bytes + column_count * _segment_offset_bytes;
   }
 
   // Segment Header
-  static const uint32_t DICTIONARY_SIZE_BYTES = 4;
-  static const uint32_t ELEMENT_COUNT_BYTES = 4;
-  static const uint32_t COMPRESSED_VECTOR_TYPE_ID_BYTES = 4;
-  static const uint32_t SEGMENT_HEADER_BYTES = DICTIONARY_SIZE_BYTES + ELEMENT_COUNT_BYTES + COMPRESSED_VECTOR_TYPE_ID_BYTES;
+    static const uint32_t _dictionary_size_bytes = 4;
+    static const uint32_t _element_count_bytes = 4;
+    static const uint32_t _compressed_vector_type_id_bytes = 4;
+    static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
   chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
