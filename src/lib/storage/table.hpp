@@ -29,7 +29,7 @@ class Table : private Noncopyable {
   friend class StorageTableTest;
 
  public:
-  std::string _name = "tmp";
+  std::string _name;
   static std::shared_ptr<Table> create_dummy_table(const TableColumnDefinitions& column_definitions);
 
   // We want a common interface for tables that contain data (TableType::Data) and tables that contain reference
