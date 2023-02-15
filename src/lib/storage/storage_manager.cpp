@@ -267,6 +267,18 @@ void StorageManager::update_json(const std::string& table_name) const {
         {"column_count", static_cast<uint32_t>(table->column_count())},
     };
 
+    const auto column_names = table->column_names();
+    const auto column_data_types = table->column_data_types();
+    const auto column_count = table->column_count();
+    for(auto index = size_t{0}; index < column_count; ++index){
+      const json column_object = {
+          {"id", index},
+          {"name", column_names[index]},
+          {"data_type", column_data_types[index]},
+      };
+      table_object["columns"].push_back(column_object);
+    }
+
     // If table entry in json already exist, overwrite it. Otherwise, append the table entry.
     if (table_index != -1) {
       if (storage["tables"][table_index].count("chunks") != 0) {
