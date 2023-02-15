@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
@@ -36,8 +37,8 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
     Assert(table->get_chunk(chunk_id)->has_mvcc_data(), "Table must have MVCC data.");
   }
 
+  table->_name = name;
   // Create table statistics and chunk pruning statistics for added table.
-
   table->set_table_statistics(TableStatistics::from_table(*table));
   generate_chunk_pruning_statistics(table);
   _tables[name] = std::move(table);
@@ -209,8 +210,42 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
   return result;
 }
 
+ssize_t find_table_index_in_json(const json& storage_json, const std::string& table_name) {
+  auto table_index = ssize_t{-1};
+
+  if (storage_json.count("tables") == 0) {
+    return table_index;
+  }
+
+  for (auto index = size_t{0}; index < storage_json["tables"].size(); ++index) {
+    if (storage_json["tables"][index]["name"] == table_name) {
+      table_index = static_cast<ssize_t>(index);
+      return table_index;
+    }
+  }
+  return table_index;
+}
+
+ssize_t find_chunk_index_in_json(const json& table_json, const size_t chunk_id) {
+  auto chunk_index = ssize_t{-1};
+  if (table_json.count("chunks") == 0) {
+    return chunk_index;
+  }
+
+  for (auto index = size_t{0}; index < table_json["chunks"].size(); ++index) {
+    if (table_json["chunks"][index]["chunk_id"] == chunk_id) {
+      chunk_index = static_cast<ssize_t>(index);
+      return chunk_index;
+    }
+  }
+  return chunk_index;
+}
+
 void StorageManager::update_json(const std::string& table_name) const {
-  std::cout << "Json for " << table_name << std::endl;
+  static std::mutex update_mutex;
+  std::lock_guard<std::mutex> const lock(update_mutex);
+
+  std::cout << "Json for table: " << table_name << std::endl;
   // Check if "storage.json" file exists.
   std::ifstream json_file(storage_json_path);
   json storage;
@@ -220,18 +255,11 @@ void StorageManager::update_json(const std::string& table_name) const {
     json_file >> storage;
   }
 
-  auto table_index = ssize_t{-1};
-  for (auto index = size_t{0}; index < storage["tables"].size(); ++index) {
-    if (storage["tables"][index]["name"] == table_name) {
-      table_index = static_cast<ssize_t>(index);
-      break;
-    }
-  }
+  auto table_index = find_table_index_in_json(storage, table_name);
 
   if (has_table(table_name)) {
     const auto table = get_table(table_name);
 
-    // Create current table object with attributes.
     json table_object = {
         {"name", table_name},
         {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
@@ -239,21 +267,11 @@ void StorageManager::update_json(const std::string& table_name) const {
         {"column_count", static_cast<uint32_t>(table->column_count())},
     };
 
-    const auto chunk_count = table->chunk_count();
-    for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
-      const auto current_chunk = table->get_chunk(chunk_id);
-      const json chunk_object = {
-          {"chunk_id", static_cast<uint32_t>(chunk_id)},
-          {"is_mutable", current_chunk->is_mutable()},
-          {"row_count", static_cast<uint32_t>(current_chunk->size())},
-          {"saved_at", "IN_MEMORY"},
-      };
-      table_object["chunks"].push_back(chunk_object);
-    }
-
     // If table entry in json already exist, overwrite it. Otherwise, append the table entry.
     if (table_index != -1) {
-      storage["tables"][table_index] = table_object;
+      if (storage["tables"][table_index].count("chunks") != 0) {
+        table_object["chunks"] = storage["tables"][table_index]["chunks"];
+      }
     } else {
       storage["tables"].push_back(table_object);
     }
@@ -270,34 +288,64 @@ void StorageManager::update_json(const std::string& table_name) const {
   output_file.close();
 }
 
+void StorageManager::update_json_chunk(const Chunk* chunk) {
+  static std::mutex update_mutex;
+  std::lock_guard<std::mutex> const lock(update_mutex);
+  std::cout << "Json for table: " << chunk->_table_name << " Chunk_id: " << chunk->_chunk_id << std::endl;
+  std::ifstream json_file(storage_json_path);
+  json storage;
+
+  // If the file exists, load the contents into the json object.
+  if (json_file.good()) {
+    json_file >> storage;
+  }
+
+  auto table_index = find_table_index_in_json(storage, chunk->_table_name);
+  const auto table = get_table(chunk->_table_name);
+  json table_object;
+  json chunk_object;
+
+  // If table entry in json already exist, use it. Otherwise, create new one.
+  if (table_index != -1) {
+    table_object = storage["tables"][table_index];
+  } else {
+    table_object = {
+        {"name", chunk->_table_name},
+        {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
+        {"row_count", table->row_count()},
+        {"column_count", static_cast<uint32_t>(table->column_count())},
+    };
+  }
+
+  auto chunk_index = find_chunk_index_in_json(table_object, chunk->_chunk_id);
+
+  // If table entry in json already exist, use it. Otherwise, create new one.
+  if (chunk_index != -1) {
+    chunk_object = storage["tables"][chunk_index];
+    std::cout << "Chunk update in storage.json" << std::endl;
+  } else {
+    chunk_object = {
+        {"chunk_id", static_cast<uint32_t>(chunk->_chunk_id)},
+        {"is_mutable", chunk->is_mutable()},
+        {"row_count", static_cast<uint32_t>(chunk->size())},
+        {"saved_at", "IN_MEMORY"},
+    };
+    table_object["chunks"].push_back(chunk_object);
+    table_object["chunk_count"] = static_cast<uint32_t>(table->chunk_count());
+    table_object["row_count"] = table->row_count();
+  }
+
+  storage["tables"][table_index] = table_object;
+
+  // Write the json object to disk.
+  std::ofstream output_file(storage_json_path);
+  output_file << storage.dump(4);
+  output_file.close();
+}
+
 void StorageManager::write_to_disk(const Chunk* chunk) {
-  // find table to which the chunk belongs.
-  //TODO: THIS DOES NOT WORK, missing: right casting of classes for segments
-  auto table_name = std::string("");
-  /*
-
-    const auto abstract_segment = chunk->get_segment(ColumnID{0});
-    const auto dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(abstract_segment);
-    const auto value = dict_segment->get_typed_value(ChunkOffset{1}).value();
-    std::cout << "Value: " << table_name << std::endl;
-    for (const auto& table_item : _tables) {
-        const auto& table = table_item.second;
-        const auto chunk_count = table->chunk_count();
-        for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
-            const auto current_chunk = table->get_chunk(chunk_id);
-            const auto current_abstract_segment = current_chunk->get_segment(ColumnID{0});
-            const auto current_dict_segment = dynamic_pointer_cast<DictionarySegment<int>>(current_abstract_segment);
-            if (dict_segment->get_typed_value(ChunkOffset{1}).value() == value){
-                table_name = table_item.first;
-                break;
-            }
-        }
-    }
-     */
-
-  if (table_name != std::string("")) {
-    std::cout << "Found table: " << table_name << std::endl;
-    update_json(table_name);
+  if (has_table(chunk->_table_name)) {
+    update_json_chunk(chunk);
   }
 }
 

@@ -22,6 +22,8 @@ namespace table_builder {
 template <typename T, bool _has_value, typename Enable = void>
 class OptionalConstexpr {
  public:
+  std::string _table_name;
+
   template <typename... Args>
   explicit OptionalConstexpr(Args&&... args) : _value{std::forward<Args>(args)...} {}
 
@@ -105,6 +107,8 @@ get_value_type<T>& get_value(T& optional_or_value) {
 template <typename... DataTypes>
 class TableBuilder {
  public:
+  std::string _table_name;
+
   // names is a boost::hana::tuple of strings defining column names
   // types is a list of equal length defining respective column types
   // types may contain std::optional<?>, which will result in a nullable column, otherwise columns are not nullable
@@ -127,6 +131,9 @@ class TableBuilder {
     });
     _table = std::make_shared<Table>(column_definitions, TableType::Data, chunk_size, UseMvcc::Yes);
 
+    // Register table in storage manager
+    _table = std::make_shared<Table>(column_definitions, TableType::Data, chunk_size, UseMvcc::Yes);
+
     // Reserve some space in the vectors
     boost::hana::for_each(_value_vectors, [&](auto& values) { values.reserve(_estimated_rows_per_chunk); });
     boost::hana::for_each(_null_value_vectors, [&](auto& null_values) {
@@ -141,6 +148,10 @@ class TableBuilder {
       _emit_chunk();
     }
 
+    return _table;
+  }
+
+  std::shared_ptr<Table> get_table() {
     return _table;
   }
 

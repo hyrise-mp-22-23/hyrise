@@ -38,6 +38,8 @@ using ChunkPruningStatistics = std::vector<std::shared_ptr<BaseAttributeStatisti
  */
 class Chunk : private Noncopyable {
  public:
+  ChunkID _chunk_id;
+  std::string _table_name;
   // This is the architecture-defined limit on the size of a single chunk. The last chunk offset is reserved for NULL
   // as used in ReferenceSegments.
   static constexpr auto MAX_SIZE = ChunkOffset{std::numeric_limits<ChunkOffset::base_type>::max() - 1};

@@ -283,12 +283,16 @@ void AbstractTableGenerator::generate_and_store() {
 
       const auto add_table = [&]() {
         Timer per_table_timer;
+        auto output = std::string{""};
         if (storage_manager.has_table(table_name)) {
-          storage_manager.drop_table(table_name);
+          //storage_manager.drop_table(table_name);
+          output =
+              std::string{"-  Already there '"} + table_name + "' " + "(" + per_table_timer.lap_formatted() + ")\n";
+        } else {
+          storage_manager.add_table(table_name, table_info.table);
+          output = std::string{"-  Added '"} + table_name + "' " + "(" + per_table_timer.lap_formatted() + ")\n";
         }
-        storage_manager.add_table(table_name, table_info.table);
-        const auto output =
-            std::string{"-  Added '"} + table_name + "' " + "(" + per_table_timer.lap_formatted() + ")\n";
+
         std::cout << output << std::flush;
       };
       jobs.emplace_back(std::make_shared<JobTask>(add_table));

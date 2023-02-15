@@ -64,6 +64,8 @@ class StorageManager : public Noncopyable {
      */
   void write_to_disk(const Chunk* chunk);
   void update_json(const std::string& table_name) const;
+  void update_json_chunk(const Chunk* chunk);
+
   /** @} */
 
   // For debugging purposes mostly, dump all tables as csv
