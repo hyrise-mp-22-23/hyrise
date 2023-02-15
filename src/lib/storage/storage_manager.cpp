@@ -326,7 +326,6 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
   } else {
     chunk_object = {
         {"chunk_id", static_cast<uint32_t>(chunk->_chunk_id)},
-        {"is_mutable", chunk->is_mutable()},
         {"row_count", static_cast<uint32_t>(chunk->size())},
         {"saved_at", "IN_MEMORY"},
     };
