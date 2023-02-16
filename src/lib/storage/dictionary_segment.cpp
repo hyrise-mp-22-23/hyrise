@@ -106,7 +106,7 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segm
     }
 
   } else {
-    Fail("Das tun wir hier nicht.");
+    Fail("Unsupported DataType.");
   }
 
 }
