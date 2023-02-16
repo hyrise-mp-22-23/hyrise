@@ -46,9 +46,9 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segm
 
   if constexpr (std::is_same_v<T, int32_t>) {
     const auto segment_start_map_index = segment_start_offset_bytes / 4;
-    const auto dictionary_size = map[segment_start_map_index];
-    const auto attribute_vector_size = map[segment_start_map_index + 1];
-    const auto encoding_type = PersistedSegmentEncodingType{map[segment_start_map_index + 2]};
+    const auto encoding_type = PersistedSegmentEncodingType{map[segment_start_map_index]};
+    const auto dictionary_size = map[segment_start_map_index + 1];
+    const auto attribute_vector_size = map[segment_start_map_index + 2];
     const auto type_size_as_index = sizeof(T) / 4;
 
     auto* dictionary_map = reinterpret_cast<const T*>(map);

@@ -368,11 +368,12 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
+  const auto compressed_vector_type_id = static_cast<uint32_t>(BinaryWriter::_compressed_vector_type_id<int>(*segment));
+  export_value(compressed_vector_type_id, file_name);
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
 
-  const auto compressed_vector_type_id = static_cast<uint32_t>(BinaryWriter::_compressed_vector_type_id<int>(*segment));
-  export_value(compressed_vector_type_id, file_name);
+
 
   export_values<int32_t>(*segment->dictionary(), file_name);
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
