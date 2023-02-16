@@ -40,8 +40,8 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 }
 
 template <typename T>
-std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_t* map,
-                                                                   const uint32_t segment_start_offset_bytes) {
+DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segment_start_offset_bytes)
+    : BaseDictionarySegment(data_type_from_type<T>()) {
   if constexpr (std::is_same_v<T, int32_t>) {
     const auto segment_start_map_index = segment_start_offset_bytes / 4;
     const auto dictionary_size = map[segment_start_map_index];
@@ -60,7 +60,9 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
           attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
-      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+      _dictionary_span = dictionary_span_pointer;
+      _attribute_vector = attribute_vector;
+      _decompressor = _attribute_vector->create_base_decompressor();
     } else if (encoding_type == 2) {
       auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
       auto attribute_data_span = std::span<const uint16_t>(
@@ -68,7 +70,9 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
           attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
-      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+      _dictionary_span = dictionary_span_pointer;
+      _attribute_vector = attribute_vector;
+      _decompressor = _attribute_vector->create_base_decompressor();
     } else if (encoding_type == 3) {
       auto* attribute_vector_map = reinterpret_cast<const uint32_t*>(map);
       auto attribute_data_span = std::span<const uint32_t>(
@@ -76,7 +80,9 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
           attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
 
-      return std::make_shared<DictionarySegment<T>>(dictionary_span_pointer, attribute_vector);
+      _dictionary_span = dictionary_span_pointer;
+      _attribute_vector = attribute_vector;
+      _decompressor = _attribute_vector->create_base_decompressor();
     } else if (encoding_type == 4) {
       Fail("BitPacking not implemented yet.");
     } else {
@@ -86,6 +92,7 @@ std::shared_ptr<DictionarySegment<T>> DictionarySegment<T>::create(const uint32_
   } else {
     Fail("Das tun wir hier nicht.");
   }
+
 }
 
 template <typename T>

@@ -518,7 +518,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
       segment_offset_end = chunk_header.segment_offset_ends[segment_index - 1] + chunk_offset_end;
     }
 
-    segments.emplace_back(DictionarySegment<int32_t>::create(map, segment_offset_end));
+    segments.emplace_back(std::make_shared<DictionarySegment<int32_t>>(map, segment_offset_end));
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);
