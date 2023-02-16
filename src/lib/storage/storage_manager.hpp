@@ -35,12 +35,12 @@ struct chunk_header {
   std::vector<uint32_t> segment_offset_ends;
 };
 
-enum encoding_types {
-  no_encoding = 0,
-  dict_encoding_8_bit = 1,
-  dict_encoding_16_bit = 2,
-  dict_encoding_32_bit = 3,
-  dict_encoding_bitpacking = 4
+enum class PersistedSegmentEncodingType : uint32_t {
+  Unencoded,
+  DictionaryEncoding8Bit,
+  DictionaryEncoding16Bit,
+  DictionaryEncoding32Bit,
+  DictionaryEncodingBitPacking
 };
 
 // The StorageManager is a class that maintains all tables
