@@ -50,12 +50,12 @@ template <typename T, bool EraseSegmentType>
 auto create_iterable_from_segment(const FixedStringDictionarySegment<T>& segment) {
 #ifdef HYRISE_ERASE_FIXEDSTRINGDICTIONARY
   PerformanceWarning("FixedStringDictionarySegmentIterable erased by compile-time setting");
-  return AnySegmentIterable<T>(DictionarySegmentIterable<T, FixedStringVector, std::span<const int>>(segment));
+  return AnySegmentIterable<T>(DictionarySegmentIterable<T, FixedStringSpan, FixedStringSpan>(segment));
 #else
   if constexpr (EraseSegmentType) {
     return create_any_segment_iterable<T>(segment);
   } else {
-    return DictionarySegmentIterable<T, FixedStringVector, std::span<const int>>{segment};
+    return DictionarySegmentIterable<T, FixedStringVector, FixedStringSpan>{segment};
   }
 #endif
 }

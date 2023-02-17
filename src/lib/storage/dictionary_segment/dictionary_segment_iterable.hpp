@@ -20,7 +20,7 @@ class DictionarySegmentIterable
       : _segment{segment}, _dictionary_span(segment.dictionary_span()) {}
 
   explicit DictionarySegmentIterable(const FixedStringDictionarySegment<pmr_string>& segment)
-      : _segment{segment}, _dictionary(segment.fixed_string_dictionary()) {}
+      : _segment{segment}, _dictionary_span(segment.fixed_string_dictionary_span()) {}
 
   template <typename Functor>
   void _on_with_iterators(const Functor& functor) const {

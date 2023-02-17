@@ -17,6 +17,7 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(
     const std::shared_ptr<const BaseCompressedVector>& attribute_vector)
     : BaseDictionarySegment(data_type_from_type<pmr_string>()),
       _dictionary{dictionary},
+      _dictionary_span{std::make_shared<const FixedStringSpan>(*_dictionary)},
       _attribute_vector{attribute_vector},
       _decompressor{_attribute_vector->create_base_decompressor()} {}
 
@@ -46,6 +47,11 @@ std::optional<T> FixedStringDictionarySegment<T>::get_typed_value(const ChunkOff
 template <typename T>
 std::shared_ptr<const FixedStringVector> FixedStringDictionarySegment<T>::fixed_string_dictionary() const {
   return _dictionary;
+}
+
+template <typename T>
+std::shared_ptr<const FixedStringSpan> FixedStringDictionarySegment<T>::fixed_string_dictionary_span() const {
+  return _dictionary_span;
 }
 
 template <typename T>
