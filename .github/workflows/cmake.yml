@@ -36,7 +36,7 @@ jobs:
 
       - name: Run TPCH (SF 0.1)
         run: |
-            cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+            cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
             ./hyriseBenchmarkTPCH -r 1 -s 0.1
     
   build-linux-clang:
