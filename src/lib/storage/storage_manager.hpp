@@ -95,6 +95,10 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
+  uint32_t get_file_header_bytes() {
+    return _file_header_bytes;
+  }
+
  protected:
   StorageManager() = default;
 
