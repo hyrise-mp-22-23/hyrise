@@ -131,10 +131,10 @@ class StorageManager : public Noncopyable {
   }
 
   // Segment Header
-    static const uint32_t _dictionary_size_bytes = 4;
-    static const uint32_t _element_count_bytes = 4;
-    static const uint32_t _compressed_vector_type_id_bytes = 4;
-    static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
+  static const uint32_t _dictionary_size_bytes = 4;
+  static const uint32_t _element_count_bytes = 4;
+  static const uint32_t _compressed_vector_type_id_bytes = 4;
+  static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
   chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);

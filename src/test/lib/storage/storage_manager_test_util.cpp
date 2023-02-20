@@ -43,15 +43,12 @@ class StorageManagerTestUtil {
   static std::vector<std::shared_ptr<Chunk>> get_chunks(
         const std::string file_name,
         const uint32_t row_count,
-        const uint32_t column_count) {
+        const uint32_t column_count,
+        const uint32_t count) {
 
     std::remove(file_name.c_str());
-    auto& sm = Hyrise::get().storage_manager;
-
-    const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
-
     const auto chunk = create_dictionary_segment_chunk(row_count, column_count);
-    std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
+    std::vector<std::shared_ptr<Chunk>> chunks(count);
     for (auto index = size_t{0}; index < chunks.size(); ++index) {
       chunks[index] = chunk;
     }

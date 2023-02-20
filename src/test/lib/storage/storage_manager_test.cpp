@@ -234,6 +234,47 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
   EXPECT_EQ(sm.has_prepared_plan("first_prepared_plan"), true);
 }
 
+TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
+  auto& sm = Hyrise::get().storage_manager;
+
+  const auto file_name = "test_various_chunks.bin";
+  const auto MAX_CHUNK_COUNT = sm.get_max_chunk_count_per_file();
+  
+  const auto small_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(100, 5);
+  const auto small_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(123, 1);
+  const auto small_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(40, 10);
+  const auto small_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(5, 10);
+  const auto small_chunk5 = StorageManagerTestUtil::create_dictionary_segment_chunk(400, 30);
+  const auto small_chunk6 = StorageManagerTestUtil::create_dictionary_segment_chunk(77, 3);
+  const auto small_chunk7 = StorageManagerTestUtil::create_dictionary_segment_chunk(20, 9);
+
+  const auto medium_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(3'000, 50);
+  const auto medium_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
+  const auto medium_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
+  const auto medium_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
+  const auto medium_chunk5 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
+
+  const auto big_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(50'000, 500);
+  const auto big_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(600'000, 100);
+  const auto big_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(650'000, 800);
+  const auto big_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(80'000, 200);
+
+  const std::vector<std::shared_ptr<Chunk>> chunks {
+    small_chunk1, small_chunk2, small_chunk3, small_chunk4, small_chunk5, small_chunk6, small_chunk7,
+    medium_chunk1, medium_chunk2, medium_chunk3, medium_chunk4, medium_chunk5,
+    big_chunk1, big_chunk2, big_chunk3, big_chunk4
+  };
+
+  sm.persist_chunks_to_disk(chunks, file_name);
+  EXPECT_TRUE(std::filesystem::exists(file_name));
+
+  const auto read_header = sm.read_file_header(file_name);
+  EXPECT_EQ(read_header.chunk_count, chunks.size());
+  EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
+  EXPECT_EQ(read_header.chunk_ids.size(), MAX_CHUNK_COUNT);
+  EXPECT_EQ(read_header.chunk_offset_ends.size(), MAX_CHUNK_COUNT);  
+}
+
 TEST_F(StorageManagerTest, PersistencyWriteEmptyListOfChunks) {
   auto& sm = Hyrise::get().storage_manager;
   const auto file_name = "test_empty_list_of_chunks.bin";
@@ -260,7 +301,7 @@ TEST_F(StorageManagerTest, PersistencyWriteMaxNumberOfChunksToFile) {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunks = StorageManagerTestUtil::get_chunks(file_name, ROW_COUNT, COLUMN_COUNT);
+  const auto chunks = StorageManagerTestUtil::get_chunks(file_name, ROW_COUNT, COLUMN_COUNT, CHUNK_COUNT);
   sm.persist_chunks_to_disk(chunks, file_name);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
@@ -292,7 +333,7 @@ TEST_F(StorageManagerTest, PersistencyWriteSmallNumberOfRows) {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunks = StorageManagerTestUtil::get_chunks(file_name, ROW_COUNT, COLUMN_COUNT);
+  const auto chunks = StorageManagerTestUtil::get_chunks(file_name, ROW_COUNT, COLUMN_COUNT, CHUNK_COUNT);
   sm.persist_chunks_to_disk(chunks, file_name);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
