@@ -87,6 +87,14 @@ class StorageManager : public Noncopyable {
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
 
+  chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
+                                 const uint32_t chunk_offset_begin);
+
+  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
+  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
+                           const std::string& file_name);
+
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
   }
@@ -135,14 +143,6 @@ class StorageManager : public Noncopyable {
   static const uint32_t _element_count_bytes = 4;
   static const uint32_t _compressed_vector_type_id_bytes = 4;
   static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
-
-  chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
-                                 const uint32_t chunk_offset_begin);
-
-  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
-                           const std::string& file_name);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

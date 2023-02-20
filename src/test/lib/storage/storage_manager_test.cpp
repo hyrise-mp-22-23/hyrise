@@ -234,6 +234,22 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
   EXPECT_EQ(sm.has_prepared_plan("first_prepared_plan"), true);
 }
 
+TEST_F(StorageManagerTest, PersistencyOffsetEnds) {
+  auto& sm = Hyrise::get().storage_manager;
+
+  const auto COLUMN_COUNT = uint32_t{5};
+  const auto ROW_COUNT = uint32_t{500};
+
+  const auto segment_offsets = sm.generate_segment_offset_ends(
+    StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT)
+  );
+
+  const auto expected_offsets = std::vector<uint32_t>{ 3036, 4548, 5728, 6740, 7652 };
+
+  EXPECT_EQ(expected_offsets.size(), segment_offsets.size());
+  EXPECT_EQ(expected_offsets, segment_offsets);
+}
+
 TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
   auto& sm = Hyrise::get().storage_manager;
 
