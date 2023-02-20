@@ -506,7 +506,6 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
   // TODO: Remove unneccesary map on whole file
   const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, file_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
-  _maps.emplace_back(map);
   Assert((map != MAP_FAILED), "Mapping of File Failed.");
   close(fd);
 
@@ -519,7 +518,7 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
       segment_offset_end = chunk_header.segment_offset_ends[segment_index - 1] + chunk_offset_end;
     }
 
-    segments.emplace_back(std::make_shared<DictionarySegment<int32_t>>(map, segment_offset_end));
+    segments.emplace_back(std::make_shared<DictionarySegment<int32_t>>(map + segment_offset_end / 4));
   }
 
   const auto chunk = std::make_shared<Chunk>(segments);

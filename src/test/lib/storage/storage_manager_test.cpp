@@ -297,9 +297,9 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
   std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{100};  // can't be greater than INT32_MAX
-  const auto COLUMN_COUNT = uint32_t{23};
-  const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
+  constexpr auto ROW_COUNT = uint32_t{100};  // can't be greater than INT32_MAX
+  constexpr auto COLUMN_COUNT = uint32_t{23};
+  auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
   const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);

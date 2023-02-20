@@ -41,25 +41,25 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 }
 
 template <typename T>
-DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segment_start_offset_bytes)
+DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
     : BaseDictionarySegment(data_type_from_type<T>()) {
 
   if constexpr (std::is_same_v<T, int32_t>) {
-    const auto segment_start_map_index = segment_start_offset_bytes / 4;
-    const auto encoding_type = PersistedSegmentEncodingType{map[segment_start_map_index]};
-    const auto dictionary_size = map[segment_start_map_index + 1];
-    const auto attribute_vector_size = map[segment_start_map_index + 2];
+    const auto encoding_type = PersistedSegmentEncodingType{start_address[ENCODING_TYPE_OFFSET_INDEX]};
+    const auto dictionary_size = start_address[DICTIONARY_OFFSET_INDEX];
+    const auto attribute_vector_size = start_address[ATTRIBUTE_VECTOR_OFFSET_INDEX];
     const auto type_size_as_index = sizeof(T) / 4;
 
-    auto* dictionary_map = reinterpret_cast<const T*>(map);
-    auto dictionary_span = std::span<const T>(&dictionary_map[segment_start_map_index + 3], dictionary_size);
-    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_span);
+    auto* dictionary_address = reinterpret_cast<const T*>(start_address);
+    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(&dictionary_address[3], dictionary_size);
+
+    start_address += HEADER_OFFSET_INDEX;
 
     switch (encoding_type) {
       case PersistedSegmentEncodingType::DictionaryEncoding8Bit: {
-        auto* attribute_vector_map = reinterpret_cast<const uint8_t*>(map);
+        auto* attribute_vector_address = reinterpret_cast<const uint8_t*>(start_address);
         auto attribute_data_span = std::span<const uint8_t>(
-            &attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 4],
+            &attribute_vector_address[(dictionary_size * type_size_as_index) * EIGHT_TO_THIRTYTWO_BIT_MULTIPLIER],
             attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
@@ -70,9 +70,9 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segm
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncoding16Bit: {
-        auto* attribute_vector_map = reinterpret_cast<const uint16_t*>(map);
+        auto* attribute_vector_address = reinterpret_cast<const uint16_t*>(start_address);
         auto attribute_data_span = std::span<const uint16_t>(
-            &attribute_vector_map[(segment_start_map_index + 3 + dictionary_size * type_size_as_index) * 2],
+            &attribute_vector_address[(dictionary_size * type_size_as_index) * SIXTEEN_TO_THIRTYTWO_BIT_MULTIPLIER],
             attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
@@ -83,9 +83,9 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* map, const uint32_t segm
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncoding32Bit: {
-        auto* attribute_vector_map = reinterpret_cast<const uint32_t*>(map);
+        auto* attribute_vector_address = reinterpret_cast<const uint32_t*>(start_address);
         auto attribute_data_span = std::span<const uint32_t>(
-            &attribute_vector_map[segment_start_map_index + 3 + dictionary_size * type_size_as_index],
+            &attribute_vector_address[dictionary_size * type_size_as_index],
             attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
 

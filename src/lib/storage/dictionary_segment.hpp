@@ -26,7 +26,7 @@ class DictionarySegment : public BaseDictionarySegment {
   explicit DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
                              const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
 
-  explicit DictionarySegment(const uint32_t* map, const uint32_t segment_start_offset_bytes);
+  explicit DictionarySegment(const uint32_t* start_address);
 
   // returns an underlying dictionary
   std::shared_ptr<const pmr_vector<T>> dictionary() const;
@@ -98,6 +98,13 @@ class DictionarySegment : public BaseDictionarySegment {
   std::shared_ptr<const std::span<const T>> _dictionary_span;
   std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
+
+  static constexpr auto ENCODING_TYPE_OFFSET_INDEX = uint32_t{0};
+  static constexpr auto DICTIONARY_OFFSET_INDEX = uint32_t{1};
+  static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{2};
+  static constexpr auto HEADER_OFFSET_INDEX = uint32_t{3};
+  static constexpr auto EIGHT_TO_THIRTYTWO_BIT_MULTIPLIER = uint32_t{4};
+  static constexpr auto SIXTEEN_TO_THIRTYTWO_BIT_MULTIPLIER = uint32_t{2};
 };
 
 EXPLICITLY_DECLARE_DATA_TYPES(DictionarySegment);

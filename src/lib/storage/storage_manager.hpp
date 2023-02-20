@@ -111,34 +111,33 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
-  std::vector<const uint32_t*> _maps;
 
  private:
-  static const uint32_t _chunk_count = 50;
-  static const uint32_t _storage_format_version_id = 1;
+  static constexpr uint32_t _chunk_count = 50;
+  static constexpr uint32_t _storage_format_version_id = 1;
 
   // Fileformat constants
   // File Header
-  static const uint32_t _format_version_id_bytes = 4;
-  static const uint32_t _chunk_count_bytes = 4;
-  static const uint32_t _chunk_id_bytes = 4;
-  static const uint32_t _chunk_offset_bytes = 4;
-  static const uint32_t _file_header_bytes = _format_version_id_bytes + _chunk_count_bytes +
+  static constexpr uint32_t _format_version_id_bytes = 4;
+  static constexpr uint32_t _chunk_count_bytes = 4;
+  static constexpr uint32_t _chunk_id_bytes = 4;
+  static constexpr uint32_t _chunk_offset_bytes = 4;
+  static constexpr uint32_t _file_header_bytes = _format_version_id_bytes + _chunk_count_bytes +
                                              _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
 
   // Chunk Header
-  static const uint32_t _row_count_bytes = 4;
-  static const uint32_t _segment_offset_bytes = 4;
+  static constexpr uint32_t _row_count_bytes = 4;
+  static constexpr uint32_t _segment_offset_bytes = 4;
 
   uint32_t _chunk_header_bytes(uint32_t column_count) {
     return _row_count_bytes + column_count * _segment_offset_bytes;
   }
 
   // Segment Header
-  static const uint32_t _dictionary_size_bytes = 4;
-  static const uint32_t _element_count_bytes = 4;
-  static const uint32_t _compressed_vector_type_id_bytes = 4;
-  static const uint32_t _segment_header_bytes =
+  static constexpr uint32_t _dictionary_size_bytes = 4;
+  static constexpr uint32_t _element_count_bytes = 4;
+  static constexpr uint32_t _compressed_vector_type_id_bytes = 4;
+  static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
   chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
