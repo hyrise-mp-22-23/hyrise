@@ -91,7 +91,6 @@ class FixedStringVector {
   // Return the calculated size of FixedStringVector in main memory
   size_t data_size() const;
 
- protected:
   const size_t _string_length;
   pmr_vector<char> _chars;
   size_t _size = 0;

@@ -59,7 +59,7 @@ class StorageManagerTestUtil {
   static std::vector<std::shared_ptr<Chunk>> map_chunks_from_file(
     std::string file_name,
     uint32_t COLUMN_COUNT,
-    file_header read_header) {
+    FILE_HEADER read_header) {
     auto& sm = Hyrise::get().storage_manager;
     const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
