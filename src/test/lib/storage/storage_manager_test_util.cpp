@@ -94,6 +94,11 @@ class StorageManagerTestUtil {
     return column_sum_of_mapped_chunk;
   }
 
+  static uint64_t accumulate_sum_of_segment(std::shared_ptr<Chunk> chunk, uint16_t segment_index) {
+    std::vector<std::shared_ptr<Chunk>> chunk_vector { chunk };
+    return accumulate_sum_of_segment(chunk_vector, 0, segment_index);
+  }
+
 };
 
 }  // namespace hyrise

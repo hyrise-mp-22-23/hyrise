@@ -240,6 +240,8 @@ TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
   const auto file_name = "test_various_chunks.bin";
   const auto MAX_CHUNK_COUNT = sm.get_max_chunk_count_per_file();
   
+  std::remove(file_name);
+
   const auto small_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(100, 5);
   const auto small_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(123, 1);
   const auto small_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(40, 10);
@@ -250,13 +252,13 @@ TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
 
   const auto medium_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(3'000, 50);
   const auto medium_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
-  const auto medium_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
-  const auto medium_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
-  const auto medium_chunk5 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 70);
+  const auto medium_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(2'000, 25);
+  const auto medium_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(1'500, 55);
+  const auto medium_chunk5 = StorageManagerTestUtil::create_dictionary_segment_chunk(4'500, 20);
 
   const auto big_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(50'000, 500);
-  const auto big_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(600'000, 100);
-  const auto big_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(650'000, 800);
+  const auto big_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(100'000, 30);
+  const auto big_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(90'000, 400);
   const auto big_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(80'000, 200);
 
   const std::vector<std::shared_ptr<Chunk>> chunks {
@@ -273,6 +275,16 @@ TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
   EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
   EXPECT_EQ(read_header.chunk_ids.size(), MAX_CHUNK_COUNT);
   EXPECT_EQ(read_header.chunk_offset_ends.size(), MAX_CHUNK_COUNT);  
+
+  // Equivalent to medium_chunk1.
+  const auto mapped_chunks = sm.map_chunk_from_disk(read_header.chunk_offset_ends[6], file_name, 50);
+
+  const auto segment_index = uint16_t{4};
+
+  const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(medium_chunk1, segment_index);
+  const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(mapped_chunks, segment_index);
+
+  EXPECT_EQ(expected_sum, mapped_sum);
 }
 
 TEST_F(StorageManagerTest, PersistencyWriteEmptyListOfChunks) {
@@ -320,7 +332,6 @@ TEST_F(StorageManagerTest, PersistencyWriteMaxNumberOfChunksToFile) {
   
   const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(chunks, chunk_index, segment_index);
   const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(mapped_chunks, chunk_index, segment_index);
-
 
   EXPECT_EQ(expected_sum, mapped_sum);
 }
