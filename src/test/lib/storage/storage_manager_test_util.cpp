@@ -16,7 +16,7 @@ class StorageManagerTestUtil {
    */
     auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
     for (auto segment_index = uint32_t{0}; segment_index < column_count; ++segment_index) {
-      auto new_value_segment = std::make_shared<ValueSegment<int32_t>>();
+      auto new_value_segment = std::make_shared<ValueSegment<int32_t>>(false, ChunkOffset{row_count});
 
       auto current_value = static_cast<int32_t>(row_count);
       auto value_count = uint32_t{1};  //start 1-indexed to avoid issues with modulo operations
