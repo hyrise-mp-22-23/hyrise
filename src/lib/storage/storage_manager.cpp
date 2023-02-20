@@ -407,11 +407,11 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   */
   // file_lock.acquire();
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count);
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
   auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
   auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
 
-  auto offset = uint32_t{sizeof(file_header)};
+  auto offset = uint32_t{_file_header_bytes};
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
     const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_index]);
     offset += segment_offset_ends.back();
