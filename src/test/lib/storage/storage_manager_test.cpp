@@ -43,6 +43,8 @@ class StorageManagerTest : public BaseTest {
     sm.add_prepared_plan("first_prepared_plan", std::move(pp1));
     sm.add_prepared_plan("second_prepared_plan", std::move(pp2));
   }
+  const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
+
 };
 
 TEST_F(StorageManagerTest, AddTableTwice) {
@@ -262,7 +264,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileMid) {
   auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
   for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
     if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(file_header), file_name, COLUMN_COUNT));
+      mapped_chunks.emplace_back(sm.map_chunk_from_disk(file_header_bytes, file_name, COLUMN_COUNT));
     } else {
       mapped_chunks.emplace_back(
           sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
@@ -320,7 +322,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
   auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
   for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
     if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(file_header), file_name, COLUMN_COUNT));
+      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(FILE_HEADER), file_name, COLUMN_COUNT));
     } else {
       mapped_chunks.emplace_back(
           sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
@@ -378,7 +380,7 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileLarge) {
   auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
   for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
     if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(file_header), file_name, COLUMN_COUNT));
+      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(FILE_HEADER), file_name, COLUMN_COUNT));
     } else {
       mapped_chunks.emplace_back(
           sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));

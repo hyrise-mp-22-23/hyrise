@@ -380,9 +380,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
 }
 
 void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
-                                         const std::vector<uint32_t>& segment_offset_ends,
-                                         const std::string& file_name) {
-  chunk_header header;
+                                         const std::vector<uint32_t>& segment_offset_ends, const std::string& file_name) {
+  auto header = CHUNK_HEADER{};
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
@@ -410,11 +409,11 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   */
   // file_lock.acquire();
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count);
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
   auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
   auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
 
-  auto offset = uint32_t{sizeof(file_header)};
+  auto offset = uint32_t{_file_header_bytes};
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
     const auto segment_offset_ends = generate_segment_offset_ends(chunks[chunk_index]);
     offset += segment_offset_ends.back();
@@ -432,13 +431,13 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
     chunk_ids[index] = index;
   }
 
-  file_header fh;
+  auto fh = FILE_HEADER{};
   fh.storage_format_version_id = _storage_format_version_id;
   fh.chunk_count = static_cast<uint32_t>(chunks.size());
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
 
-  export_value<file_header>(fh, file_name);
+  export_value<FILE_HEADER>(fh, file_name);
 
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
     const auto chunk = chunks[chunk_index];
@@ -448,8 +447,8 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   // file_lock.release();
 }
 
-file_header StorageManager::read_file_header(const std::string& filename) {
-  file_header file_header;
+FILE_HEADER StorageManager::read_file_header(const std::string& filename) {
+  auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
   Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
@@ -472,10 +471,10 @@ file_header StorageManager::read_file_header(const std::string& filename) {
   return file_header;
 }
 
-chunk_header StorageManager::read_chunk_header(const std::string& filename, const uint32_t segment_count,
+CHUNK_HEADER StorageManager::read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                                const uint32_t chunk_offset_begin) {
   // TODO: Remove need to map the whole file.
-  chunk_header header;
+  auto header = CHUNK_HEADER{};
   const auto map_index = element_index(chunk_offset_begin, 4);
 
   auto fd = int32_t{};
