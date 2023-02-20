@@ -23,14 +23,14 @@ class AbstractLQPNode;
 
 const auto MAX_CHUNK_COUNT_PER_FILE = uint8_t{50};
 
-struct file_header {
+struct FILE_HEADER {
   uint32_t storage_format_version_id;
   uint32_t chunk_count;
   std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_ids;
   std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_offset_ends;
 };
 
-struct chunk_header {
+struct CHUNK_HEADER {
   uint32_t row_count;
   std::vector<uint32_t> segment_offset_ends;
 };
@@ -41,6 +41,7 @@ enum encoding_types { no_encoding = 0, dict_encoding_8_bit = 1, dict_encoding_16
 // by mapping table names to table instances.
 class StorageManager : public Noncopyable {
   friend class Hyrise;
+  friend class StorageManagerTest;
  public:
   /**
    * @defgroup Manage Tables, this is only thread-safe for operations on tables with different names
@@ -83,7 +84,7 @@ class StorageManager : public Noncopyable {
   void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
 
   // These functions are for the moment public, to test them properly.
-  file_header read_file_header(const std::string& filename);
+  FILE_HEADER read_file_header(const std::string& filename);
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
 
@@ -132,7 +133,7 @@ class StorageManager : public Noncopyable {
     static const uint32_t _compressed_vector_type_id_bytes = 4;
     static const uint32_t _segment_header_bytes = _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
-  chunk_header read_chunk_header(const std::string& filename, const uint32_t segment_count,
+  CHUNK_HEADER read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
 
   std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
