@@ -23,13 +23,18 @@ class AbstractLQPNode;
 
 const auto MAX_CHUNK_COUNT_PER_FILE = uint8_t{50};
 
+struct DATA_FILE {
+  std::string path;
+  std::string table_name;
+  uint32_t chunk_count;
+};
+
 struct FILE_HEADER {
   uint32_t storage_format_version_id;
   uint32_t chunk_count;
   std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_ids;
   std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE> chunk_offset_ends;
 };
-
 struct CHUNK_HEADER {
   uint32_t row_count;
   std::vector<uint32_t> segment_offset_ends;
@@ -87,7 +92,7 @@ class StorageManager : public Noncopyable {
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
-  void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
+  void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const DATA_FILE file);
 
   // These functions are for the moment public, to test them properly.
   FILE_HEADER read_file_header(const std::string& filename);
@@ -113,6 +118,8 @@ class StorageManager : public Noncopyable {
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
  private:
+  std::map<std::string, std::vector<DATA_FILE>> _file_map;
+
   static constexpr uint32_t _chunk_count = 50;
   static constexpr uint32_t _storage_format_version_id = 1;
 

@@ -55,6 +55,12 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
   generate_chunk_pruning_statistics(table);
 
   _tables[name] = std::move(table);
+
+  DATA_FILE file;
+  file.path = "table_" + name + "_1.bin";
+  file.table_name = name;
+  file.chunk_count = 1;
+  _file_map[name].emplace_back(file);
 }
 
 void StorageManager::drop_table(const std::string& name) {
@@ -401,13 +407,19 @@ void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
 }
 
 void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks,
-                                            const std::string& file_name) {
+                                            const DATA_FILE file) {
   /*
     TODO(everyone): Think about a proper implementation of a locking method. Each written file needs to be
     locked prior to writing (and released afterwards). It was decided to use the mutex class by cpp.
     (see https://en.cppreference.com/w/cpp/thread/mutex).
   */
   // file_lock.acquire();
+
+  const auto file_name = file.path;
+
+  if (!std::filesystem::exists(file_name)) {
+    
+  }
 
   auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
   auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();

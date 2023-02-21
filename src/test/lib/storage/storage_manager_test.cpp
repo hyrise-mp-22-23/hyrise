@@ -250,7 +250,9 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileMid) {
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;
   }
-  sm.persist_chunks_to_disk(chunks, file_name);
+  DATA_FILE file;
+  file.path = file_name;
+  sm.persist_chunks_to_disk(chunks, file);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
 
@@ -308,7 +310,9 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;
   }
-  sm.persist_chunks_to_disk(chunks, file_name);
+  DATA_FILE file;
+  file.path = file_name;
+  sm.persist_chunks_to_disk(chunks, file);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
 
@@ -366,7 +370,9 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileLarge) {
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;
   }
-  sm.persist_chunks_to_disk(chunks, file_name);
+  DATA_FILE file;
+  file.path = file_name;
+  sm.persist_chunks_to_disk(chunks, file);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
 
