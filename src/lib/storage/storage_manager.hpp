@@ -129,10 +129,6 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _row_count_bytes = 4;
   static constexpr uint32_t _segment_offset_bytes = 4;
 
-  uint32_t _chunk_header_bytes(uint32_t column_count) {
-    return _row_count_bytes + column_count * _segment_offset_bytes;
-  }
-
   // Segment Header
   static constexpr uint32_t _dictionary_size_bytes = 4;
   static constexpr uint32_t _element_count_bytes = 4;
@@ -147,6 +143,7 @@ class StorageManager : public Noncopyable {
   void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
   void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
                            const std::string& file_name);
+  uint32_t _chunk_header_bytes(uint32_t column_count);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

@@ -523,4 +523,8 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
   return chunk;
 }
 
+uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) {
+  return _row_count_bytes + column_count * _segment_offset_bytes;
+}
+
 }  // namespace hyrise
