@@ -45,7 +45,9 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
     // We currently assume that all tables stored in the StorageManager are mutable and, as such, have MVCC data. This
     // way, we do not need to check query plans if they try to update immutable tables. However, this is not a hard
     // limitation and might be changed into more fine-grained assertions if the need arises.
-    Assert(table->get_chunk(chunk_id)->has_mvcc_data(), "Table must have MVCC data.");
+    const auto chunk = table->get_chunk(chunk_id);
+    Assert(chunk->has_mvcc_data(), "Table must have MVCC data.");
+    chunk->set_chunk_id(chunk_id);
   }
 
   // Create table statistics and chunk pruning statistics for added table.
@@ -423,9 +425,12 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
     chunk_offset_ends[chunk_index] = uint32_t{0};
   }
 
-  // TODO(everyone): Find, how to get the actual chunk id.
-  for (auto index = uint32_t{0}; index < StorageManager::_chunk_count; ++index) {
-    chunk_ids[index] = index;
+  for (auto chunk_index = uint32_t{0}; chunk_index < chunk_ids.size(); ++chunk_index) {
+    auto chunk_id = uint32_t{0};
+    if (chunk_index < chunks.size()) {
+      chunk_id = chunks[chunk_index]->get_chunk_id();
+    }
+    chunk_ids[chunk_index] = chunk_id;
   }
 
   auto fh = FILE_HEADER{};

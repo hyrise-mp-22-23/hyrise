@@ -129,6 +129,14 @@ class Chunk : private Noncopyable {
 
   const PolymorphicAllocator<Chunk>& get_allocator() const;
 
+  void set_chunk_id(const uint32_t chunk_id) {
+    _chunk_id = chunk_id;
+  }
+
+  uint32_t get_chunk_id() {
+    return _chunk_id;
+  }
+
   /**
    * To perform Chunk pruning, a Chunk can be associated with statistics.
    * @{
@@ -203,6 +211,8 @@ class Chunk : private Noncopyable {
   bool _is_mutable = true;
   std::vector<SortColumnDefinition> _sorted_by;
   mutable std::atomic<ChunkOffset::base_type> _invalid_row_count{ChunkOffset::base_type{0}};
+
+  uint32_t _chunk_id = uint32_t{0};
 
   // Default value of zero means "not set"
   std::atomic<CommitID> _cleanup_commit_id{CommitID{0}};
