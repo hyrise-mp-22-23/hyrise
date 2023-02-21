@@ -99,9 +99,14 @@ void FileIOMicroReadBenchmarkFixture::memory_mapped_read_single_threaded(benchma
 }
 
 #ifdef __linux__
+<<<<<<< HEAD
 void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::State& state,
                                                                     const uint16_t thread_count,
                                                                     const int access_order) {
+=======
+void FileIOMicroReadBenchmarkFixture::memory_mapped_read_user_space(benchmark::State& state, const uint16_t thread_count,
+  const int access_order) {
+>>>>>>> master
   // Set number of threads used by UMAP.
   setenv("UMAP_PAGE_FILLERS", std::to_string(thread_count).c_str(), 1);
   setenv("UMAP_PAGE_EVICTORS", std::to_string(thread_count).c_str(), 1);
