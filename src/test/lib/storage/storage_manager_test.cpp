@@ -296,6 +296,26 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileMid) {
   EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
 }
 
+TEST_F(StorageManagerTest, PersistencyMultipleFiles) {
+  auto& sm = Hyrise::get().storage_manager;
+
+  const auto table_name = "table-one";
+
+  const auto first_file = sm.register_new_file(table_name);
+  const auto CHUNK_COUNT = uint32_t{75}; // Too many chunks for a single file.
+  constexpr auto ROW_COUNT = uint32_t{100};
+  constexpr auto COLUMN_COUNT = uint32_t{23};
+
+  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
+  std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
+  for (auto index = uint32_t{0}; index < CHUNK_COUNT; ++index) {
+    chunks[index] = chunk;
+  }
+
+  const auto file = sm.register_new_file(table_name);
+  sm.persist_chunks_to_disk(chunks, file);
+}
+
 TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
   const auto file_name = "test_chunks_file.bin";
   std::remove(file_name);

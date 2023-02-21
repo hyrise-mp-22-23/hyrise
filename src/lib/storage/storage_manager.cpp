@@ -417,13 +417,27 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
 
   const auto file_name = file.path;
 
-  if (!std::filesystem::exists(file_name)) {
-    
+  if (chunks.size() + file.chunk_count > get_max_chunk_count_per_file()) {
+    const auto unused_space = get_max_chunk_count_per_file() - file.chunk_count;
+    const auto needed_space = chunks.size() - unused_space;
+
+    auto first_chunks = std::vector<std::shared_ptr<Chunk>>(unused_space);
+    auto last_chunks = std::vector<std::shared_ptr<Chunk>>(needed_space);
+    for (auto chunk_index = uint32_t{0}; chunk_index < unused_space; ++chunk_index) {
+      first_chunks[chunk_index] = chunks[chunk_index];
+    }
+    for (auto chunk_index = uint32_t{unused_space}; chunk_index < chunks.size(); ++chunk_index) {
+      last_chunks[chunk_index - unused_space] = chunks[chunk_index];
+    }
+
+    persist_chunks_to_disk(first_chunks, file);
+    persist_chunks_to_disk(last_chunks, register_new_file("sometablename"));
+    return;
   }
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
-  auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
-  auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
+  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(_chunk_count, std::vector<uint32_t>());
+  auto chunk_offset_ends = std::array<uint32_t, _chunk_count>();
+  auto chunk_ids = std::array<uint32_t, _chunk_count>();
 
   auto offset = uint32_t{_file_header_bytes};
   for (auto chunk_index = uint32_t{0}; chunk_index < chunks.size(); ++chunk_index) {
@@ -534,6 +548,31 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
+}
+
+DATA_FILE StorageManager::register_new_file(std::string table_name) {
+  const auto file_map = get_file_map();
+
+  auto registered_files = std::vector<DATA_FILE>(0);
+  if (file_map.contains(table_name)) {
+    registered_files = file_map.at(table_name);
+  }
+
+  uint32_t last_index = 0;
+  if (registered_files.size() > 0) {
+    last_index = registered_files[registered_files.size() - 1].file_id;
+  }
+
+  DATA_FILE next_entry;
+  next_entry.file_id = last_index;
+  next_entry.path = "table_" + table_name + "_" + std::to_string(last_index) + ".bin";
+  next_entry.table_name = table_name;
+  next_entry.chunk_count = 0;
+
+  registered_files.emplace_back(next_entry);
+  _file_map[table_name] = registered_files;
+
+  return next_entry;
 }
 
 }  // namespace hyrise

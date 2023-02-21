@@ -23,12 +23,6 @@ class AbstractLQPNode;
 
 const auto MAX_CHUNK_COUNT_PER_FILE = uint8_t{50};
 
-struct DATA_FILE {
-  std::string path;
-  std::string table_name;
-  uint32_t chunk_count;
-};
-
 struct FILE_HEADER {
   uint32_t storage_format_version_id;
   uint32_t chunk_count;
@@ -38,6 +32,12 @@ struct FILE_HEADER {
 struct CHUNK_HEADER {
   uint32_t row_count;
   std::vector<uint32_t> segment_offset_ends;
+};
+struct DATA_FILE {
+  std::string path;
+  std::string table_name;
+  uint32_t file_id;
+  uint32_t chunk_count;
 };
 
 enum class PersistedSegmentEncodingType : uint32_t {
@@ -98,6 +98,7 @@ class StorageManager : public Noncopyable {
   FILE_HEADER read_file_header(const std::string& filename);
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
+  DATA_FILE register_new_file(std::string table_name);
 
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
@@ -105,6 +106,14 @@ class StorageManager : public Noncopyable {
 
   uint32_t get_storage_format_version_id() {
     return _storage_format_version_id;
+  }
+
+  std::map<std::string, std::vector<DATA_FILE>> get_file_map() {
+    return _file_map;
+  }
+
+  std::vector<DATA_FILE> get_files_for_table(std::string table_name) {
+    return _file_map[table_name];
   }
 
  protected:
