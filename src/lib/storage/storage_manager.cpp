@@ -22,7 +22,7 @@
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
 
-namespace {
+
 uint32_t byte_index(uint32_t element_index, size_t element_size) {
   return element_index * element_size;
 }
@@ -30,8 +30,6 @@ uint32_t byte_index(uint32_t element_index, size_t element_size) {
 uint32_t element_index(uint32_t byte_index, size_t element_size) {
   return byte_index / element_size;
 }
-
-}  // namespace
 
 namespace hyrise {
 
