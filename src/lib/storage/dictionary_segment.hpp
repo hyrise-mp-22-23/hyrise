@@ -103,8 +103,8 @@ class DictionarySegment : public BaseDictionarySegment {
   static constexpr auto DICTIONARY_SIZE_OFFSET_INDEX = uint32_t{1};
   static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{2};
   static constexpr auto HEADER_OFFSET_INDEX = uint32_t{3};
-  static constexpr auto EIGHT_TO_THIRTYTWO_BIT_MULTIPLIER = uint32_t{4};
-  static constexpr auto SIXTEEN_TO_THIRTYTWO_BIT_MULTIPLIER = uint32_t{2};
+  static constexpr auto NUM_BYTES_32_BIT_ENCODING = uint32_t{4};
+  static constexpr auto NUM_BYTES_16_BIT_ENCODING = uint32_t{2};
 };
 
 EXPLICITLY_DECLARE_DATA_TYPES(DictionarySegment);

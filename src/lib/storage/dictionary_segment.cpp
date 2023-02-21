@@ -43,24 +43,20 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 template <typename T>
 DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
     : BaseDictionarySegment(data_type_from_type<T>()) {
-
   if constexpr (std::is_same_v<T, int32_t>) {
     const auto encoding_type = PersistedSegmentEncodingType{start_address[ENCODING_TYPE_OFFSET_INDEX]};
     const auto dictionary_size = start_address[DICTIONARY_SIZE_OFFSET_INDEX];
     const auto attribute_vector_size = start_address[ATTRIBUTE_VECTOR_OFFSET_INDEX];
-    const auto type_size_as_index = sizeof(T) / sizeof(int32_t);
 
     auto* dictionary_address = reinterpret_cast<const T*>(start_address + HEADER_OFFSET_INDEX);
-    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(&dictionary_address[0], dictionary_size);
-
-    start_address += HEADER_OFFSET_INDEX;
+    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_address, dictionary_size);
 
     switch (encoding_type) {
       case PersistedSegmentEncodingType::DictionaryEncoding8Bit: {
-        auto* attribute_vector_address = reinterpret_cast<const uint8_t*>(start_address);
-        auto attribute_data_span = std::span<const uint8_t>(
-            &attribute_vector_address[(dictionary_size * type_size_as_index) * EIGHT_TO_THIRTYTWO_BIT_MULTIPLIER],
-            attribute_vector_size);
+        auto const dictionary_size_bytes = dictionary_size;
+        auto* const attribute_vector_address =
+            reinterpret_cast<const uint8_t*>(start_address + HEADER_OFFSET_INDEX + dictionary_size_bytes);
+        auto attribute_data_span = std::span<const uint8_t>(attribute_vector_address, attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
         _dictionary_span = dictionary_span_pointer;
@@ -70,29 +66,29 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncoding16Bit: {
-        auto* attribute_vector_address = reinterpret_cast<const uint16_t*>(start_address);
-        auto attribute_data_span = std::span<const uint16_t>(
-            &attribute_vector_address[(dictionary_size * type_size_as_index) * SIXTEEN_TO_THIRTYTWO_BIT_MULTIPLIER],
-            attribute_vector_size);
+        auto const dictionary_size_bytes = dictionary_size * NUM_BYTES_16_BIT_ENCODING;
+        auto* const attribute_vector_address =
+            reinterpret_cast<const uint16_t*>(start_address + HEADER_OFFSET_INDEX + dictionary_size_bytes);
+        auto attribute_data_span = std::span<const uint16_t>(attribute_vector_address, attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
         _dictionary_span = dictionary_span_pointer;
         _attribute_vector = attribute_vector;
         _decompressor = _attribute_vector->create_base_decompressor();
-      
+
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncoding32Bit: {
-        auto* attribute_vector_address = reinterpret_cast<const uint32_t*>(start_address);
-        auto attribute_data_span = std::span<const uint32_t>(
-            &attribute_vector_address[dictionary_size * type_size_as_index],
-            attribute_vector_size);
+        auto const dictionary_size_bytes = dictionary_size * NUM_BYTES_32_BIT_ENCODING;
+        auto* const attribute_vector_address =
+            reinterpret_cast<const uint32_t*>(start_address + HEADER_OFFSET_INDEX + dictionary_size_bytes);
+        auto attribute_data_span = std::span<const uint32_t>(attribute_vector_address, attribute_vector_size);
         auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
 
         _dictionary_span = dictionary_span_pointer;
         _attribute_vector = attribute_vector;
         _decompressor = _attribute_vector->create_base_decompressor();
-      
+
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncodingBitPacking: {
@@ -108,7 +104,6 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
   } else {
     Fail("Unsupported DataType.");
   }
-
 }
 
 template <typename T>

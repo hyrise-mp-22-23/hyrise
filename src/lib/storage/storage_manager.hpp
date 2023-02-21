@@ -48,6 +48,7 @@ enum class PersistedSegmentEncodingType : uint32_t {
 class StorageManager : public Noncopyable {
   friend class Hyrise;
   friend class StorageManagerTest;
+
  public:
   /**
    * @defgroup Manage Tables, this is only thread-safe for operations on tables with different names
@@ -123,7 +124,7 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _chunk_id_bytes = 4;
   static constexpr uint32_t _chunk_offset_bytes = 4;
   static constexpr uint32_t _file_header_bytes = _format_version_id_bytes + _chunk_count_bytes +
-                                             _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
+                                                 _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
 
   // Chunk Header
   static constexpr uint32_t _row_count_bytes = 4;

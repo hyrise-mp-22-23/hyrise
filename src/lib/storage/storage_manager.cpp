@@ -377,7 +377,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
 }
 
 void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
-                                         const std::vector<uint32_t>& segment_offset_ends, const std::string& file_name) {
+                                         const std::vector<uint32_t>& segment_offset_ends,
+                                         const std::string& file_name) {
   auto header = CHUNK_HEADER{};
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
@@ -406,7 +407,8 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   */
   // file_lock.acquire();
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
+  auto chunk_segment_offset_ends =
+      std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
   auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
   auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
 
