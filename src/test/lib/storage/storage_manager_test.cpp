@@ -45,6 +45,10 @@ class StorageManagerTest : public BaseTest {
   }
   const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
 
+  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
+    auto& sm = Hyrise::get().storage_manager;
+    return sm.generate_segment_offset_ends(chunk);
+  }
 };
 
 TEST_F(StorageManagerTest, AddTableTwice) {
@@ -237,12 +241,11 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
 }
 
 TEST_F(StorageManagerTest, PersistencyOffsetEnds) {
-  auto& sm = Hyrise::get().storage_manager;
-
   const auto COLUMN_COUNT = uint32_t{5};
   const auto ROW_COUNT = uint32_t{500};
 
-  const auto segment_offsets = sm.generate_segment_offset_ends(
+  // Method calls Storage Manager indirectly, by first calling a method in test class.
+  const auto segment_offsets = generate_segment_offset_ends(
     StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT)
   );
 
