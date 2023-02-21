@@ -30,6 +30,7 @@ uint32_t byte_index(uint32_t element_index, size_t element_size) {
 uint32_t element_index(uint32_t byte_index, size_t element_size) {
   return byte_index / element_size;
 }
+
 }  // namespace
 
 namespace hyrise {
@@ -372,8 +373,6 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   export_value(compressed_vector_type_id, file_name);
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
-
-
 
   export_values<int32_t>(*segment->dictionary(), file_name);
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);

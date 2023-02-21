@@ -89,7 +89,6 @@ class StorageManager : public Noncopyable {
 
   void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
 
-  // These functions are for the moment public, to test them properly.
   FILE_HEADER read_file_header(const std::string& filename);
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
@@ -104,6 +103,7 @@ class StorageManager : public Noncopyable {
 
  protected:
   StorageManager() = default;
+  friend class Hyrise;
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;

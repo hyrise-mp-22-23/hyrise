@@ -46,12 +46,12 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
 
   if constexpr (std::is_same_v<T, int32_t>) {
     const auto encoding_type = PersistedSegmentEncodingType{start_address[ENCODING_TYPE_OFFSET_INDEX]};
-    const auto dictionary_size = start_address[DICTIONARY_OFFSET_INDEX];
+    const auto dictionary_size = start_address[DICTIONARY_SIZE_OFFSET_INDEX];
     const auto attribute_vector_size = start_address[ATTRIBUTE_VECTOR_OFFSET_INDEX];
-    const auto type_size_as_index = sizeof(T) / 4;
+    const auto type_size_as_index = sizeof(T) / sizeof(int32_t);
 
-    auto* dictionary_address = reinterpret_cast<const T*>(start_address);
-    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(&dictionary_address[3], dictionary_size);
+    auto* dictionary_address = reinterpret_cast<const T*>(start_address + HEADER_OFFSET_INDEX);
+    auto dictionary_span_pointer = std::make_shared<std::span<const T>>(&dictionary_address[0], dictionary_size);
 
     start_address += HEADER_OFFSET_INDEX;
 
@@ -96,7 +96,7 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
         break;
       }
       case PersistedSegmentEncodingType::DictionaryEncodingBitPacking: {
-        Fail("BitPacking not implemented yet.");
+        Fail("Support for span-based BitPackingVectors for DictionarySegments not implemented yet.");
         break;
       }
       default: {

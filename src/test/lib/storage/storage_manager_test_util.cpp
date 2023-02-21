@@ -60,9 +60,9 @@ class StorageManagerTestUtil {
         ++value_count;
       }
 
-      auto ds_int =
+      auto encoded_segment =
           ChunkEncoder::encode_segment(new_value_segment, DataType::Int, SegmentEncodingSpec{EncodingType::Dictionary});
-      segments.emplace_back(ds_int);
+      segments.emplace_back(encoded_segment);
     }
 
     const auto dictionary_encoded_chunk = std::make_shared<Chunk>(segments);

@@ -100,7 +100,7 @@ class DictionarySegment : public BaseDictionarySegment {
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 
   static constexpr auto ENCODING_TYPE_OFFSET_INDEX = uint32_t{0};
-  static constexpr auto DICTIONARY_OFFSET_INDEX = uint32_t{1};
+  static constexpr auto DICTIONARY_SIZE_OFFSET_INDEX = uint32_t{1};
   static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{2};
   static constexpr auto HEADER_OFFSET_INDEX = uint32_t{3};
   static constexpr auto EIGHT_TO_THIRTYTWO_BIT_MULTIPLIER = uint32_t{4};
