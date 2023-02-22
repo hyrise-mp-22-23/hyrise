@@ -49,8 +49,8 @@ Table::Table(const TableColumnDefinitions& column_definitions, const TableType t
         continue;
       }
 
-      chunk->_chunk_id = chunk_id;
-      chunk->_table_name = _name;
+      chunk->set_chunk_id(chunk_id);
+      chunk->set_table_name(_name);
       Assert(chunk->size() > 0 || (type == TableType::Data && chunk_id == chunk_count - 1 && chunk->is_mutable()),
              "Empty chunk other than mutable chunk at the end was found");
       Assert(chunk->has_mvcc_data() == (_use_mvcc == UseMvcc::Yes), "Supply MvccData for Chunks iff Table uses MVCC");
@@ -260,8 +260,6 @@ void Table::append_chunk(const Segments& segments, std::shared_ptr<MvccData> mvc
       if (!chunk) {
         continue;
       }
-      chunk->_table_name = _name;
-      chunk->_chunk_id = chunk_id;
 
       // An empty, mutable chunk at the end is fine, but in that case, append_chunk shouldn't have to be called.
       DebugAssert(chunk->size() > 0, "append_chunk called on a table that has an empty chunk");
@@ -276,8 +274,8 @@ void Table::append_chunk(const Segments& segments, std::shared_ptr<MvccData> mvc
   auto new_chunk_iter = _chunks.push_back(nullptr);
   std::atomic_store(&*new_chunk_iter, std::make_shared<Chunk>(segments, mvcc_data, alloc));
 
-  _chunks.back()->_table_name = _name;
-  _chunks.back()->_chunk_id = _chunks.size() - 1;
+  _chunks.back()->set_table_name(_name);
+  _chunks.back()->set_chunk_id(static_cast<ChunkID>(_chunks.size() - 1));
 }
 
 std::vector<AllTypeVariant> Table::get_row(size_t row_idx) const {

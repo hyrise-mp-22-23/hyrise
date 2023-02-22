@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <string>
 #include <vector>
@@ -91,8 +92,10 @@ class StorageManager : public Noncopyable {
      * @{
      */
   void write_to_disk(const Chunk* chunk);
-  void update_json(const std::string& table_name) const;
+  void update_json(const std::string& table_name);
   void update_json_chunk(const Chunk* chunk);
+  ssize_t find_table_index_in_json(const std::string& table_name) const;
+  ssize_t find_chunk_index_in_json(const nlohmann::json& table_json, const size_t chunk_id) const;
 
   /** @} */
 
@@ -113,17 +116,28 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
+  void flush_storage_json();
+
  protected:
-  StorageManager() = default;
   friend class Hyrise;
+
+  //StorageManager() = default;
+  StorageManager() {
+    std::ifstream json_file(_storage_json_path);
+    // If the file exists, load the contents into the json object.
+    if (json_file.good()) {
+      json_file >> _storage_json;
+    }
+  }
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
-  const char* storage_json_path = "./resources/storage.json";
+  const char* _storage_json_path = "./resources/storage.json";
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
+  nlohmann::json _storage_json;
 
  private:
   static constexpr uint32_t _chunk_count = 50;

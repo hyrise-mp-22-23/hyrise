@@ -29,7 +29,6 @@ class Table : private Noncopyable {
   friend class StorageTableTest;
 
  public:
-  std::string _name;
   static std::shared_ptr<Table> create_dummy_table(const TableColumnDefinitions& column_definitions);
 
   // We want a common interface for tables that contain data (TableType::Data) and tables that contain reference
@@ -226,11 +225,19 @@ class Table : private Noncopyable {
   const std::vector<ColumnID>& value_clustered_by() const;
   void set_value_clustered_by(const std::vector<ColumnID>& value_clustered_by);
 
+  void set_name(std::string table_name){
+    _name = table_name;
+  }
+
+  std::string get_name(std::string table_name){
+    return _name;
+  }
  protected:
   const TableColumnDefinitions _column_definitions;
   const TableType _type;
   const UseMvcc _use_mvcc;
   const ChunkOffset _target_chunk_size;
+  std::string _name;
 
   /**
    * To prevent data races for TableType::Data tables, we must access _chunks atomically.

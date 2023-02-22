@@ -52,7 +52,7 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
     Assert(table->get_chunk(chunk_id)->has_mvcc_data(), "Table must have MVCC data.");
   }
 
-  table->_name = name;
+  table->set_name(name);
   // Create table statistics and chunk pruning statistics for added table.
   table->set_table_statistics(TableStatistics::from_table(*table));
   generate_chunk_pruning_statistics(table);
@@ -225,15 +225,15 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
   return result;
 }
 
-ssize_t find_table_index_in_json(const json& storage_json, const std::string& table_name) {
+ssize_t StorageManager::find_table_index_in_json(const std::string& table_name) const{
   auto table_index = ssize_t{-1};
 
-  if (storage_json.count("tables") == 0) {
+  if (_storage_json.count("tables") == 0) {
     return table_index;
   }
 
-  for (auto index = size_t{0}; index < storage_json["tables"].size(); ++index) {
-    if (storage_json["tables"][index]["name"] == table_name) {
+  for (auto index = size_t{0}; index < _storage_json["tables"].size(); ++index) {
+    if (_storage_json["tables"][index]["name"] == table_name) {
       table_index = static_cast<ssize_t>(index);
       return table_index;
     }
@@ -241,7 +241,7 @@ ssize_t find_table_index_in_json(const json& storage_json, const std::string& ta
   return table_index;
 }
 
-ssize_t find_chunk_index_in_json(const json& table_json, const size_t chunk_id) {
+ssize_t StorageManager::find_chunk_index_in_json(const json& table_json, const size_t chunk_id) const {
   auto chunk_index = ssize_t{-1};
   if (table_json.count("chunks") == 0) {
     return chunk_index;
@@ -256,21 +256,10 @@ ssize_t find_chunk_index_in_json(const json& table_json, const size_t chunk_id) 
   return chunk_index;
 }
 
-void StorageManager::update_json(const std::string& table_name) const {
-  static std::mutex update_mutex;
-  std::lock_guard<std::mutex> const lock(update_mutex);
-
+void StorageManager::update_json(const std::string& table_name) {
   std::cout << "Json for table: " << table_name << std::endl;
-  // Check if "storage.json" file exists.
-  std::ifstream json_file(storage_json_path);
-  json storage;
 
-  // If the file exists, load the contents into the json object.
-  if (json_file.good()) {
-    json_file >> storage;
-  }
-
-  auto table_index = find_table_index_in_json(storage, table_name);
+  auto table_index = find_table_index_in_json(table_name);
 
   if (has_table(table_name)) {
     const auto table = get_table(table_name);
@@ -296,63 +285,49 @@ void StorageManager::update_json(const std::string& table_name) const {
 
     // If table entry in json already exist, overwrite it. Otherwise, append the table entry.
     if (table_index != -1) {
-      if (storage["tables"][table_index].count("chunks") != 0) {
-        table_object["chunks"] = storage["tables"][table_index]["chunks"];
+      if (_storage_json["tables"][table_index].count("chunks") != 0) {
+        table_object["chunks"] = _storage_json["tables"][table_index]["chunks"];
       }
     } else {
-      storage["tables"].push_back(table_object);
+      _storage_json["tables"].push_back(table_object);
     }
 
   } else {
     if (table_index != -1) {
-      storage["tables"].erase(table_index);
+      _storage_json["tables"].erase(table_index);
     }
   }
-
-  // Write the json object to disk.
-  std::ofstream output_file(storage_json_path);
-  output_file << storage.dump(4);
-  output_file.close();
 }
 
 void StorageManager::update_json_chunk(const Chunk* chunk) {
-  static std::mutex update_mutex;
-  std::lock_guard<std::mutex> const lock(update_mutex);
-  std::cout << "Json for table: " << chunk->_table_name << " Chunk_id: " << chunk->_chunk_id << std::endl;
-  std::ifstream json_file(storage_json_path);
-  json storage;
+  std::cout << "Json for table: " << chunk->get_table_name() << " Chunk_id: " << chunk->get_chunk_id() << std::endl;
 
-  // If the file exists, load the contents into the json object.
-  if (json_file.good()) {
-    json_file >> storage;
-  }
-
-  auto table_index = find_table_index_in_json(storage, chunk->_table_name);
-  const auto table = get_table(chunk->_table_name);
+  const auto table_index = find_table_index_in_json(chunk->get_table_name());
+  const auto table = get_table(chunk->get_table_name());
   json table_object;
   json chunk_object;
 
   // If table entry in json already exist, use it. Otherwise, create new one.
   if (table_index != -1) {
-    table_object = storage["tables"][table_index];
+    table_object = _storage_json["tables"][table_index];
   } else {
     table_object = {
-        {"name", chunk->_table_name},
+        {"name", chunk->get_table_name()},
         {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
         {"row_count", table->row_count()},
         {"column_count", static_cast<uint32_t>(table->column_count())},
     };
   }
 
-  auto chunk_index = find_chunk_index_in_json(table_object, chunk->_chunk_id);
+  const auto chunk_index = find_chunk_index_in_json(table_object, chunk->get_chunk_id());
 
   // If table entry in json already exist, use it. Otherwise, create new one.
   if (chunk_index != -1) {
-    chunk_object = storage["tables"][chunk_index];
+    chunk_object = _storage_json["tables"][chunk_index];
     std::cout << "Chunk update in storage.json" << std::endl;
   } else {
     chunk_object = {
-        {"chunk_id", static_cast<uint32_t>(chunk->_chunk_id)},
+        {"chunk_id", static_cast<uint32_t>(chunk->get_chunk_id())},
         {"row_count", static_cast<uint32_t>(chunk->size())},
         {"saved_at", "IN_MEMORY"},
     };
@@ -361,16 +336,17 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
     table_object["row_count"] = table->row_count();
   }
 
-  storage["tables"][table_index] = table_object;
+  _storage_json["tables"][table_index] = table_object;
+}
 
-  // Write the json object to disk.
-  std::ofstream output_file(storage_json_path);
-  output_file << storage.dump(4);
+void StorageManager::flush_storage_json(){
+  std::ofstream output_file(_storage_json_path);
+  output_file << _storage_json.dump(4);
   output_file.close();
 }
 
 void StorageManager::write_to_disk(const Chunk* chunk) {
-  if (has_table(chunk->_table_name)) {
+  if (has_table(chunk->get_table_name())) {
     update_json_chunk(chunk);
   }
 }
@@ -475,21 +451,21 @@ std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::sh
  */
 
 template <typename T>
-void export_value(const T& value, std::string file_name) {
+void export_value(const T& value, const std::string file_name) {
   std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
   ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
   ofstream.close();
 }
 
 template <typename T, typename Alloc>
-void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
+void export_values(const std::vector<T, Alloc>& values, const std::string file_name) {
   std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
   ofstream.close();
 }
 
 // needed for attribute vector which is stored in a compact manner
-void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
+void export_compact_vector(const pmr_compact_vector& values, const std::string file_name) {
   //adapted to uint32_t format of later created map (see comment in `write_dict_segment_to_disk`)
   export_value(static_cast<uint32_t>(values.bits()), file_name);
   std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
@@ -498,7 +474,7 @@ void export_compact_vector(const pmr_compact_vector& values, std::string file_na
 }
 
 void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::string file_name) {
+                              const std::string file_name) {
   switch (type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
       export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), file_name);
