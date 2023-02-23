@@ -6,13 +6,13 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <shared_mutex>
 #include <string>
 #include <vector>
 
 #include "chunk.hpp"
 #include "lqp_view.hpp"
+#include "nlohmann/json.hpp"
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
@@ -121,7 +121,6 @@ class StorageManager : public Noncopyable {
  protected:
   friend class Hyrise;
 
-  //StorageManager() = default;
   StorageManager() {
     std::ifstream json_file(_storage_json_path);
     // If the file exists, load the contents into the json object.
@@ -130,14 +129,15 @@ class StorageManager : public Noncopyable {
     }
   }
 
+  const char* _storage_json_path = "./resources/storage.json";
+  nlohmann::json _storage_json;
+
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
-  const char* _storage_json_path = "./resources/storage.json";
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
-  nlohmann::json _storage_json;
 
  private:
   static constexpr uint32_t _chunk_count = 50;

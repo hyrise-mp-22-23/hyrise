@@ -26,7 +26,6 @@
 #include "utils/meta_table_manager.hpp"
 using json = nlohmann::json;
 
-
 uint32_t byte_index(uint32_t element_index, size_t element_size) {
   return element_index * element_size;
 }
@@ -225,7 +224,7 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
   return result;
 }
 
-ssize_t StorageManager::find_table_index_in_json(const std::string& table_name) const{
+ssize_t StorageManager::find_table_index_in_json(const std::string& table_name) const {
   auto table_index = ssize_t{-1};
 
   if (_storage_json.count("tables") == 0) {
@@ -264,17 +263,17 @@ void StorageManager::update_json(const std::string& table_name) {
   if (has_table(table_name)) {
     const auto table = get_table(table_name);
 
-    json table_object = {
+    auto table_object = json::object({
         {"name", table_name},
         {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
         {"row_count", table->row_count()},
         {"column_count", static_cast<uint32_t>(table->column_count())},
-    };
+    });
 
     const auto column_names = table->column_names();
     const auto column_data_types = table->column_data_types();
     const auto column_count = table->column_count();
-    for(auto index = size_t{0}; index < column_count; ++index){
+    for (auto index = size_t{0}; index < column_count; ++index) {
       const json column_object = {
           {"id", index},
           {"name", column_names[index]},
@@ -304,8 +303,8 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
 
   const auto table_index = find_table_index_in_json(chunk->get_table_name());
   const auto table = get_table(chunk->get_table_name());
-  json table_object;
-  json chunk_object;
+  auto table_object = json::object();
+  auto chunk_object = json::object();
 
   // If table entry in json already exist, use it. Otherwise, create new one.
   if (table_index != -1) {
@@ -339,7 +338,7 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
   _storage_json["tables"][table_index] = table_object;
 }
 
-void StorageManager::flush_storage_json(){
+void StorageManager::flush_storage_json() {
   std::ofstream output_file(_storage_json_path);
   output_file << _storage_json.dump(4);
   output_file.close();

@@ -194,7 +194,7 @@ class Chunk : private Noncopyable {
     return _table_name;
   }
 
-  ChunkID get_chunk_id() const  {
+  ChunkID get_chunk_id() const {
     return _chunk_id;
   }
 
