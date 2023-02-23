@@ -60,6 +60,7 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 
   auto table_persistence_file_name = name + "_0.bin";
   _tables_current_persistence_file_mapping[name] = {table_persistence_file_name, 0, 0};
+  serialize_table_files_mapping();
 }
 
 void StorageManager::drop_table(const std::string& name) {
@@ -339,12 +340,6 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
   _storage_json["tables"][table_index] = table_object;
 }
 
-void StorageManager::flush_storage_json() {
-  std::ofstream output_file(_storage_json_path);
-  output_file << _storage_json.dump(4);
-  output_file.close();
-}
-
 void StorageManager::write_to_disk(const Chunk* chunk) {
   if (has_table(chunk->get_table_name())) {
     update_json_chunk(chunk);
@@ -442,7 +437,7 @@ std::vector<uint32_t> StorageManager::generate_segment_offset_ends(const std::sh
           offset_end += dynamic_cast<const BitPackingVector&>(*attribute_vector).data().bytes();
           break;
         default:
-        Fail("Any other type should have been caught before.");
+          Fail("Any other type should have been caught before.");
       }
 
       segment_offset_ends[segment_index] = offset_end;
@@ -465,7 +460,7 @@ void export_value(const T& value, const std::string file_name) {
 
 // not copied, own creation
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
-  std::fstream fstream(file_name, std::ios::binary); // use option std::ios_base::binary if necessary
+  std::fstream fstream(file_name, std::ios::binary);  // use option std::ios_base::binary if necessary
   fstream.seekp(0, std::ios_base::beg);
   fstream.write(reinterpret_cast<const char*>(&header), sizeof(header));
   fstream.close();
@@ -514,7 +509,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
-  const auto compressed_vector_type_id = resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+  const auto compressed_vector_type_id =
+      resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
   export_value(compressed_vector_type_id, file_name);
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
@@ -596,53 +592,53 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
 }
 
 uint32_t StorageManager::persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                           const std::string& file_name) {
+                                               const std::string& file_name) {
+  if (std::filesystem::exists(file_name)) {
+    //append to existing file
 
-    if (std::filesystem::exists(file_name)) {
-      //append to existing file
-
-      auto chunk_segment_offset_ends = generate_segment_offset_ends(chunk);
-      auto chunk_offset_end = chunk_segment_offset_ends.back();
-
-      // adapt and rewrite file header
-      FILE_HEADER file_header = read_file_header(file_name);
-      const auto file_header_previous_chunk_count = file_header.chunk_count;
-      const auto file_prev_chunk_end_offset = file_header.chunk_offset_ends[file_header_previous_chunk_count - 1];
-
-      file_header.chunk_count = file_header.chunk_count + 1;
-      file_header.chunk_ids[file_header_previous_chunk_count] = chunk_id;
-      file_header.chunk_offset_ends[file_header_previous_chunk_count] = file_prev_chunk_end_offset + chunk_offset_end;
-
-      overwrite_header(file_header, file_name);
-
-      write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
-      return file_prev_chunk_end_offset;
-    }
-
-    // create new file
     auto chunk_segment_offset_ends = generate_segment_offset_ends(chunk);
     auto chunk_offset_end = chunk_segment_offset_ends.back();
 
-    auto fh = FILE_HEADER{};
-    auto chunk_ids = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
-    chunk_ids[0] = chunk_id;
+    // adapt and rewrite file header
+    FILE_HEADER file_header = read_file_header(file_name);
+    const auto file_header_previous_chunk_count = file_header.chunk_count;
+    const auto file_prev_chunk_end_offset = file_header.chunk_offset_ends[file_header_previous_chunk_count - 1];
 
-    auto chunk_offset_ends = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
-    chunk_offset_ends[0] = chunk_offset_end;
+    file_header.chunk_count = file_header.chunk_count + 1;
+    file_header.chunk_ids[file_header_previous_chunk_count] = chunk_id;
+    file_header.chunk_offset_ends[file_header_previous_chunk_count] = file_prev_chunk_end_offset + chunk_offset_end;
 
-    fh.storage_format_version_id = _storage_format_version_id;
-    fh.chunk_count = uint32_t{1};
-    fh.chunk_ids = chunk_ids;
-    fh.chunk_offset_ends = chunk_offset_ends;
-
-    export_value<FILE_HEADER>(fh, file_name);
+    overwrite_header(file_header, file_name);
 
     write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
+    return file_prev_chunk_end_offset;
+  }
 
-    return _file_header_bytes;
+  // create new file
+  auto chunk_segment_offset_ends = generate_segment_offset_ends(chunk);
+  auto chunk_offset_end = chunk_segment_offset_ends.back();
+
+  auto fh = FILE_HEADER{};
+  auto chunk_ids = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
+  chunk_ids[0] = chunk_id;
+
+  auto chunk_offset_ends = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
+  chunk_offset_ends[0] = chunk_offset_end;
+
+  fh.storage_format_version_id = _storage_format_version_id;
+  fh.chunk_count = uint32_t{1};
+  fh.chunk_ids = chunk_ids;
+  fh.chunk_offset_ends = chunk_offset_ends;
+
+  export_value<FILE_HEADER>(fh, file_name);
+
+  write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
+
+  return _file_header_bytes;
 }
 
-void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id, const std::string& table_name) {
+void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id,
+                                                     const std::string& table_name) {
   // get current persistence_file for table
   const auto table_persistence_file = get_persistence_file_name(table_name);
   // persist chunk to disk
@@ -651,12 +647,13 @@ void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk
 
   // map chunk from disk
   const auto column_definitions = _tables[table_name]->column_data_types();
-  auto mapped_chunk = map_chunk_from_disk(chunk_start_offset, table_persistence_file, chunk->column_count(), column_definitions);
+  auto mapped_chunk =
+      map_chunk_from_disk(chunk_start_offset, table_persistence_file, chunk->column_count(), column_definitions);
 
   // replace chunk in table
 }
 
-const std::string StorageManager::get_persistence_file_name(const std::string table_name){
+const std::string StorageManager::get_persistence_file_name(const std::string table_name) {
   if (_tables_current_persistence_file_mapping[table_name].current_chunk_count == MAX_CHUNK_COUNT_PER_FILE) {
     const auto next_file_index = _tables_current_persistence_file_mapping[table_name].file_index + 1;
     auto next_persistence_file_name = table_name + "_" + std::to_string(next_file_index) + ".bin";
@@ -713,7 +710,8 @@ CHUNK_HEADER StorageManager::read_chunk_header(const std::string& filename, cons
 }
 
 std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
-                                                           const uint32_t segment_count, const std::vector<DataType> column_definitions) {
+                                                           const uint32_t segment_count,
+                                                           const std::vector<DataType> column_definitions) {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
 
   auto fd = int32_t{};
@@ -749,7 +747,8 @@ uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) {
   return _row_count_bytes + column_count * _segment_offset_bytes;
 }
 
-PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(CompressedVectorType compressed_vector_type) {
+PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(
+    CompressedVectorType compressed_vector_type) {
   PersistedSegmentEncodingType persisted_vector_type_id = {};
   switch (compressed_vector_type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
@@ -770,4 +769,40 @@ PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_
   return persisted_vector_type_id;
 }
 
+void StorageManager::serialize_table_files_mapping() {
+  auto tables_json = nlohmann::json::array();
+
+  for (const auto& mapping : _tables_current_persistence_file_mapping) {
+    const nlohmann::json table_json = {{"name", mapping.first},
+                                       {"file_name", mapping.second.file_name},
+                                       {"file_index", mapping.second.file_index},
+                                       {"current_chunk_count", mapping.second.current_chunk_count}};
+    tables_json.push_back(table_json);
+  }
+
+  _storage_json["table_files_mapping"] = tables_json;
+}
+
+void StorageManager::save_storage_json_to_disk() {
+  std::ofstream output_file(_storage_json_path);
+  output_file << _storage_json.dump(4);
+  output_file.close();
+}
+
+void StorageManager::load_storage_data_from_disk() {
+  // Read the JSON data from disk into a string
+  std::ifstream json_file(_storage_json_path);
+  json parsed_json = json::parse(json_file);
+
+  // Deserialize the JSON into the map
+  for (const auto& item : parsed_json["table_files_mapping"]) {
+    const std::string name = item["name"];
+    PERSISTENCE_FILE_DATA data {
+        item["file_name"],
+        item["file_index"],
+        item["current_chunk_count"]
+    };
+    _tables_current_persistence_file_mapping.emplace(name, std::move(data));
+  }
+}
 }  // namespace hyrise

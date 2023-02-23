@@ -352,6 +352,7 @@ void AbstractTableGenerator::generate_and_store() {
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
   {
     auto& storage_manager = Hyrise::get().storage_manager;
+    storage_manager.save_storage_json_to_disk();
     for (auto& [table_name, table_info] : table_info_by_name) {
       auto& table = table_info_by_name[table_name].table;
       for (auto chunk_id = ChunkID{0}; chunk_id < table->chunk_count(); ++chunk_id) {
@@ -360,6 +361,7 @@ void AbstractTableGenerator::generate_and_store() {
         storage_manager.replace_chunk_with_mmaped_chunk(chunk, chunk_id, table_name);
       }
     }
+    storage_manager.save_storage_json_to_disk();
   }
 
   // Set scheduler back to previously used scheduler.

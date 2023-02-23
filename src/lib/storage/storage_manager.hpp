@@ -125,7 +125,9 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
-  void flush_storage_json();
+  void save_storage_json_to_disk();
+  void load_storage_data_from_disk();
+  void serialize_table_files_mapping();
 
  protected:
   friend class Hyrise;
@@ -134,7 +136,7 @@ class StorageManager : public Noncopyable {
     std::ifstream json_file(_storage_json_path);
     // If the file exists, load the contents into the json object.
     if (json_file.good()) {
-      json_file >> _storage_json;
+      load_storage_data_from_disk();
     }
   }
 
