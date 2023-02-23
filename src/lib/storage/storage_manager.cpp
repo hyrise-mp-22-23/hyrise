@@ -797,11 +797,7 @@ void StorageManager::load_storage_data_from_disk() {
   // Deserialize the JSON into the map
   for (const auto& item : parsed_json["table_files_mapping"]) {
     const std::string name = item["name"];
-    PERSISTENCE_FILE_DATA data {
-        item["file_name"],
-        item["file_index"],
-        item["current_chunk_count"]
-    };
+    PERSISTENCE_FILE_DATA data{item["file_name"], item["file_index"], item["current_chunk_count"]};
     _tables_current_persistence_file_mapping.emplace(name, std::move(data));
   }
 }
