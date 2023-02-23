@@ -2,19 +2,17 @@
 
 #include <algorithm>
 #include <iterator>
-#include <limits>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "abstract_segment.hpp"
-#include "hyrise.hpp"
 #include "index/abstract_index.hpp"
 #include "reference_segment.hpp"
 #include "resolve_type.hpp"
 #include "storage/segment_iterate.hpp"
+#include "storage_manager.hpp"
 #include "utils/assert.hpp"
 
 namespace hyrise {
@@ -123,9 +121,6 @@ void Chunk::finalize() {
            "max_begin_cid should not be MAX_COMMIT_ID when finalizing a chunk. This probably means the chunk was "
            "finalized before all transactions committed/rolled back.");
   }
-
-  auto& storage_manager = Hyrise::get().storage_manager;
-  storage_manager.write_to_disk(this);
 }
 
 std::vector<std::shared_ptr<AbstractIndex>> Chunk::get_indexes(const std::vector<ColumnID>& column_ids) const {

@@ -43,7 +43,6 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
 template <typename T>
 DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
     : BaseDictionarySegment(data_type_from_type<T>()) {
-  if constexpr (std::is_same_v<T, int32_t>) {
     const auto encoding_type = PersistedSegmentEncodingType{start_address[ENCODING_TYPE_OFFSET_INDEX]};
     const auto dictionary_size = start_address[DICTIONARY_SIZE_OFFSET_INDEX];
     const auto attribute_vector_size = start_address[ATTRIBUTE_VECTOR_OFFSET_INDEX];
@@ -52,6 +51,18 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
     auto dictionary_span_pointer = std::make_shared<std::span<const T>>(dictionary_address, dictionary_size);
 
     switch (encoding_type) {
+      case PersistedSegmentEncodingType::Unencoded: {
+        [[maybe_unused]] auto const dictionary_size_bytes = dictionary_size * sizeof(T);
+//        auto* const attribute_vector_address =
+//          reinterpret_cast<const T*>(start_address + HEADER_OFFSET_INDEX + dictionary_size_bytes);
+//        auto attribute_data_span = std::span<T>(attribute_vector_address, attribute_vector_size);
+//        auto attribute_vector = std::make_shared<FixedWidthIntegerVector<T>>(attribute_data_span);
+//
+//        _dictionary_span = dictionary_span_pointer;
+//        _attribute_vector = attribute_vector;
+//        _decompressor = _attribute_vector->create_base_decompressor();
+        break;
+      }
       case PersistedSegmentEncodingType::DictionaryEncoding8Bit: {
         auto* const attribute_vector_address =
             reinterpret_cast<const uint8_t*>(start_address + HEADER_OFFSET_INDEX + dictionary_size);
@@ -97,10 +108,6 @@ DictionarySegment<T>::DictionarySegment(const uint32_t* start_address)
         break;
       }
     }
-
-  } else {
-    Fail("Unsupported DataType.");
-  }
 }
 
 template <typename T>
