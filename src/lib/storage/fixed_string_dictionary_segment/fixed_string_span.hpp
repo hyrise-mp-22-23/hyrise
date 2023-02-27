@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "fixed_string.hpp"
-#include "fixed_string_vector.hpp"
 #include "fixed_string_span_iterator.hpp"
+#include "fixed_string_vector.hpp"
 #include "types.hpp"
 #include "utils/assert.hpp"
 

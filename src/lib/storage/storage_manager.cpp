@@ -2,11 +2,11 @@
 
 #include <sys/fcntl.h>
 #include <sys/mman.h>
-#include <numeric>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,9 +20,9 @@
 #include "statistics/generate_pruning_statistics.hpp"
 #include "statistics/table_statistics.hpp"
 #include "storage/base_dictionary_segment.hpp"
+#include "storage/create_iterable_from_segment.hpp"
 #include "storage/dictionary_segment.hpp"
 #include "storage/dictionary_segment/dictionary_segment_iterable.hpp"
-#include "storage/create_iterable_from_segment.hpp"
 #include "storage/value_segment.hpp"
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
@@ -408,16 +408,19 @@ std::vector<uint32_t> StorageManager::calculate_segment_offset_ends(const std::s
 
     resolve_data_type(abstract_segment->data_type(), [&](auto type) {
       using ColumnDataType = typename decltype(type)::type;
-      if constexpr(std::is_same<ColumnDataType, pmr_string>::value) {
+      if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
         offset_end += _segment_header_bytes + 4;
-        const auto fixed_string_dict_segment = std::dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
+        const auto fixed_string_dict_segment =
+            std::dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
         Assert(fixed_string_dict_segment, "Trying to map a non-FixedString String DictionarySegment");
-        const auto fixed_dict_size = byte_index(fixed_string_dict_segment->fixed_string_dictionary()->size(), fixed_string_dict_segment->fixed_string_dictionary()->string_length());
+        const auto fixed_dict_size = byte_index(fixed_string_dict_segment->fixed_string_dictionary()->size(),
+                                                fixed_string_dict_segment->fixed_string_dictionary()->string_length());
         offset_end += fixed_dict_size;
         if ((fixed_dict_size % 4) != 0) {
           offset_end += (4 - (fixed_dict_size % 4));
         }
-        offset_end += calculate_four_byte_aligned_size_of_attribute_vector(fixed_string_dict_segment->attribute_vector());
+        offset_end +=
+            calculate_four_byte_aligned_size_of_attribute_vector(fixed_string_dict_segment->attribute_vector());
       } else {
         offset_end += _segment_header_bytes;
         const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
@@ -495,10 +498,11 @@ void export_compressed_vector(const CompressedVectorType type, const BaseCompres
   }
 }
 
-
 template <typename T>
-void StorageManager::write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name) {
-  const auto compressed_vector_type_id = resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+void StorageManager::write_fixed_string_dict_segment_to_disk(
+    const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name) {
+  const auto compressed_vector_type_id =
+      resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
   export_value(static_cast<uint32_t>(compressed_vector_type_id), file_name);
   export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), file_name);
   export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), file_name);
@@ -506,7 +510,8 @@ void StorageManager::write_fixed_string_dict_segment_to_disk(const std::shared_p
 
   // we need to ensure that every part can be mapped with a uint32_t map
   export_values(*segment->fixed_string_dictionary(), file_name);
-  const auto dictionary_byte_size = byte_index(segment->fixed_string_dictionary()->size(), segment->fixed_string_dictionary()->string_length());
+  const auto dictionary_byte_size =
+      byte_index(segment->fixed_string_dictionary()->size(), segment->fixed_string_dictionary()->string_length());
   //TODO: use chars.size() instead?
   std::cout << dictionary_byte_size << " " << segment->fixed_string_dictionary()->chars().size() << std::endl;
   const auto dictionary_difference_to_four_byte_alignment = dictionary_byte_size % 4;
@@ -517,10 +522,11 @@ void StorageManager::write_fixed_string_dict_segment_to_disk(const std::shared_p
 
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
   //TODO: What to do with non-compressed AttributeVectors?
-  const auto attribute_vector_difference_to_four_byte_alignment = calculate_byte_size_of_attribute_vector(segment->attribute_vector()) % 4;
+  const auto attribute_vector_difference_to_four_byte_alignment =
+      calculate_byte_size_of_attribute_vector(segment->attribute_vector()) % 4;
   if (attribute_vector_difference_to_four_byte_alignment != 0) {
-  const auto padding = std::vector<uint8_t>(4 - attribute_vector_difference_to_four_byte_alignment, 0);
-  export_values(padding, file_name);
+    const auto padding = std::vector<uint8_t>(4 - attribute_vector_difference_to_four_byte_alignment, 0);
+    export_values(padding, file_name);
   }
 }
 
@@ -531,7 +537,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
-  const auto compressed_vector_type_id = resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+  const auto compressed_vector_type_id =
+      resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
   export_value(static_cast<uint32_t>(compressed_vector_type_id), file_name);
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
@@ -546,7 +553,8 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
 
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
   //TODO: What to do with non-compressed AttributeVectors?
-  const auto attribute_vector_difference_to_four_byte_alignment = calculate_byte_size_of_attribute_vector(segment->attribute_vector()) % 4;
+  const auto attribute_vector_difference_to_four_byte_alignment =
+      calculate_byte_size_of_attribute_vector(segment->attribute_vector()) % 4;
   if (attribute_vector_difference_to_four_byte_alignment != 0) {
     const auto padding = std::vector<uint8_t>(4 - attribute_vector_difference_to_four_byte_alignment, 0);
     export_values(padding, file_name);
@@ -576,27 +584,29 @@ uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompr
   return size;
 }
 
-uint32_t calculate_four_byte_aligned_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
+uint32_t calculate_four_byte_aligned_size_of_attribute_vector(
+    std::shared_ptr<const BaseCompressedVector> attribute_vector) {
   auto attribute_vector_size = calculate_byte_size_of_attribute_vector(attribute_vector);
   const auto attribute_vector_difference_to_four_byte_alignment = attribute_vector_size % 4;
   if (attribute_vector_difference_to_four_byte_alignment != 0) {
-     attribute_vector_size += 4 - attribute_vector_difference_to_four_byte_alignment;
+    attribute_vector_size += 4 - attribute_vector_difference_to_four_byte_alignment;
   }
   return attribute_vector_size;
 }
 
-void StorageManager::write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name) {
+void StorageManager::write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
+                                           const std::string& file_name) {
   resolve_data_type(abstract_segment->data_type(), [&](auto type) {
     using ColumnDataType = typename decltype(type)::type;
-    if constexpr(std::is_same<ColumnDataType, pmr_string>::value) {
-      const auto fixed_string_dict_segment = dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
+    if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
+      const auto fixed_string_dict_segment =
+          dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
       write_fixed_string_dict_segment_to_disk(fixed_string_dict_segment, file_name);
     } else {
       const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
       write_dict_segment_to_disk(dict_segment, file_name);
     }
   });
-
 }
 
 void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
@@ -672,8 +682,8 @@ uint32_t StorageManager::persist_chunk_to_file(const std::shared_ptr<Chunk> chun
   if (std::filesystem::exists(file_name)) {
     //append to existing file
 
-      auto chunk_segment_offset_ends = calculate_segment_offset_ends(chunk);
-      auto chunk_offset_end = chunk_segment_offset_ends.back();
+    auto chunk_segment_offset_ends = calculate_segment_offset_ends(chunk);
+    auto chunk_offset_end = chunk_segment_offset_ends.back();
 
     // adapt and rewrite file header
     FILE_HEADER file_header = read_file_header(file_name);
@@ -686,32 +696,32 @@ uint32_t StorageManager::persist_chunk_to_file(const std::shared_ptr<Chunk> chun
 
     overwrite_header(file_header, file_name);
 
-      write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
-
-      return file_prev_chunk_end_offset + _file_header_bytes;
-    }
-
-    // create new file
-    auto chunk_segment_offset_ends = calculate_segment_offset_ends(chunk);
-    auto chunk_offset_end = chunk_segment_offset_ends.back();
-
-    auto fh = FILE_HEADER{};
-    auto chunk_ids = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
-    chunk_ids[0] = chunk_id;
-
-    auto chunk_offset_ends = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
-    chunk_offset_ends[0] = chunk_offset_end;
-
-    fh.storage_format_version_id = _storage_format_version_id;
-    fh.chunk_count = uint32_t{1};
-    fh.chunk_ids = chunk_ids;
-    fh.chunk_offset_ends = chunk_offset_ends;
-
-    export_value<FILE_HEADER>(fh, file_name);
-
     write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
 
-    return _file_header_bytes;
+    return file_prev_chunk_end_offset + _file_header_bytes;
+  }
+
+  // create new file
+  auto chunk_segment_offset_ends = calculate_segment_offset_ends(chunk);
+  auto chunk_offset_end = chunk_segment_offset_ends.back();
+
+  auto fh = FILE_HEADER{};
+  auto chunk_ids = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
+  chunk_ids[0] = chunk_id;
+
+  auto chunk_offset_ends = std::array<uint32_t, MAX_CHUNK_COUNT_PER_FILE>();
+  chunk_offset_ends[0] = chunk_offset_end;
+
+  fh.storage_format_version_id = _storage_format_version_id;
+  fh.chunk_count = uint32_t{1};
+  fh.chunk_ids = chunk_ids;
+  fh.chunk_offset_ends = chunk_offset_ends;
+
+  export_value<FILE_HEADER>(fh, file_name);
+
+  write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
+
+  return _file_header_bytes;
 }
 
 void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::shared_ptr<Chunk>& mapped_chunk) {
@@ -724,13 +734,13 @@ void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::share
 
     auto column_sum_of_created_chunk = SegmentDataType{};
     dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_created_chunk = std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-        return accumulator + SegmentDataType{currentValue.value()};
-      });
+      column_sum_of_created_chunk =
+          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
+            return accumulator + SegmentDataType{currentValue.value()};
+          });
     });
 
     std::cout << "Sum of column 1 of created chunk: " << column_sum_of_created_chunk << std::endl;
-
   });
 
   const auto mapped_segment = mapped_chunk->get_segment(ColumnID{0});
@@ -742,13 +752,13 @@ void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::share
 
     auto column_sum_of_mapped_chunk = SegmentDataType{};
     mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_mapped_chunk = std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-        return accumulator + SegmentDataType{currentValue.value()};
-      });
+      column_sum_of_mapped_chunk =
+          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
+            return accumulator + SegmentDataType{currentValue.value()};
+          });
     });
 
     std::cout << "Sum of column 1 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
-
   });
 
   // print row 17 of created and mapped chunk
@@ -760,7 +770,6 @@ void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::share
   }
   std::cout << std::endl;
 
-
   std::cout << "Row 2 of mapped chunk: ";
   for (auto column_index = ColumnID{0}; column_index < mapped_chunk->column_count(); ++column_index) {
     const auto segment = mapped_chunk->get_segment(column_index);
@@ -770,7 +779,8 @@ void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::share
   std::cout << std::endl;
 }
 
-void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id, const std::string& table_name) {
+void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id,
+                                                     const std::string& table_name) {
   // get current persistence_file for table
   const auto table_persistence_file = get_persistence_file_name(table_name);
   // persist chunk to disk
@@ -779,7 +789,8 @@ void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk
 
   // map chunk from disk
   const auto column_definitions = _tables[table_name]->column_data_types();
-  auto mapped_chunk = map_chunk_from_disk(chunk_start_offset, table_persistence_file, chunk->column_count(), column_definitions);
+  auto mapped_chunk =
+      map_chunk_from_disk(chunk_start_offset, table_persistence_file, chunk->column_count(), column_definitions);
   evaluate_mapped_chunk(chunk, mapped_chunk);
 
   mapped_chunk->set_mvcc_data(chunk->mvcc_data());
@@ -788,7 +799,7 @@ void StorageManager::replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk
   _tables[table_name]->replace_chunk(chunk_id, mapped_chunk);
 }
 
-const std::string StorageManager::get_persistence_file_name(const std::string table_name){
+const std::string StorageManager::get_persistence_file_name(const std::string table_name) {
   if (_tables_current_persistence_file_mapping[table_name].current_chunk_count == MAX_CHUNK_COUNT_PER_FILE) {
     const auto next_file_index = _tables_current_persistence_file_mapping[table_name].file_index + 1;
     auto next_persistence_file_name = table_name + "_" + std::to_string(next_file_index) + ".bin";
@@ -845,7 +856,8 @@ CHUNK_HEADER StorageManager::read_chunk_header(const std::string& filename, cons
 }
 
 std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
-                                                           const uint32_t segment_count, const std::vector<DataType> column_definitions) {
+                                                           const uint32_t segment_count,
+                                                           const std::vector<DataType> column_definitions) {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
 
   auto fd = int32_t{};
@@ -869,14 +881,14 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
     resolve_data_type(column_definitions[segment_index], [&](auto type) {
       using ColumnDataType = typename decltype(type)::type;
-      if constexpr(std::is_same<ColumnDataType, pmr_string>::value) {
-        segments.emplace_back(std::make_shared<FixedStringDictionarySegment<ColumnDataType>>(map + segment_offset_begin / 4));
+      if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
+        segments.emplace_back(
+            std::make_shared<FixedStringDictionarySegment<ColumnDataType>>(map + segment_offset_begin / 4));
       } else {
         segments.emplace_back(std::make_shared<DictionarySegment<ColumnDataType>>(map + segment_offset_begin / 4));
       }
     });
   }
-
 
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
@@ -886,7 +898,8 @@ uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) {
   return _row_count_bytes + column_count * _segment_offset_bytes;
 }
 
-PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(CompressedVectorType compressed_vector_type) {
+PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(
+    CompressedVectorType compressed_vector_type) {
   PersistedSegmentEncodingType persisted_vector_type_id = {};
   switch (compressed_vector_type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
