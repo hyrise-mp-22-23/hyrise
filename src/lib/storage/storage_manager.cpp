@@ -914,13 +914,31 @@ PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_
 }
 
 void StorageManager::serialize_table_files_mapping() {
-  auto tables_json = nlohmann::json::array();
+  auto tables_json = json::array();
 
   for (const auto& mapping : _tables_current_persistence_file_mapping) {
-    const nlohmann::json table_json = {{"name", mapping.first},
-                                       {"file_name", mapping.second.file_name},
-                                       {"file_index", mapping.second.file_index},
-                                       {"current_chunk_count", mapping.second.current_chunk_count}};
+    const auto table = get_table(mapping.first);
+    const auto column_names = table->column_names();
+    const auto column_data_types = table->column_data_types();
+    const auto column_count = table->column_count();
+    json table_json = {{"name", mapping.first},
+                       {"file_name", mapping.second.file_name},
+                       {"file_index", mapping.second.file_index},
+                       {"current_chunk_count", mapping.second.current_chunk_count},
+                       {"row_count", table->row_count()},
+                       {"column_count", static_cast<uint32_t>(table->column_count())}};
+
+    auto columns_json = json::array();
+    for (auto index = size_t{0}; index < column_count; ++index) {
+      const json column_object = {
+          {"id", index},
+          {"name", column_names[index]},
+          {"data_type", column_data_types[index]},
+      };
+      columns_json.push_back(column_object);
+    }
+    table_json["columns"] = columns_json;
+
     tables_json.push_back(table_json);
   }
 
