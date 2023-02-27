@@ -144,10 +144,6 @@ class TableBuilder {
     return _table;
   }
 
-  std::shared_ptr<Table> get_table() {
-    return _table;
-  }
-
   template <typename... Types>
   void append_row(Types&&... new_values) {
     auto values_tuple = boost::hana::make_tuple(std::forward<Types>(new_values)...);

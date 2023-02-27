@@ -10,7 +10,6 @@ extern "C" {
 #include <utility>
 
 #include "benchmark_config.hpp"
-#include "hyrise.hpp"
 #include "storage/chunk.hpp"
 #include "storage/table_key_constraint.hpp"
 #include "table_builder.hpp"
@@ -127,11 +126,9 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
          "Due to tpch_dbgen limitations, only scale factors less than one can have a fractional part.");
 
   const auto cache_directory = std::string{"tpch_cached_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
-  /*
   if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
     return _load_binary_tables_from_path(cache_directory);
   }
-   */
 
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.
   dbgen_reset_seeds();
@@ -144,36 +141,19 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   const auto nation_count = static_cast<ChunkOffset>(tdefs[NATION].base);
   const auto region_count = static_cast<ChunkOffset>(tdefs[REGION].base);
 
-  auto& storage_manager = Hyrise::get().storage_manager;
-
   // The `* 4` part is defined in the TPC-H specification.
   TableBuilder customer_builder{_benchmark_config->chunk_size, customer_column_types, customer_column_names,
                                 customer_count};
-  storage_manager.add_table("customer", customer_builder.get_table());
-
   TableBuilder order_builder{_benchmark_config->chunk_size, order_column_types, order_column_names, order_count};
-  storage_manager.add_table("orders", order_builder.get_table());
-
   TableBuilder lineitem_builder{_benchmark_config->chunk_size, lineitem_column_types, lineitem_column_names,
                                 ChunkOffset{order_count * 4}};
-  storage_manager.add_table("lineitem", lineitem_builder.get_table());
-
   TableBuilder part_builder{_benchmark_config->chunk_size, part_column_types, part_column_names, part_count};
-  storage_manager.add_table("part", part_builder.get_table());
-
   TableBuilder partsupp_builder{_benchmark_config->chunk_size, partsupp_column_types, partsupp_column_names,
                                 ChunkOffset{part_count * 4}};
-  storage_manager.add_table("partsupp", partsupp_builder.get_table());
-
   TableBuilder supplier_builder{_benchmark_config->chunk_size, supplier_column_types, supplier_column_names,
                                 supplier_count};
-  storage_manager.add_table("supplier", supplier_builder.get_table());
-
   TableBuilder nation_builder{_benchmark_config->chunk_size, nation_column_types, nation_column_names, nation_count};
-  storage_manager.add_table("nation", nation_builder.get_table());
-
   TableBuilder region_builder{_benchmark_config->chunk_size, region_column_types, region_column_names, region_count};
-  storage_manager.add_table("region", region_builder.get_table());
 
   /**
    * CUSTOMER

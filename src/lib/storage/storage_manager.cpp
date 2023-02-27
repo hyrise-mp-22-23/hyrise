@@ -62,7 +62,6 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 
   auto table_persistence_file_name = name + "_0.bin";
   _tables_current_persistence_file_mapping[name] = {table_persistence_file_name, 0, 0};
-  serialize_table_files_mapping();
 }
 
 void StorageManager::drop_table(const std::string& name) {
@@ -302,6 +301,7 @@ void StorageManager::update_json(const std::string& table_name) {
   }
 }
 
+/*
 void StorageManager::update_json_chunk(const Chunk* chunk) {
   std::cout << "Json for table: " << chunk->get_table_name() << " Chunk_id: " << chunk->get_chunk_id() << std::endl;
 
@@ -330,7 +330,6 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
     std::cout << "Chunk update in storage.json" << std::endl;
   } else {
     chunk_object = {
-        {"chunk_id", static_cast<uint32_t>(chunk->get_chunk_id())},
         {"row_count", static_cast<uint32_t>(chunk->size())},
         {"saved_at", "IN_MEMORY"},
     };
@@ -341,12 +340,7 @@ void StorageManager::update_json_chunk(const Chunk* chunk) {
 
   _storage_json["tables"][table_index] = table_object;
 }
-
-void StorageManager::write_to_disk(const Chunk* chunk) {
-  if (has_table(chunk->get_table_name())) {
-    update_json_chunk(chunk);
-  }
-}
+ */
 
 void StorageManager::export_all_tables_as_csv(const std::string& path) {
   auto tasks = std::vector<std::shared_ptr<AbstractTask>>{};

@@ -192,24 +192,6 @@ class Chunk : private Noncopyable {
    */
   void finalize();
 
-  std::string get_table_name() const {
-    return _table_name;
-  }
-
-  ChunkID get_chunk_id() const {
-    return _chunk_id;
-  }
-
-  // Sets the table name of the table this chunks belongs to.
-  void set_table_name(const std::string table_name) {
-    _table_name = table_name;
-  }
-
-  // Sets the chunk_id of this chunk within the table structure.
-  void set_chunk_id(const ChunkID chunk_id) {
-    _chunk_id = chunk_id;
-  }
-
  private:
   std::vector<std::shared_ptr<const AbstractSegment>> _get_segments_for_ids(
       const std::vector<ColumnID>& column_ids) const;
@@ -221,8 +203,6 @@ class Chunk : private Noncopyable {
   Indexes _indexes;
   std::optional<ChunkPruningStatistics> _pruning_statistics;
   bool _is_mutable = true;
-  ChunkID _chunk_id;
-  std::string _table_name;
   std::vector<SortColumnDefinition> _sorted_by;
   mutable std::atomic<ChunkOffset::base_type> _invalid_row_count{ChunkOffset::base_type{0}};
 
