@@ -16,6 +16,7 @@
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
+#include "storage/fixed_string_dictionary_segment.hpp"
 #include "types.hpp"
 
 namespace hyrise {
@@ -148,8 +149,7 @@ class StorageManager : public Noncopyable {
   static constexpr size_t INITIAL_MAP_SIZE = 100;
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
-  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> _tables_current_persistence_file_mapping{
-      INITIAL_MAP_SIZE};
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> _tables_current_persistence_file_mapping{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
@@ -180,17 +180,20 @@ class StorageManager : public Noncopyable {
   CHUNK_HEADER read_chunk_header(const std::string& filename, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
 
-  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  std::vector<uint32_t> calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  template <typename T> void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
   template <typename T>
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
+  void write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name);
+
+    void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
                            const std::string& file_name);
+  void write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name);
+
   uint32_t _chunk_header_bytes(uint32_t column_count);
 
   const std::string get_persistence_file_name(const std::string table_name);
 
-  PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
-      CompressedVectorType compressed_vector_type);
+  PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(CompressedVectorType compressed_vector_type);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
