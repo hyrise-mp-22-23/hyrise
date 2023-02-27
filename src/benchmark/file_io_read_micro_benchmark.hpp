@@ -12,30 +12,27 @@ namespace hyrise {
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
   void SetUp(::benchmark::State& state) override {
-    const auto size_parameter = state.range(0);
-    NUMBER_OF_BYTES = _align_to_pagesize(size_parameter);
+    filename = "benchmark_data_" + std::to_string(state.range(0)) + ".txt";
+
+    NUMBER_OF_BYTES = _align_to_pagesize(state.range(0));
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
-    filename = "benchmark_data_" + std::to_string(size_parameter) + ".txt";
+
+    // each int32_t contains four bytes
+    numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
+    control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
 
     auto fd = int32_t{};
-    if (!std::filesystem::exists(filename)) {
-      numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
-      control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
-      Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
-             close_file_and_return_error_message(fd, "Create error: ", errno));
-      chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
-      Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
-             close_file_and_return_error_message(fd, "Write error: ", errno));
-    } else {
-      Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
-             close_file_and_return_error_message(fd, "Open error: ", errno));
-      const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, 0));
-      Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
-      const auto map_span_view = std::span{map, NUMBER_OF_ELEMENTS};
-      control_sum = std::accumulate(map_span_view.begin(), map_span_view.end(), uint64_t{0});
-    }
+    Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1), close_file_and_return_error_message(fd, "Create error: ", errno));
+    chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
+    Assert((write(fd, std::data(numbers), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
+           close_file_and_return_error_message(fd, "Write error: ", errno));
     close(fd);
   }
+
+  void TearDown(::benchmark::State& /*state*/) override {
+    Assert(std::remove(filename.c_str()) == 0, "Remove error: " + std::strerror(errno));
+  }
+
 
  protected:
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
