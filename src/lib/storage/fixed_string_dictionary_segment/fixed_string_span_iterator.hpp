@@ -18,7 +18,7 @@ template <bool OnConstStorage,
           typename Storage = std::conditional_t<OnConstStorage, const std::span<const char>, std::span<const char>>,
           typename DereferenceValue = std::conditional_t<OnConstStorage, const std::string_view, FixedString>>
 class FixedStringSpanIterator : public boost::iterator_facade<FixedStringSpanIterator<OnConstStorage>, DereferenceValue,
-                                                          std::random_access_iterator_tag, DereferenceValue> {
+                                                              std::random_access_iterator_tag, DereferenceValue> {
   using ValueType = std::string_view;
 
  public:

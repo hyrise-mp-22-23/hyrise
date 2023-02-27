@@ -22,7 +22,7 @@
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
 
-namespace {
+
 uint32_t byte_index(uint32_t element_index, size_t element_size) {
   return element_index * element_size;
 }
@@ -30,7 +30,6 @@ uint32_t byte_index(uint32_t element_index, size_t element_size) {
 uint32_t element_index(uint32_t byte_index, size_t element_size) {
   return byte_index / element_size;
 }
-}  // namespace
 
 namespace hyrise {
 
@@ -373,14 +372,13 @@ void StorageManager::write_dict_segment_to_disk(const std::shared_ptr<Dictionary
   export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
   export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
 
-
-
   export_values<int32_t>(*segment->dictionary(), file_name);
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
 }
 
 void StorageManager::write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk,
-                                         const std::vector<uint32_t>& segment_offset_ends, const std::string& file_name) {
+                                         const std::vector<uint32_t>& segment_offset_ends,
+                                         const std::string& file_name) {
   auto header = CHUNK_HEADER{};
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
@@ -409,7 +407,8 @@ void StorageManager::persist_chunks_to_disk(const std::vector<std::shared_ptr<Ch
   */
   // file_lock.acquire();
 
-  auto chunk_segment_offset_ends = std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
+  auto chunk_segment_offset_ends =
+      std::vector<std::vector<uint32_t>>(StorageManager::_chunk_count, std::vector<uint32_t>());
   auto chunk_offset_ends = std::array<uint32_t, StorageManager::_chunk_count>();
   auto chunk_ids = std::array<uint32_t, StorageManager::_chunk_count>();
 
@@ -522,6 +521,10 @@ std::shared_ptr<Chunk> StorageManager::map_chunk_from_disk(const uint32_t chunk_
 
   const auto chunk = std::make_shared<Chunk>(segments);
   return chunk;
+}
+
+uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) {
+  return _row_count_bytes + column_count * _segment_offset_bytes;
 }
 
 }  // namespace hyrise

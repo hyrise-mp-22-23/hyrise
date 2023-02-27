@@ -49,7 +49,7 @@ class StorageManagerTestUtil {
     std::remove(file_name.c_str());
     const auto chunk = create_dictionary_segment_chunk(row_count, column_count);
     std::vector<std::shared_ptr<Chunk>> chunks(count);
-    for (auto index = size_t{0}; index < chunks.size(); ++index) {
+    for (auto index = size_t{0}; index < count; ++index) {
       chunks[index] = chunk;
     }
 

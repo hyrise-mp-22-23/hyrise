@@ -9,7 +9,7 @@ namespace hyrise {
 template <typename UnsignedIntType>
 class FixedWidthIntegerDecompressor : public BaseVectorDecompressor {
  public:
-  explicit FixedWidthIntegerDecompressor(const std::span<const UnsignedIntType> data_span) : _data_span{data_span} {}
+  explicit FixedWidthIntegerDecompressor(const std::span<const UnsignedIntType>& data_span) : _data_span{data_span} {}
 
   FixedWidthIntegerDecompressor(const FixedWidthIntegerDecompressor&) = default;
   FixedWidthIntegerDecompressor(FixedWidthIntegerDecompressor&&) = default;

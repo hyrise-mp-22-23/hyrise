@@ -48,6 +48,7 @@ enum class PersistedSegmentEncodingType : uint32_t {
 class StorageManager : public Noncopyable {
   friend class Hyrise;
   friend class StorageManagerTest;
+
  public:
   /**
    * @defgroup Manage Tables, this is only thread-safe for operations on tables with different names
@@ -89,7 +90,6 @@ class StorageManager : public Noncopyable {
 
   void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
 
-  // These functions are for the moment public, to test them properly.
   FILE_HEADER read_file_header(const std::string& filename);
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
                                              const uint32_t segment_count);
@@ -108,6 +108,7 @@ class StorageManager : public Noncopyable {
 
  protected:
   StorageManager() = default;
+  friend class Hyrise;
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
@@ -127,15 +128,11 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _chunk_id_bytes = 4;
   static constexpr uint32_t _chunk_offset_bytes = 4;
   static constexpr uint32_t _file_header_bytes = _format_version_id_bytes + _chunk_count_bytes +
-                                             _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
+                                                 _chunk_count * _chunk_id_bytes + _chunk_count * _chunk_offset_bytes;
 
   // Chunk Header
   static constexpr uint32_t _row_count_bytes = 4;
   static constexpr uint32_t _segment_offset_bytes = 4;
-
-  uint32_t _chunk_header_bytes(uint32_t column_count) {
-    return _row_count_bytes + column_count * _segment_offset_bytes;
-  }
 
   // Segment Header
   static constexpr uint32_t _dictionary_size_bytes = 4;
@@ -151,6 +148,7 @@ class StorageManager : public Noncopyable {
   void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
   void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
                            const std::string& file_name);
+  uint32_t _chunk_header_bytes(uint32_t column_count);
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
