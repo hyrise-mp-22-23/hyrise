@@ -392,8 +392,8 @@ TEST_F(StorageManagerTest, PersistencyWrite32BitNumbersToFile) {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
+  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;
   }
