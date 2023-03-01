@@ -835,7 +835,7 @@ static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
       benchmark->Args({parameters[param_index], thread_counts[thread_index]});
 }
 
-/*
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
@@ -843,7 +843,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
-*/
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
@@ -858,7 +858,7 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)->Apply(CustomArguments)->UseRealTime();
 #endif
-/*
+/
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
 */
