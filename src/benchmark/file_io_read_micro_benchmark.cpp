@@ -16,11 +16,6 @@
 
 namespace hyrise {
 
-void print_execution_time(const std::chrono::time_point<std::chrono::high_resolution_clock> start, const size_t from) {
-  auto stop = std::chrono::high_resolution_clock::now();
-  std::cout << "From: " << std::to_string(from) << " Start: " << start.time_since_epoch().count()
-            << " Stop: " << stop.time_since_epoch().count() << std::endl;
-}
 
 void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
                           std::atomic<bool>& threads_ready_to_be_executed, std::atomic<bool>& verbose) {
