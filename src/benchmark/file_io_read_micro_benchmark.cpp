@@ -18,9 +18,8 @@ namespace hyrise {
 
 
 void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                          std::atomic<bool>& threads_ready_to_be_executed, std::atomic<bool>& verbose) {
+                          std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
-  auto start = std::chrono::high_resolution_clock::now();
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
   const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
@@ -45,17 +44,12 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
     Assert((read(fd, read_data_start + from, total_bytes_to_read) == total_bytes_to_read),
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
-
-  if (verbose) {
-    print_execution_time(start, from);
-  }
 }
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
                                    const std::vector<uint64_t>& random_indices,
-                                   std::atomic<bool>& threads_ready_to_be_executed, std::atomic<bool>& verbose) {
+                                   std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
-  auto start = std::chrono::high_resolution_clock::now();
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
@@ -65,15 +59,11 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
     Assert((read(fd, read_data_start + index, uint32_t_size) == uint32_t_size),
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
-  if (verbose) {
-    print_execution_time(start, from);
-  }
 }
 
 void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                           std::atomic<bool>& threads_ready_to_be_executed, std::atomic<bool>& verbose) {
+                           std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
-  auto start = std::chrono::high_resolution_clock::now();
 
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
@@ -97,16 +87,12 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
 
-  if (verbose) {
-    print_execution_time(start, from);
-  }
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
                                     const std::vector<uint64_t>& random_indices,
-                                    std::atomic<bool>& threads_ready_to_be_executed, std::atomic<bool>& verbose) {
+                                    std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
-  auto start = std::chrono::high_resolution_clock::now();
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
@@ -117,9 +103,6 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
 
-  if (verbose) {
-    print_execution_time(start, from);
-  }
 }
 
 #ifdef __linux__
@@ -235,7 +218,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start,
-                                    std::ref(threads_ready_to_be_executed), std::ref(verbose)));
+                                    std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
@@ -369,7 +352,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
       }
       threads[index] =
           (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data),
-                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed), std::ref(verbose)));
+                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
@@ -463,7 +446,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_using_pread, from, to, filedescriptors[index], read_data_start,
-                                    std::ref(threads_ready_to_be_executed), std::ref(verbose)));
+                                    std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
@@ -547,7 +530,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
       }
       threads[index] =
           (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index], std::data(read_data),
-                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed), std::ref(verbose)));
+                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed)));
     }
 
     state.ResumeTiming();
@@ -853,8 +836,8 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)->Apply(CustomArguments)->UseRealTime();
 #endif
-/
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
-*/
+
 }  // namespace hyrise
