@@ -19,14 +19,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
   void create_random_indexes_if_needed(size_t size_parameter, uint64_t number_of_elements) {
     if (random_indexes.empty() || last_size_parameter != size_parameter) {
-      const auto start = std::chrono::high_resolution_clock::now();
-      if (verbose)
-        std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
       random_indexes = generate_random_indexes(number_of_elements);
-      const auto stop = std::chrono::high_resolution_clock::now();
-      const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-      if (verbose)
-        std::cout << "Elapsed seconds: " << elapsed.count() << std::endl;
       last_size_parameter = size_parameter;
     }
   }
@@ -53,10 +46,8 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
  protected:
   const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
-  // MAX_NUMBER_OF_ELEMENTS = max. read/write according to man page / uint32_t_size
-  // = 2,147,479,552 bytes / 4 bytes = 536,869,888
+  // read / write accept at most up to = 2,147,479,552 bytes
   const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
-  std::atomic<bool> verbose = false;
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
