@@ -110,13 +110,11 @@ class StorageManager : public Noncopyable {
   void export_all_tables_as_csv(const std::string& path);
 
   void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
-  uint32_t persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id, const std::string& file_name);
+  std::pair<uint32_t, uint32_t> persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id, const std::string& file_name);
 
-  void replace_chunk_with_mmaped_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id,
-                                       const std::string& table_name);
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id, const Table* table_address);
 
-  FILE_HEADER read_file_header(const std::string& filename);
-  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
+  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes, const std::string& filename,
                                              const uint32_t segment_count, std::vector<DataType> column_definitions);
 
   uint32_t get_max_chunk_count_per_file() {
@@ -149,8 +147,7 @@ class StorageManager : public Noncopyable {
   static constexpr size_t INITIAL_MAP_SIZE = 100;
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
-  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> _tables_current_persistence_file_mapping{
-      INITIAL_MAP_SIZE};
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> _tables_current_persistence_file_mapping{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
@@ -178,17 +175,17 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
-  CHUNK_HEADER read_chunk_header(const std::string& filename, const uint32_t segment_count,
+  CHUNK_HEADER read_chunk_header(const std::byte* map, const uint32_t segment_count,
                                  const uint32_t chunk_offset_begin);
 
-  std::vector<uint32_t> calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
-  template <typename T>
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
-  template <typename T>
-  void write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
-                                               const std::string& file_name);
+  FILE_HEADER read_file_header(const std::string& filename);
 
-  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
+  std::vector<uint32_t> calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  template <typename T> void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
+  template <typename T>
+  void write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name);
+
+    void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
                            const std::string& file_name);
   void write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name);
 
@@ -196,8 +193,8 @@ class StorageManager : public Noncopyable {
 
   const std::string get_persistence_file_name(const std::string table_name);
 
-  PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
-      CompressedVectorType compressed_vector_type);
+  PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(CompressedVectorType compressed_vector_type);
+  std::string _get_table_name(const Table* address) const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

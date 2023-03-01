@@ -227,20 +227,21 @@ class Table : private Noncopyable {
   const std::vector<ColumnID>& value_clustered_by() const;
   void set_value_clustered_by(const std::vector<ColumnID>& value_clustered_by);
 
-  void set_name(std::string table_name) {
-    _name = table_name;
-  }
 
-  std::string get_name(std::string table_name) {
-    return _name;
-  }
+  /*
+   * Persist table to use mmap-based storage for its data.
+   * TODO: Explanation.
+   */
+
+  void persist();
+
+  void persist_chunk(ChunkID chunk_id);
 
  protected:
   const TableColumnDefinitions _column_definitions;
   const TableType _type;
   const UseMvcc _use_mvcc;
   const ChunkOffset _target_chunk_size;
-  std::string _name;
 
   /**
    * To prevent data races for TableType::Data tables, we must access _chunks atomically.
