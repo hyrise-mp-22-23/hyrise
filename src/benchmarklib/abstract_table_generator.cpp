@@ -342,16 +342,13 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- No indexes created as --indexes was not specified or set to false" << std::endl;
   }
 
+  _table_info_by_name = table_info_by_name;
+
   // Persist tables
   // As last step after completing encoding etc.
   // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
-  {
-    for (auto& [table_name, table_info] : table_info_by_name) {
-      auto& table = table_info_by_name[table_name].table;
-      table->persist();
-    }
-  }
+  persist_tables();
 
 #ifdef __APPLE__
   auto return_val = system("purge");
@@ -364,6 +361,21 @@ void AbstractTableGenerator::generate_and_store() {
   // Set scheduler back to previously used scheduler.
   Hyrise::get().topology.use_default_topology(_benchmark_config->cores);
   Hyrise::get().set_scheduler(initial_scheduler);
+}
+
+void AbstractTableGenerator::persist_tables() {
+   for (const auto& [table_name, table_info] : _table_info_by_name) {
+     const auto& table = table_info.table;
+     table->persist();
+   }
+}
+
+ void AbstractTableGenerator::delte_binaries() {
+   for (const auto& [table_name, table_info] : _table_info_by_name) {
+     const auto delete_call = "rm " + table_name + "_*.bin";
+     const auto return_val = system(delete_call.c_str());
+     (void)return_val;
+   }
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(
