@@ -45,6 +45,10 @@ class StorageManagerTest : public BaseTest {
   }
   const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
 
+  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) {
+    auto& sm = Hyrise::get().storage_manager;
+    return sm.generate_segment_offset_ends(chunk);
+  }
 };
 
 TEST_F(StorageManagerTest, AddTableTwice) {
@@ -236,20 +240,91 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
   EXPECT_EQ(sm.has_prepared_plan("first_prepared_plan"), true);
 }
 
-TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileMid) {
-  const auto file_name = "test_chunks_file.bin";
-  std::remove(file_name);
+TEST_F(StorageManagerTest, PersistencyOffsetEnds) {
+  const auto COLUMN_COUNT = uint32_t{5};
+  const auto ROW_COUNT = uint32_t{500};
+
+  // Method calls Storage Manager indirectly, by first calling a method in test class.
+  const auto segment_offsets = generate_segment_offset_ends(
+    StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT)
+  );
+
+  const auto expected_offsets = std::vector<uint32_t>{ 3036, 4548, 5728, 6740, 7652 };
+
+  EXPECT_EQ(expected_offsets.size(), segment_offsets.size());
+  EXPECT_EQ(expected_offsets, segment_offsets);
+}
+
+TEST_F(StorageManagerTest, PersistencyDifferentChunks) {
   auto& sm = Hyrise::get().storage_manager;
 
-  const auto ROW_COUNT = uint32_t{65000};  // can't be greater than INT32_MAX
+  const auto file_name = "test_various_chunks.bin";
+  const auto MAX_CHUNK_COUNT = sm.get_max_chunk_count_per_file();
+  
+  std::remove(file_name);
+
+  const auto small_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(1, 1);
+  const auto small_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(100, 1);
+  const auto small_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(1, 100);
+  const auto small_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(100, 100);
+
+  const auto big_chunk1 = StorageManagerTestUtil::create_dictionary_segment_chunk(50'000, 1);
+  const auto big_chunk2 = StorageManagerTestUtil::create_dictionary_segment_chunk(1, 500);
+  const auto big_chunk3 = StorageManagerTestUtil::create_dictionary_segment_chunk(90'000, 400);
+  const auto big_chunk4 = StorageManagerTestUtil::create_dictionary_segment_chunk(80'000, 200);
+
+  const std::vector<std::shared_ptr<Chunk>> chunks {
+    small_chunk1, small_chunk2, small_chunk3, small_chunk4,
+    big_chunk1, big_chunk2, big_chunk3, big_chunk4
+  };
+
+  sm.persist_chunks_to_disk(chunks, file_name);
+  EXPECT_TRUE(std::filesystem::exists(file_name));
+
+  const auto read_header = sm.read_file_header(file_name);
+  EXPECT_EQ(read_header.chunk_count, chunks.size());
+  EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
+  EXPECT_EQ(read_header.chunk_ids.size(), MAX_CHUNK_COUNT);
+  EXPECT_EQ(read_header.chunk_offset_ends.size(), MAX_CHUNK_COUNT);
+
+  // Equivalent to big_chunk4.
+  const auto mapped_chunks = sm.map_chunk_from_disk(sm.get_file_header_bytes(), file_name, 1);
+
+  const auto segment_index = uint16_t{1};
+
+  const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(big_chunk4, segment_index);
+  const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(big_chunk4, segment_index);
+
+  EXPECT_EQ(expected_sum, mapped_sum);
+}
+
+TEST_F(StorageManagerTest, PersistencyWriteEmptyListOfChunks) {
+  auto& sm = Hyrise::get().storage_manager;
+  const auto file_name = "test_empty_list_of_chunks.bin";
+  std::remove(file_name);
+
+  std::vector<std::shared_ptr<Chunk>> chunks(0);
+  const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
+
+  sm.persist_chunks_to_disk(chunks, file_name);
+  EXPECT_TRUE(std::filesystem::exists(file_name));
+
+  const auto read_header = sm.read_file_header(file_name);
+  EXPECT_EQ(read_header.chunk_count, chunks.size());
+  EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
+  EXPECT_EQ(read_header.chunk_ids.size(), CHUNK_COUNT);
+  EXPECT_EQ(read_header.chunk_offset_ends.size(), CHUNK_COUNT);
+}
+
+TEST_F(StorageManagerTest, PersistencyWriteMaxNumberOfChunksToFile) {
+  auto& sm = Hyrise::get().storage_manager;
+
+  const auto file_name = "test_chunks_max_number_of_chunks.bin";
+  const auto ROW_COUNT = uint32_t{65000};
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
-  std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
-  for (auto index = size_t{0}; index < chunks.size(); ++index) {
-    chunks[index] = chunk;
-  }
+  const auto chunks = StorageManagerTestUtil::get_chunks(file_name, ROW_COUNT, COLUMN_COUNT, CHUNK_COUNT);
   sm.persist_chunks_to_disk(chunks, file_name);
 
   EXPECT_TRUE(std::filesystem::exists(file_name));
@@ -261,37 +336,15 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileMid) {
   EXPECT_EQ(read_header.chunk_ids.size(), CHUNK_COUNT);
   EXPECT_EQ(read_header.chunk_offset_ends.size(), CHUNK_COUNT);
 
-  auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
-  for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
-    if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(file_header_bytes, file_name, COLUMN_COUNT));
-    } else {
-      mapped_chunks.emplace_back(
-          sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
-    }
-  }
-  const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
-  auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
+  const auto mapped_chunks = StorageManagerTestUtil::map_chunks_from_file(file_name, COLUMN_COUNT, read_header);
 
-  auto column_sum_of_created_chunk = uint64_t{};
-  dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_created_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
+  const auto chunk_index = uint16_t{0};
+  const auto segment_index = uint16_t{16};
+  
+  const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(chunks, chunk_index, segment_index);
+  const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(mapped_chunks, chunk_index, segment_index);
 
-  const auto mapped_dictionary_segment =
-      dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
-  auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
-
-  auto column_sum_of_mapped_chunk = uint64_t{};
-  mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_mapped_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
-
-  EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
+  EXPECT_EQ(expected_sum, mapped_sum);
 }
 
 TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
@@ -319,40 +372,18 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileSmall) {
   EXPECT_EQ(read_header.chunk_ids.size(), CHUNK_COUNT);
   EXPECT_EQ(read_header.chunk_offset_ends.size(), CHUNK_COUNT);
 
-  auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
-  for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
-    if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(FILE_HEADER), file_name, COLUMN_COUNT));
-    } else {
-      mapped_chunks.emplace_back(
-          sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
-    }
-  }
-  const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
-  auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
+  const auto mapped_chunks = StorageManagerTestUtil::map_chunks_from_file(file_name, COLUMN_COUNT, read_header);
 
-  auto column_sum_of_created_chunk = uint64_t{};
-  dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_created_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
+  const auto chunk_index = uint16_t{0};
+  const auto segment_index = uint16_t{16};
 
-  const auto mapped_dictionary_segment =
-      dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
-  auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
+  const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(chunks, chunk_index, segment_index);
+  const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(mapped_chunks, chunk_index, segment_index);
 
-  auto column_sum_of_mapped_chunk = uint64_t{};
-  mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_mapped_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
-
-  EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
+  EXPECT_EQ(expected_sum, mapped_sum);
 }
 
-TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileLarge) {
+TEST_F(StorageManagerTest, PersistencyWrite32BitNumbersToFile) {
   const auto file_name = "test_chunks_file.bin";
   std::remove(file_name);
   auto& sm = Hyrise::get().storage_manager;
@@ -361,8 +392,8 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileLarge) {
   const auto COLUMN_COUNT = uint32_t{23};
   const auto CHUNK_COUNT = sm.get_max_chunk_count_per_file();
 
-  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk_large(ROW_COUNT, COLUMN_COUNT);
   std::vector<std::shared_ptr<Chunk>> chunks(CHUNK_COUNT);
+  const auto chunk = StorageManagerTestUtil::create_dictionary_segment_chunk(ROW_COUNT, COLUMN_COUNT);
   for (auto index = size_t{0}; index < chunks.size(); ++index) {
     chunks[index] = chunk;
   }
@@ -377,37 +408,15 @@ TEST_F(StorageManagerTest, WriteMaxNumberOfChunksToFileLarge) {
   EXPECT_EQ(read_header.chunk_ids.size(), CHUNK_COUNT);
   EXPECT_EQ(read_header.chunk_offset_ends.size(), CHUNK_COUNT);
 
-  auto mapped_chunks = std::vector<std::shared_ptr<Chunk>>{};
-  for (auto index = size_t{0}; index < CHUNK_COUNT; ++index) {
-    if (index == 0) {
-      mapped_chunks.emplace_back(sm.map_chunk_from_disk(sizeof(FILE_HEADER), file_name, COLUMN_COUNT));
-    } else {
-      mapped_chunks.emplace_back(
-          sm.map_chunk_from_disk(read_header.chunk_offset_ends[index - 1], file_name, COLUMN_COUNT));
-    }
-  }
-  const auto dict_segment_16 = dynamic_pointer_cast<DictionarySegment<int>>(chunks[0]->get_segment(ColumnID{16}));
-  auto dict_segment_iterable = create_iterable_from_segment<int>(*dict_segment_16);
+  const auto mapped_chunks = StorageManagerTestUtil::map_chunks_from_file(file_name, COLUMN_COUNT, read_header);
 
-  auto column_sum_of_created_chunk = uint64_t{};
-  dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_created_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
+  const auto chunk_index = uint16_t{0};
+  const auto segment_index = uint16_t{16};
 
-  const auto mapped_dictionary_segment =
-      dynamic_pointer_cast<DictionarySegment<int>>(mapped_chunks[0]->get_segment(ColumnID{16}));
-  auto mapped_dict_segment_iterable = create_iterable_from_segment<int>(*mapped_dictionary_segment);
+  const auto expected_sum = StorageManagerTestUtil::accumulate_sum_of_segment(chunks, chunk_index, segment_index);
+  const auto mapped_sum = StorageManagerTestUtil::accumulate_sum_of_segment(mapped_chunks, chunk_index, segment_index);
 
-  auto column_sum_of_mapped_chunk = uint64_t{};
-  mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-    column_sum_of_mapped_chunk = std::accumulate(
-        it, end, uint64_t{0},
-        [](const auto& accumulator, const auto& currentValue) { return accumulator + currentValue.value(); });
-  });
-
-  EXPECT_EQ(column_sum_of_created_chunk, column_sum_of_mapped_chunk);
+  EXPECT_EQ(expected_sum, mapped_sum);
 }
 
 }  // namespace hyrise
