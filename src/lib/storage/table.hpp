@@ -227,7 +227,6 @@ class Table : private Noncopyable {
   const std::vector<ColumnID>& value_clustered_by() const;
   void set_value_clustered_by(const std::vector<ColumnID>& value_clustered_by);
 
-
   /*
    * Persist table to use mmap-based storage for its data.
    * TODO: Explanation.
