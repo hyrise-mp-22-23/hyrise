@@ -17,38 +17,14 @@ namespace hyrise {
 
 class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
  public:
-  void create_large_file(std::string original_file_name, std::string copied_file_name, size_t scale_factor) {
-    std::ifstream source(original_file_name, std::ios::binary);
-    std::ofstream destination(copied_file_name, std::ios::binary);
-
-    if (source.is_open() && destination.is_open()) {
-      // Create a buffer to hold the contents of the original file
-      std::vector<char> buffer(std::istreambuf_iterator<char>(source), {});
-
-      // Write the contents of the buffer to the destination file
-      destination.write(buffer.data(), buffer.size());
-
-      // Append the contents of the buffer 9 times
-      for (auto index = size_t{0}; index < scale_factor - 1; ++index) {
-        destination.write(buffer.data(), buffer.size());
-      }
-
-      source.close();
-      destination.close();
-    } else {
-      std::cout << "Could not open one of the files" << std::endl;
-    }
-  }
-
-  void create_random_indexes_if_not_exist(size_t size_parameter, uint64_t number_of_elements) {
-    if (random_indexes.size() == 0) {
+  void create_random_indexes_if_needed(size_t size_parameter, uint64_t number_of_elements) {
+    if (random_indexes.empty() || last_size_parameter != size_parameter) {
       const auto start = std::chrono::high_resolution_clock::now();
-
       std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
       random_indexes = generate_random_indexes(number_of_elements);
       const auto stop = std::chrono::high_resolution_clock::now();
       const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-      std::cout << "Elapes seconds: " << elapsed.count() << std::endl;
+      std::cout << "Elapsed seconds: " << elapsed.count() << std::endl;
     }
   }
 
@@ -58,32 +34,24 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
 
     const auto ACCESS_TYPE = state.range(2);
-    if (ACCESS_TYPE != 0)
-      create_random_indexes_if_not_exist(size_parameter, NUMBER_OF_ELEMENTS);
-    filename = "benchmark_data_" + std::to_string(size_parameter) + ".txt";
-
-    auto fd = int32_t{};
-    if (!std::filesystem::exists(filename)) {
-      if (NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS) {
-        auto original_file = "benchmark_data_1000.txt";
-        create_large_file(original_file, filename, static_cast<size_t>(size_parameter / 1000));
-        chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
-      } else {
-        numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
-        Assert(((fd = creat(filename.c_str(), O_WRONLY)) >= 1),
-               close_file_and_return_error_message(fd, "Create error: ", errno));
-        chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
-        Assert((static_cast<uint64_t>(write(fd, std::data(numbers), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
-               close_file_and_return_error_message(fd, "Write error: ", errno));
-      }
+    if (ACCESS_TYPE != 0){
+      create_random_indexes_if_needed(size_parameter, NUMBER_OF_ELEMENTS);
+      last_size_parameter = size_parameter;
     }
-    Assert(((fd = open(filename.c_str(), O_RDONLY)) >= 0),
-           close_file_and_return_error_message(fd, "Open error: ", errno));
-    const auto* map = reinterpret_cast<uint32_t*>(mmap(NULL, NUMBER_OF_BYTES, PROT_READ, MAP_PRIVATE, fd, 0));
-    Assert((map != MAP_FAILED), close_file_and_return_error_message(fd, "Mapping Failed: ", errno));
-    const auto map_span_view = std::span{map, NUMBER_OF_ELEMENTS};
-    control_sum = std::accumulate(map_span_view.begin(), map_span_view.end(), uint64_t{0});
-    close(fd);
+
+    numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
+    control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
+
+    filename = "benchmark_data_" + std::to_string(size_parameter) + ".bin";
+    std::ofstream file(filename, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(numbers.data()), numbers.size() * sizeof(uint32_t));
+    chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
+    file.close();
+
+  }
+
+  void TearDown(::benchmark::State& /*state*/) override {
+    Assert(std::remove(filename.c_str()) == 0, "Remove error: " + std::strerror(errno));
   }
 
  protected:
@@ -91,11 +59,12 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   // MAX_NUMBER_OF_ELEMENTS = max. read/write according to man page / uint32_t_size
   // = 2,147,479,552 bytes / 4 bytes = 536,869,888
   const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
-  std::atomic<bool> verbose = true;
+  std::atomic<bool> verbose = false;
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
   uint64_t NUMBER_OF_ELEMENTS = uint64_t{0};
+  size_t last_size_parameter;
   std::vector<uint32_t> numbers = std::vector<uint32_t>{};
   std::vector<uint64_t> random_indexes = std::vector<uint64_t>{};
   void read_non_atomic_multi_threaded(benchmark::State& state, uint16_t thread_count);
