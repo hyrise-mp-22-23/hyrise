@@ -351,6 +351,7 @@ void AbstractTableGenerator::generate_and_store() {
       auto& table = table_info_by_name[table_name].table;
       table->persist();
     }
+    auto& storage_manager = Hyrise::get().storage_manager;
     storage_manager.save_storage_json_to_disk();
   }
 
