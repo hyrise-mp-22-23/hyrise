@@ -20,24 +20,22 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void create_random_indexes_if_needed(size_t size_parameter, uint64_t number_of_elements) {
     if (random_indexes.empty() || last_size_parameter != size_parameter) {
       const auto start = std::chrono::high_resolution_clock::now();
-      std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
+      if (verbose)
+        std::cout << "Creating random_indexes for: " << size_parameter << std::endl;
       random_indexes = generate_random_indexes(number_of_elements);
       const auto stop = std::chrono::high_resolution_clock::now();
       const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-      std::cout << "Elapsed seconds: " << elapsed.count() << std::endl;
+      if (verbose)
+        std::cout << "Elapsed seconds: " << elapsed.count() << std::endl;
+      last_size_parameter = size_parameter;
     }
   }
 
   void SetUp(::benchmark::State& state) override {
     const auto size_parameter = state.range(0);
+
     NUMBER_OF_BYTES = _align_to_pagesize(size_parameter);
     NUMBER_OF_ELEMENTS = NUMBER_OF_BYTES / uint32_t_size;
-
-    const auto ACCESS_TYPE = state.range(2);
-    if (ACCESS_TYPE != 0){
-      create_random_indexes_if_needed(size_parameter, NUMBER_OF_ELEMENTS);
-      last_size_parameter = size_parameter;
-    }
 
     numbers = generate_random_positive_numbers(NUMBER_OF_ELEMENTS);
     control_sum = std::accumulate(numbers.begin(), numbers.end(), uint64_t{0});
@@ -47,7 +45,6 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
     file.write(reinterpret_cast<const char*>(numbers.data()), numbers.size() * sizeof(uint32_t));
     chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
     file.close();
-
   }
 
   void TearDown(::benchmark::State& /*state*/) override {

@@ -317,8 +317,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    //const auto random_indices = random_indexes_map[state.range(0)];
-    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -363,8 +362,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
 
     std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
-    //const auto random_indices = random_indexes_map[state.range(0)];
-    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -500,8 +498,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    // const auto random_indices = random_indexes_map[state.range(0)];
-    //const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -543,8 +540,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.PauseTiming();
     std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
-    //const auto random_indices = random_indexes_map[state.range(0)];
-    // const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -698,6 +694,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -807,9 +804,7 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
-    //const auto random_indices = random_indexes_map[state.range(0)];
-
-    // const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -831,30 +826,37 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
 
 // Arguments are file size in MB
 
+static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
+  const std::vector<uint32_t> parameters = {10000, 100000};
+  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+
+  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
+    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
+      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
+}
+
 /*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 8, 24, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 8, 24, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 */
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 8, 24, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 8, 24, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
-    ->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)->Apply(CustomArguments)->UseRealTime();
 #endif
 /*
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
