@@ -45,8 +45,8 @@ class StorageManagerTest : public BaseTest {
   }
   const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
 
-  FILE_HEADER read_file_header(const std::string& filename) {
-    return Hyrise::get().storage_manager.read_file_header(filename);
+  FILE_HEADER _read_file_header(const std::string& filename) {
+    return Hyrise::get().storage_manager._read_file_header(filename);
   }
 
 };
@@ -258,7 +258,7 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
 
 //   EXPECT_TRUE(std::filesystem::exists(file_name));
 
-//   const auto read_header = read_file_header(file_name);
+//   const auto read_header = _read_file_header(file_name);
 
 //   EXPECT_EQ(read_header.chunk_count, CHUNK_COUNT);
 //   EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
@@ -316,7 +316,7 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
 
 //   EXPECT_TRUE(std::filesystem::exists(file_name));
 
-//   const auto read_header = read_file_header(file_name);
+//   const auto read_header = _read_file_header(file_name);
 
 //   EXPECT_EQ(read_header.chunk_count, CHUNK_COUNT);
 //   EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
@@ -374,7 +374,7 @@ TEST_F(StorageManagerTest, HasPreparedPlan) {
 
 //   EXPECT_TRUE(std::filesystem::exists(file_name));
 
-//   const auto read_header = read_file_header(file_name);
+//   const auto read_header = _read_file_header(file_name);
 
 //   EXPECT_EQ(read_header.chunk_count, CHUNK_COUNT);
 //   EXPECT_EQ(read_header.storage_format_version_id, sm.get_storage_format_version_id());
