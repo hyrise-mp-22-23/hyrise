@@ -144,40 +144,42 @@ class StorageManager : public Noncopyable {
 
  private:
   CHUNK_HEADER _read_chunk_header(const std::byte* map, const uint32_t segment_count,
-                                  const uint32_t chunk_offset_begin);
+                                  const uint32_t chunk_offset_begin) const;
 
-  FILE_HEADER _read_file_header(const std::string& filename);
+  FILE_HEADER _read_file_header(const std::string& filename) const;
 
-  std::vector<uint32_t> _calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  std::vector<uint32_t> _calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) const;
 
   std::pair<uint32_t, uint32_t> _persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                                       const std::string& file_name);
+                                                       const std::string& file_name) const;
 
   template <typename T>
-  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
+  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
+                                   const std::string& file_name) const;
 
   template <typename T>
   void _write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
-                                                const std::string& file_name);
+                                                const std::string& file_name) const;
 
-  void _write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
-                            const std::string& file_name);
+  void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
+                            const std::string& file_name) const;
 
-  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name);
+  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
+                              const std::string& file_name) const;
 
-  uint32_t _chunk_header_bytes(uint32_t column_count);
+  uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
-  const std::string _get_persistence_file_name(const std::string table_name);
+  const std::string _get_persistence_file_name(const std::string& table_name);
 
-  void _replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id,
-                                          const std::string& table_name);
+  void _replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                           const std::string& table_name);
 
   std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
                                               const std::string& filename, const uint32_t segment_count,
-                                              std::vector<DataType> column_definitions);
+                                              const std::vector<DataType>& column_definitions) const;
 
   PersistedSegmentEncodingType _resolve_persisted_segment_encoding_type_from_compression_type(
-      CompressedVectorType compressed_vector_type);
+      const CompressedVectorType compressed_vector_type) const;
 
   std::string _get_table_name(const Table* address) const;
 };
