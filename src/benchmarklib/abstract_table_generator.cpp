@@ -375,9 +375,14 @@ void AbstractTableGenerator::persist_tables() {
 
 void AbstractTableGenerator::delte_binaries() {
   for (const auto& [table_name, table_info] : _table_info_by_name) {
-    const auto delete_call = "rm " + table_name + "_*.bin";
-    const auto return_val = system(delete_call.c_str());
-    (void)return_val;
+    auto file_index = size_t{0};
+    auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
+
+    while (std::filesystem::exists(file_name)) {
+      std::filesystem::remove(file_name);
+      ++file_index;
+      file_name = table_name + "_" + std::to_string(file_index) + ".bin";
+    }
   }
 }
 
