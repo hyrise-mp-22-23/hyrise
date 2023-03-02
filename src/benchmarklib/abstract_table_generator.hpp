@@ -82,6 +82,9 @@ class AbstractTableGenerator {
 
   static std::unordered_map<std::string, BenchmarkTableInfo> _load_binary_tables_from_path(
       const std::string& cache_directory);
+
+  static std::unordered_map<std::string, BenchmarkTableInfo> _load_binary_tables_from_json(
+      const std::string& cache_directory);
 };
 
 }  // namespace hyrise

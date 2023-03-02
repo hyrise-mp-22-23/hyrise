@@ -897,22 +897,20 @@ void StorageManager::serialize_table_files_mapping() {
 
   for (const auto& mapping : _tables_current_persistence_file_mapping) {
     const auto table = get_table(mapping.first);
-    const auto column_names = table->column_names();
-    const auto column_data_types = table->column_data_types();
     const auto column_count = table->column_count();
-    json table_json = {{"name", mapping.first},
+    json table_json = {{"table_name", mapping.first},
                        {"file_name", mapping.second.file_name},
                        {"file_index", mapping.second.file_index},
                        {"current_chunk_count", mapping.second.current_chunk_count},
-                       {"row_count", table->row_count()},
                        {"column_count", static_cast<uint32_t>(table->column_count())}};
 
+    const auto column_definitions = table->column_definitions();
     auto columns_json = json::array();
     for (auto index = size_t{0}; index < column_count; ++index) {
       const json column_object = {
-          {"id", index},
-          {"name", column_names[index]},
-          {"data_type", column_data_types[index]},
+          {"column_name", column_definitions[index].name},
+          {"data_type", column_definitions[index].data_type},
+          {"nullable", column_definitions[index].nullable},
       };
       columns_json.push_back(column_object);
     }
@@ -925,6 +923,7 @@ void StorageManager::serialize_table_files_mapping() {
 }
 
 void StorageManager::save_storage_json_to_disk() {
+  serialize_table_files_mapping();
   std::ofstream output_file(_storage_json_path);
   output_file << _storage_json.dump(4);
   output_file.close();
@@ -933,11 +932,11 @@ void StorageManager::save_storage_json_to_disk() {
 void StorageManager::load_storage_data_from_disk() {
   // Read the JSON data from disk into a string
   std::ifstream json_file(_storage_json_path);
-  json parsed_json = json::parse(json_file);
+  _storage_json = json::parse(json_file);
 
   // Deserialize the JSON into the map
-  for (const auto& item : parsed_json["table_files_mapping"]) {
-    const std::string name = item["name"];
+  for (const auto& item : _storage_json["table_files_mapping"]) {
+    const std::string name = item["table_name"];
     PERSISTENCE_FILE_DATA data{item["file_name"], item["file_index"], item["current_chunk_count"]};
     _tables_current_persistence_file_mapping.emplace(name, std::move(data));
   }

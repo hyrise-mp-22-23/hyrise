@@ -347,6 +347,7 @@ void AbstractTableGenerator::generate_and_store() {
   // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
   {
+
     for (auto& [table_name, table_info] : table_info_by_name) {
       auto& table = table_info_by_name[table_name].table;
       table->persist();
@@ -411,6 +412,34 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     const std::string& cache_directory) {
   std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
 
+  for (const auto& table_file : list_directory(cache_directory)) {
+    const auto table_name = table_file.stem();
+    std::cout << "-  Loading table '" << table_name.string() << "' from cached binary " << table_file.relative_path();
+
+    Timer timer;
+    BenchmarkTableInfo table_info;
+    table_info.table = BinaryParser::parse(table_file);
+    table_info.loaded_from_binary = true;
+    table_info.binary_file_path = table_file;
+    table_info_by_name[table_name] = table_info;
+
+    std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
+  }
+
+  return table_info_by_name;
+}
+
+std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json(
+    const std::string& cache_directory) {
+  std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
+
+  // TODO rewrite to use StorageManager
+  auto& storage_manager = Hyrise::get().storage_manager;
+
+  const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
+  for (const auto& mapping : tables_files_mapping) {
+    std::cout << "-  Loading table '" << mapping.first << "' from storage json. " << std::endl;
+  }
   for (const auto& table_file : list_directory(cache_directory)) {
     const auto table_name = table_file.stem();
     std::cout << "-  Loading table '" << table_name.string() << "' from cached binary " << table_file.relative_path();
