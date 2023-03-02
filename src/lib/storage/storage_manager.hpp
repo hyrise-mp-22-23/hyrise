@@ -182,6 +182,4 @@ class StorageManager : public Noncopyable {
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
 
-//const std::string get_next_table_persistence_file_name(std::string table_name, 0)
-
 }  // namespace hyrise
