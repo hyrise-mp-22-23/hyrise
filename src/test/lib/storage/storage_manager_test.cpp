@@ -43,12 +43,12 @@ class StorageManagerTest : public BaseTest {
     sm.add_prepared_plan("first_prepared_plan", std::move(pp1));
     sm.add_prepared_plan("second_prepared_plan", std::move(pp2));
   }
+
   const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
 
   FILE_HEADER _read_file_header(const std::string& filename) {
     return Hyrise::get().storage_manager._read_file_header(filename);
   }
-
 };
 
 TEST_F(StorageManagerTest, AddTableTwice) {

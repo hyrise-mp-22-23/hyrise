@@ -6,9 +6,9 @@
 
 #include "resolve_type.hpp"
 #include "storage/vector_compression/base_compressed_vector.hpp"
+#include "storage_manager.hpp"
 #include "utils/assert.hpp"
 #include "utils/performance_warning.hpp"
-#include "storage_manager.hpp"
 
 namespace hyrise {
 
@@ -24,16 +24,16 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(
 
 template <typename T>
 FixedStringDictionarySegment<T>::FixedStringDictionarySegment(const std::byte* start_address)
-  : BaseDictionarySegment(data_type_from_type<T>()) {
-
+    : BaseDictionarySegment(data_type_from_type<T>()) {
   const auto header_data = reinterpret_cast<const uint32_t*>(start_address);
   const auto encoding_type = PersistedSegmentEncodingType{header_data[ENCODING_TYPE_OFFSET_INDEX]};
   const auto string_length = header_data[STRING_LENGTH_OFFSET_INDEX];
-  const auto dictionary_size = header_data[DICTIONARY_SIZE_OFFSET_INDEX ];
+  const auto dictionary_size = header_data[DICTIONARY_SIZE_OFFSET_INDEX];
   const auto attribute_vector_size = header_data[ATTRIBUTE_VECTOR_OFFSET_INDEX];
 
   const auto* dictionary_address = reinterpret_cast<const char*>(start_address + HEADER_OFFSET_BYTES);
-  const auto dictionary_span_pointer = std::make_shared<const FixedStringSpan>(dictionary_address, string_length, dictionary_size);
+  const auto dictionary_span_pointer =
+      std::make_shared<const FixedStringSpan>(dictionary_address, string_length, dictionary_size);
   //TODO: Move to size_bytes function on FixedStringSpan
   const auto dictionary_size_bytes = dictionary_size * string_length;
 
@@ -44,7 +44,7 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(const std::byte* s
     }
     case PersistedSegmentEncodingType::DictionaryEncoding8Bit: {
       auto* const attribute_vector_address =
-        reinterpret_cast<const uint8_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
+          reinterpret_cast<const uint8_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
       auto attribute_data_span = std::span<const uint8_t>(attribute_vector_address, attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint8_t>>(attribute_data_span);
 
@@ -55,7 +55,7 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(const std::byte* s
     }
     case PersistedSegmentEncodingType::DictionaryEncoding16Bit: {
       auto* const attribute_vector_address =
-        reinterpret_cast<const uint16_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
+          reinterpret_cast<const uint16_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
       auto attribute_data_span = std::span<const uint16_t>(attribute_vector_address, attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint16_t>>(attribute_data_span);
 
@@ -66,7 +66,7 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(const std::byte* s
     }
     case PersistedSegmentEncodingType::DictionaryEncoding32Bit: {
       auto* const attribute_vector_address =
-        reinterpret_cast<const uint32_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
+          reinterpret_cast<const uint32_t*>(start_address + HEADER_OFFSET_BYTES + dictionary_size_bytes);
       auto attribute_data_span = std::span<const uint32_t>(attribute_vector_address, attribute_vector_size);
       auto attribute_vector = std::make_shared<FixedWidthIntegerVector<uint32_t>>(attribute_data_span);
 

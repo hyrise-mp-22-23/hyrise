@@ -364,18 +364,18 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
-   for (const auto& [table_name, table_info] : _table_info_by_name) {
-     const auto& table = table_info.table;
-     table->persist();
-   }
+  for (const auto& [table_name, table_info] : _table_info_by_name) {
+    const auto& table = table_info.table;
+    table->persist();
+  }
 }
 
- void AbstractTableGenerator::delte_binaries() {
-   for (const auto& [table_name, table_info] : _table_info_by_name) {
-     const auto delete_call = "rm " + table_name + "_*.bin";
-     const auto return_val = system(delete_call.c_str());
-     (void)return_val;
-   }
+void AbstractTableGenerator::delte_binaries() {
+  for (const auto& [table_name, table_info] : _table_info_by_name) {
+    const auto delete_call = "rm " + table_name + "_*.bin";
+    const auto return_val = system(delete_call.c_str());
+    (void)return_val;
+  }
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(
