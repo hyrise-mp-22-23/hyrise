@@ -15,7 +15,7 @@ FixedStringSpan::FixedStringSpan(const FixedStringVector& vector)
     : _string_length(vector.string_length()), _chars{vector.data(), vector.chars().size()}, _size(vector.size()) {}
 
 FixedStringSpan::FixedStringSpan(const char* start_address, const uint32_t string_length, const uint32_t size)
-  : _string_length(string_length), _chars{start_address, size * string_length}, _size(size) {}
+    : _string_length(string_length), _chars{start_address, size * string_length}, _size(size) {}
 
 FixedStringSpanIterator<false> FixedStringSpan::begin() noexcept {
   return {_string_length, _chars, 0};
@@ -82,9 +82,9 @@ size_t FixedStringSpan::string_length() const {
   return _string_length;
 }
 
- size_t FixedStringSpan::data_size() const {
+size_t FixedStringSpan::data_size() const {
   //TODO: Check if this is correct.
-   return sizeof(*this) + _chars.size_bytes();
- }
+  return sizeof(*this) + _chars.size_bytes();
+}
 
 }  // namespace hyrise
