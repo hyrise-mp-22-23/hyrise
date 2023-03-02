@@ -25,13 +25,163 @@
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
 
-uint32_t byte_index(uint32_t element_index, size_t element_size) {
-  return element_index * element_size;
-}
+namespace {
 
-uint32_t element_index(uint32_t byte_index, size_t element_size) {
+using namespace hyrise;  // NOLINT
+
+uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
   return byte_index / element_size;
 }
+
+/*
+ * Copied binary writing function from `binary_writer.cpp`
+ */
+
+template <typename T>
+void export_value(const T& value, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+  ofstream.close();
+}
+
+// not copied, own creation
+void overwrite_header(const FILE_HEADER header, std::string file_name) {
+  //yes, all modes are needed exactly like that to allow us to overwrite the first part of the file
+  //yes, fstream should open with "std::ios::in | std::ios::out by default", don't ask me, this was a pain to figure out
+  std::fstream fstream(file_name, std::ios::binary | std::ios::in | std::ios::out);
+  fstream.seekp(0, std::ios_base::beg);
+  fstream.write(reinterpret_cast<const char*>(&header), sizeof(FILE_HEADER));
+  fstream.close();
+}
+
+template <typename T, typename Alloc>
+void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+  ofstream.close();
+}
+
+template <typename T>
+void export_values(const std::span<const T>& data_span, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
+  ofstream.close();
+}
+
+void export_values(const FixedStringSpan& data_span, std::string file_name) {
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
+  ofstream.close();
+}
+
+// needed for attribute vector which is stored in a compact manner
+void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
+  export_value(values.bits(), file_name);
+  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+  ofstream.close();
+}
+
+void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::string file_name) {
+  switch (type) {
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), file_name);
+      return;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), file_name);
+      return;
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), file_name);
+      return;
+    case CompressedVectorType::BitPacking:
+      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), file_name);
+      return;
+    default:
+      Fail("Any other type should have been caught before.");
+  }
+}
+
+uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
+  const auto compressed_vector_type = attribute_vector->type();
+  auto size = uint32_t{};
+  switch (compressed_vector_type) {
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      size = attribute_vector->size();
+      break;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      size = attribute_vector->size() * 2;
+      break;
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      size = attribute_vector->size() * 4;
+      break;
+    case CompressedVectorType::BitPacking:
+      size += 4;
+      size += dynamic_cast<const BitPackingVector&>(*attribute_vector).data().bytes();
+      break;
+    default:
+      Fail("Unknown Compression Type in Storage Manager.");
+  }
+  return size;
+}
+
+[[maybe_unused]] void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk,
+                                            const std::shared_ptr<Chunk>& mapped_chunk) {
+  const auto created_segment = chunk->get_segment(ColumnID{0});
+
+  resolve_data_type(created_segment->data_type(), [&](auto segment_data_type) {
+    using SegmentDataType = typename decltype(segment_data_type)::type;
+    const auto created_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(created_segment);
+    auto dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*created_dict_segment);
+
+    auto column_sum_of_created_chunk = SegmentDataType{};
+    dict_segment_iterable.with_iterators([&](auto it, auto end) {
+      column_sum_of_created_chunk =
+          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
+            return accumulator + SegmentDataType{currentValue.value()};
+          });
+    });
+
+    std::cout << "Sum of column 1 of created chunk: " << column_sum_of_created_chunk << std::endl;
+  });
+
+  const auto mapped_segment = mapped_chunk->get_segment(ColumnID{0});
+
+  resolve_data_type(mapped_segment->data_type(), [&](auto segment_data_type) {
+    using SegmentDataType = typename decltype(segment_data_type)::type;
+    const auto mapped_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(mapped_segment);
+    auto mapped_dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*mapped_dict_segment);
+
+    auto column_sum_of_mapped_chunk = SegmentDataType{};
+    mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
+      column_sum_of_mapped_chunk =
+          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
+            return accumulator + SegmentDataType{currentValue.value()};
+          });
+    });
+
+    std::cout << "Sum of column 1 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
+  });
+
+  // print row 17 of created and mapped chunk
+  std::cout << "Row 2 of created chunk: ";
+  for (auto column_index = ColumnID{0}; column_index < chunk->column_count(); ++column_index) {
+    const auto segment = chunk->get_segment(column_index);
+    const auto attribute_value = (*segment)[ChunkOffset{1}];
+    std::cout << attribute_value << " ";
+  }
+  std::cout << std::endl;
+
+  std::cout << "Row 2 of mapped chunk: ";
+  for (auto column_index = ColumnID{0}; column_index < mapped_chunk->column_count(); ++column_index) {
+    const auto segment = mapped_chunk->get_segment(column_index);
+    const auto attribute_value = (*segment)[ChunkOffset{1}];
+    std::cout << attribute_value << " ";
+  }
+  std::cout << std::endl;
+}
+
+}  // namespace
 
 namespace hyrise {
 
@@ -324,81 +474,6 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
   return segment_offset_ends;
 }
 
-/*
- * Copied binary writing functions from `binary_writer.cpp`
- */
-
-template <typename T>
-void export_value(const T& value, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
-  ofstream.close();
-}
-
-void export_values(const FixedStringVector& values, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(values.data(), static_cast<int64_t>(values.size() * values.string_length()));
-  ofstream.close();
-}
-
-// not copied, own creation
-void overwrite_header(const FILE_HEADER header, std::string file_name) {
-  //yes, all modes are needed exactly like that to allow us to overwrite the first part of the file
-  //yes, fstream should open with "std::ios::in | std::ios::out by default", don't ask me, this was a pain to figure out
-  std::fstream fstream(file_name, std::ios::binary | std::ios::in | std::ios::out);
-  fstream.seekp(0, std::ios_base::beg);
-  fstream.write(reinterpret_cast<const char*>(&header), sizeof(FILE_HEADER));
-  fstream.close();
-}
-
-template <typename T, typename Alloc>
-void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
-  ofstream.close();
-}
-
-template <typename T>
-void export_values(const std::span<const T>& data_span, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-  ofstream.close();
-}
-
-void export_values(const FixedStringSpan& data_span, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
-  ofstream.close();
-}
-
-// needed for attribute vector which is stored in a compact manner
-void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
-  export_value(values.bits(), file_name);
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-  ofstream.close();
-}
-
-void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::string file_name) {
-  switch (type) {
-    case CompressedVectorType::FixedWidthInteger4Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::FixedWidthInteger2Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::FixedWidthInteger1Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::BitPacking:
-      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), file_name);
-      return;
-    default:
-      Fail("Any other type should have been caught before.");
-  }
-}
-
 template <typename T>
 void StorageManager::_write_fixed_string_dict_segment_to_disk(
     const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name) const {
@@ -431,29 +506,6 @@ void StorageManager::_write_dict_segment_to_disk(const std::shared_ptr<Dictionar
   export_values<T>(*segment->dictionary(), file_name);
   export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
   //TODO: What to do with non-compressed AttributeVectors?
-}
-
-uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
-  const auto compressed_vector_type = attribute_vector->type();
-  auto size = uint32_t{};
-  switch (compressed_vector_type) {
-    case CompressedVectorType::FixedWidthInteger1Byte:
-      size = attribute_vector->size();
-      break;
-    case CompressedVectorType::FixedWidthInteger2Byte:
-      size = attribute_vector->size() * 2;
-      break;
-    case CompressedVectorType::FixedWidthInteger4Byte:
-      size = attribute_vector->size() * 4;
-      break;
-    case CompressedVectorType::BitPacking:
-      size += 4;
-      size += dynamic_cast<const BitPackingVector&>(*attribute_vector).data().bytes();
-      break;
-    default:
-      Fail("Unknown Compression Type in Storage Manager.");
-  }
-  return size;
 }
 
 void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
@@ -541,61 +593,6 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   const auto chunk_bytes = chunk_offset_end;
   const auto chunk_start_offset = _file_header_bytes;
   return std::make_pair(chunk_start_offset, chunk_bytes);
-}
-
-void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk, const std::shared_ptr<Chunk>& mapped_chunk) {
-  const auto created_segment = chunk->get_segment(ColumnID{0});
-
-  resolve_data_type(created_segment->data_type(), [&](auto segment_data_type) {
-    using SegmentDataType = typename decltype(segment_data_type)::type;
-    const auto created_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(created_segment);
-    auto dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*created_dict_segment);
-
-    auto column_sum_of_created_chunk = SegmentDataType{};
-    dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_created_chunk =
-          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-            return accumulator + SegmentDataType{currentValue.value()};
-          });
-    });
-
-    std::cout << "Sum of column 1 of created chunk: " << column_sum_of_created_chunk << std::endl;
-  });
-
-  const auto mapped_segment = mapped_chunk->get_segment(ColumnID{0});
-
-  resolve_data_type(mapped_segment->data_type(), [&](auto segment_data_type) {
-    using SegmentDataType = typename decltype(segment_data_type)::type;
-    const auto mapped_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(mapped_segment);
-    auto mapped_dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*mapped_dict_segment);
-
-    auto column_sum_of_mapped_chunk = SegmentDataType{};
-    mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_mapped_chunk =
-          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-            return accumulator + SegmentDataType{currentValue.value()};
-          });
-    });
-
-    std::cout << "Sum of column 1 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
-  });
-
-  // print row 17 of created and mapped chunk
-  std::cout << "Row 2 of created chunk: ";
-  for (auto column_index = ColumnID{0}; column_index < chunk->column_count(); ++column_index) {
-    const auto segment = chunk->get_segment(column_index);
-    const auto attribute_value = (*segment)[ChunkOffset{1}];
-    std::cout << attribute_value << " ";
-  }
-  std::cout << std::endl;
-
-  std::cout << "Row 2 of mapped chunk: ";
-  for (auto column_index = ColumnID{0}; column_index < mapped_chunk->column_count(); ++column_index) {
-    const auto segment = mapped_chunk->get_segment(column_index);
-    const auto attribute_value = (*segment)[ChunkOffset{1}];
-    std::cout << attribute_value << " ";
-  }
-  std::cout << std::endl;
 }
 
 void StorageManager::persist_table(const Table* table_address) {
