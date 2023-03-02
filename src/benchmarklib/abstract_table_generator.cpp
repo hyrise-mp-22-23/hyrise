@@ -364,6 +364,9 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
+  // Delete possibly left over binaries.
+  delte_binaries();
+
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     const auto& table = table_info.table;
     table->persist();
