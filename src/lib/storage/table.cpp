@@ -456,8 +456,15 @@ size_t Table::memory_usage(const MemoryUsageCalculationMode mode) const {
 }
 
 void Table::persist() {
+  const auto chunk_count = _chunks.size();
+  for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
+    _persist_chunk(chunk_id);
+  }
+}
+
+void Table::_persist_chunk(ChunkID chunk_id) {
   auto& storage_manager = Hyrise::get().storage_manager;
-  storage_manager.persist_table(this);
+  storage_manager.replace_chunk_with_persisted_chunk(_chunks[chunk_id], chunk_id, this);
 }
 
 }  // namespace hyrise
