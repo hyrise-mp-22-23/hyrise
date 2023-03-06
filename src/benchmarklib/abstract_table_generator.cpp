@@ -447,18 +447,17 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     Timer timer;
 
     // Create column definitions
-    const auto column_definitions =
-        storage_manager.get_table_column_definitions_from_json(table_name);
-
+    const auto column_definitions = storage_manager.get_table_column_definitions_from_json(table_name);
 
     // Load chunks
-    const auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
-
+    auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
     // Create Table
     BenchmarkTableInfo table_info;
 
-    // Question Table_type? UseMvcc?
-    table_info.table = std::make_shared<Table>(column_definitions, TableType::Data, static_cast<ChunkOffset>(chunks.size()), UseMvcc::Yes);
+    // Construct table
+
+    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(chunks), UseMvcc::No);
+    table_info.table = table;
     table_info.loaded_from_binary = true;
     table_info.binary_file_path = file_name;
     table_info_by_name[table_name] = table_info;

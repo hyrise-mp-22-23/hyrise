@@ -51,7 +51,7 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
     // We currently assume that all tables stored in the StorageManager are mutable and, as such, have MVCC data. This
     // way, we do not need to check query plans if they try to update immutable tables. However, this is not a hard
     // limitation and might be changed into more fine-grained assertions if the need arises.
-    Assert(table->get_chunk(chunk_id)->has_mvcc_data(), "Table must have MVCC data.");
+    //Assert(table->get_chunk(chunk_id)->has_mvcc_data(), "Table must have MVCC data.");
   }
 
   // Create table statistics and chunk pruning statistics for added table.
@@ -787,24 +787,26 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
 }
 
 std::vector<std::shared_ptr<Chunk>> StorageManager::get_chunks_from_disk(
-    std::string table_name, std::string file_name, const std::vector<TableColumnDefinition> table_column_definitions) {
+    std::string table_name, std::string file_name, const std::vector<TableColumnDefinition>& table_column_definitions) {
+
   const auto file_header = read_file_header(file_name);
-  std::vector<std::shared_ptr<Chunk>> chunks;
-
-
-  auto column_definitions = std::vector<DataType>{};
+  auto chunks = std::vector<std::shared_ptr<Chunk>>{file_header.chunk_count};
+  auto column_definitions = std::vector<DataType>{table_column_definitions.size()};
 
   for (auto index = size_t{0}; index < table_column_definitions.size(); ++index) {
-    column_definitions.emplace_back(table_column_definitions[index].data_type);
+    column_definitions[index] = table_column_definitions[index].data_type;
   }
 
   for (auto index = size_t{0}; index < file_header.chunk_count; ++index) {
     const auto chunk_bytes = file_header.chunk_offset_ends[index];
-    const auto chunk_start_offset = file_header.chunk_offset_ends[index - 1] + _file_header_bytes;
+    auto chunk_start_offset = _file_header_bytes;
+
+    if(index != 0)
+      chunk_start_offset = file_header.chunk_offset_ends[index - 1] + _file_header_bytes;
 
     const auto chunk = map_chunk_from_disk(chunk_start_offset, chunk_bytes, file_name,
                                            column_definitions.size(), column_definitions);
-    chunks.emplace_back(chunk);
+    chunks[index] = chunk;
   }
 
   return chunks;

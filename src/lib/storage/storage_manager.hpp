@@ -12,7 +12,7 @@
 
 #include "chunk.hpp"
 #include "lqp_view.hpp"
-#include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
@@ -121,7 +121,7 @@ class StorageManager : public Noncopyable {
                                              std::vector<DataType> column_definitions);
 
   std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(std::string table_name, std::string file_name,
-                                                           const std::vector<TableColumnDefinition> table_column_definitions);
+                                                           const std::vector<TableColumnDefinition>& table_column_definitions);
 
   std::vector<TableColumnDefinition> get_table_column_definitions_from_json(const std::string& table_name);
 
