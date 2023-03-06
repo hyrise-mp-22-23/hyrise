@@ -239,13 +239,14 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
 
 ssize_t StorageManager::find_table_index_in_json(const std::string& table_name) const {
   auto table_index = ssize_t{-1};
+  const auto root_name = "table_files_mapping";
 
-  if (_storage_json.count("tables") == 0) {
+  if (_storage_json.count(root_name) == 0) {
     return table_index;
   }
 
-  for (auto index = size_t{0}; index < _storage_json["tables"].size(); ++index) {
-    if (_storage_json["tables"][index]["name"] == table_name) {
+  for (auto index = size_t{0}; index < _storage_json[root_name].size(); ++index) {
+    if (_storage_json[root_name][index]["table_name"] == table_name) {
       table_index = static_cast<ssize_t>(index);
       return table_index;
     }
