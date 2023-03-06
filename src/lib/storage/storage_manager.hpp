@@ -120,6 +120,11 @@ class StorageManager : public Noncopyable {
                                              const std::string& filename, const uint32_t segment_count,
                                              std::vector<DataType> column_definitions);
 
+  std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(std::string table_name, std::string file_name,
+                                                           const std::vector<TableColumnDefinition> table_column_definitions);
+
+  std::vector<TableColumnDefinition> get_table_column_definitions_from_json(const std::string& table_name);
+
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
   }
@@ -128,7 +133,7 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
-  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping(){
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
     return _tables_current_persistence_file_mapping;
   }
 
@@ -197,6 +202,9 @@ class StorageManager : public Noncopyable {
   void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
                            const std::string& file_name);
   void write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name);
+
+  void get_map_for_chunk(const std::shared_ptr<Chunk>& chunk, std::string table_name, size_t chunk_start_offset,
+                         size_t chunk_bytes, std::string table_persistence_file, ChunkID chunk_id);
 
   uint32_t _chunk_header_bytes(uint32_t column_count);
 
