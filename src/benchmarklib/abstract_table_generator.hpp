@@ -53,7 +53,7 @@ class AbstractTableGenerator {
   virtual ~AbstractTableGenerator() = default;
 
   void generate_and_store();
-  void delte_binaries();
+  void delete_binaries();
 
   /**
    * @return A table_name -> TableEntry mapping

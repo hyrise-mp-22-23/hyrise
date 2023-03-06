@@ -365,7 +365,7 @@ void AbstractTableGenerator::generate_and_store() {
 
 void AbstractTableGenerator::persist_tables() {
   // Delete possibly left over binaries.
-  delte_binaries();
+  delete_binaries();
 
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     const auto& table = table_info.table;
@@ -373,7 +373,7 @@ void AbstractTableGenerator::persist_tables() {
   }
 }
 
-void AbstractTableGenerator::delte_binaries() {
+void AbstractTableGenerator::delete_binaries() {
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     auto file_index = size_t{0};
     auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
