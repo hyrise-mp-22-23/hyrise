@@ -95,8 +95,6 @@ class StorageManager : public Noncopyable {
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
-  void persist_table(const Table* table_address);
-
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
   }
@@ -104,6 +102,9 @@ class StorageManager : public Noncopyable {
   uint32_t get_storage_format_version_id() {
     return _storage_format_version_id;
   }
+
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                          const Table* table_address);
 
  protected:
   StorageManager() = default;
@@ -170,9 +171,6 @@ class StorageManager : public Noncopyable {
   uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
   const std::string _get_persistence_file_name(const std::string& table_name);
-
-  void _replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                           const std::string& table_name);
 
   std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
                                               const std::string& filename, const uint32_t segment_count,

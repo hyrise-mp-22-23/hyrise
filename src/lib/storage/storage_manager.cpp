@@ -595,19 +595,9 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   return std::make_pair(chunk_start_offset, chunk_bytes);
 }
 
-void StorageManager::persist_table(const Table* table_address) {
+void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                                         const Table* table_address) {
   const auto table_name = _get_table_name(table_address);
-  const auto table = get_table(table_name);
-
-  const auto chunk_count = table->chunk_count();
-  for (auto chunk_index = ChunkID{0}; chunk_index < chunk_count; ++chunk_index) {
-    const auto chunk = table->get_chunk(chunk_index);
-    _replace_chunk_with_persisted_chunk(chunk, chunk_index, table_name);
-  }
-}
-
-void StorageManager::_replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                                         const std::string& table_name) {
   Assert(!table_name.empty(), "Only tables registered with StorageManager can be persisted.");
   const auto table_persistence_file = _get_persistence_file_name(table_name);
 

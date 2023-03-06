@@ -235,6 +235,8 @@ class Table : private Noncopyable {
   void persist();
 
  protected:
+  void _persist_chunk(ChunkID chunk_id);
+
   const TableColumnDefinitions _column_definitions;
   const TableType _type;
   const UseMvcc _use_mvcc;
