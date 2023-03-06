@@ -799,12 +799,10 @@ std::vector<std::shared_ptr<Chunk>> StorageManager::get_chunks_from_disk(
   }
 
   for (auto index = size_t{0}; index < file_header.chunk_count; ++index) {
-    auto chunk_offset = _file_header_bytes / 4;
-    if (index != 0) {
-      chunk_offset = file_header.chunk_offset_ends[index - 1];
-    }
+    const auto chunk_bytes = file_header.chunk_offset_ends[index];
+    const auto chunk_start_offset = file_header.chunk_offset_ends[index - 1] + _file_header_bytes;
 
-    const auto chunk = map_chunk_from_disk(chunk_offset, file_header.chunk_offset_ends[index], file_name,
+    const auto chunk = map_chunk_from_disk(chunk_start_offset, chunk_bytes, file_name,
                                            column_definitions.size(), column_definitions);
     chunks.emplace_back(chunk);
   }
