@@ -438,25 +438,29 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
   const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
   for (const auto& mapping : tables_files_mapping) {
     const auto table_name = mapping.first;
-    const auto persistence_data = mapping.second;
-    const auto file_name = persistence_data.file_name;
-    //const auto file_index = persistence_data.file_index;
-    //const auto current_chunk_count = persistence_data.current_chunk_count;
 
     std::cout << "-  Loading table '" << table_name << "' from storage json. " << std::endl;
     Timer timer;
 
+    const auto persistence_data = mapping.second;
+    auto file_name = persistence_data.file_name;
+    const auto file_count = persistence_data.file_index;
+    auto total_chunks = std::vector<std::shared_ptr<Chunk>>{};
+
     // Create column definitions
     const auto column_definitions = storage_manager.get_table_column_definitions_from_json(table_name);
 
-    // Load chunks
-    auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
-    // Create Table
+    // Load chunks from files
+    for (auto index = size_t{0}; index < file_count + 1; ++index) {
+      file_name = table_name + "_" + std::to_string(index) + ".bin";
+
+      auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
+      total_chunks.insert(total_chunks.end(), chunks.begin(), chunks.end());
+    }
+
+    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::No);
+
     BenchmarkTableInfo table_info;
-
-    // Construct table
-
-    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(chunks), UseMvcc::No);
     table_info.table = table;
     table_info.loaded_from_binary = true;
     table_info.binary_file_path = file_name;

@@ -773,7 +773,7 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
 
   // persist chunk to disk
   auto [chunk_start_offset, chunk_bytes] = persist_chunk_to_file(chunk, chunk_id, table_persistence_file);
-  _tables_current_persistence_file_mapping[table_name].current_chunk_count++;
+  _tables_current_persistence_file_mapping[table_name].current_chunk_count += 1;
 
   const auto column_definitions = _tables[table_name]->column_data_types();
   auto mapped_chunk = map_chunk_from_disk(chunk_start_offset, chunk_bytes, table_persistence_file,
