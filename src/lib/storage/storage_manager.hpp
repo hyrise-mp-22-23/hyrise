@@ -12,7 +12,7 @@
 
 #include "chunk.hpp"
 #include "lqp_view.hpp"
-#include "nlohmann/json.hpp"
+#include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
