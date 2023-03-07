@@ -26,24 +26,29 @@ benchmark_command = [
     'benchmark_mmap_based_page_cache_1gb.json'
     ]
 
-print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
-
-sp = subprocess.Popen(benchmark_command)
-
-print("Waiting 5 minutes to let setup finish...")
-time.sleep(5 * 60)
-
-print(f"Creating cgroup for memory limit and setting its memory.high property to {memory_limit}.")
+print(f"Creating cgroup for memory limit and setting its memory.high property to {unlimited}.")
 os.system("sudo cgcreate -g memory:memory-limit")
-os.system("sudo cgset -r memory.high=" + str(memory_limit) + " memory-limit")
+os.system("sudo cgset -r memory.high=" + str(unlimited) + " memory-limit")
 os.system("sudo cgset -r memory.max=" + str(unlimited) + " memory-limit")
 
 print("Print result of memory limit setting on memory-limit group.")
 os.system("sudo cgget -r memory.high memory-limit")
 os.system("sudo cgget -r memory.max memory-limit")
 
+
+print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
+
+sp = subprocess.Popen(benchmark_command)
+
 print("Moving benchmark process into memory-limited cgroup.")
 os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
+
+print("Waiting 5 minutes to let setup finish...")
+time.sleep(5 * 60)
+
+print("Setting memory.high soft limit on memory-limit group.")
+os.system("sudo cgset -r memory.high=" + str(unlimited) + " memory-limit")
+os.system("sudo cgget -r memory.high memory-limit")
 
 print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
 for i in range(0, 6):
