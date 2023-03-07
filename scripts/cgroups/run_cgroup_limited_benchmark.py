@@ -5,6 +5,7 @@ import signal
 
 GB = 1024 * 1024 * 1024
 memory_limit = 1 * GB
+unlimited = 200 * GB
 
 # print execution directory
 print("Current working directory: " + os.getcwd())
@@ -35,6 +36,7 @@ time.sleep(5 * 60)
 print(f"Creating cgroup for memory limit and setting its memory.high property to {memory_limit}.")
 os.system("sudo cgcreate -g memory:memory-limit")
 os.system("sudo cgset -r memory.high=" + str(memory_limit) + " memory-limit")
+os.system("sudo cgset -r memory.max=" + str(unlimited) + " memory-limit")
 
 print("Print result of memory limit setting on memory-limit group.")
 os.system("sudo cgget -r memory.high memory-limit")
