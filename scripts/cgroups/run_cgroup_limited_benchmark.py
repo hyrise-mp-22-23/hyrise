@@ -10,7 +10,7 @@ memory_limit = 1 * GB
 print("Current working directory: " + os.getcwd())
 
 benchmark_command = [
-    './cmake-build-debug/hyriseBenchmarkTPCH', #args.executable
+    './cmake-build-release/hyriseBenchmarkTPCH', #args.executable
     '--scheduler',
     '--clients=48',
     '-m',
