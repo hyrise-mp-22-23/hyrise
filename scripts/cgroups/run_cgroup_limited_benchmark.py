@@ -3,17 +3,17 @@ import subprocess
 import time
 import signal
 
-GB = 1024 * 1024 * 1024
-memory_limit = 1 * GB
-unlimited = 200 * GB
+GiB = 1024 * 1024 * 1024
+memory_limit = 1 * GiB
+unlimited = 200 * GiB
 
 # print execution directory
 print("Current working directory: " + os.getcwd())
 
 benchmark_command = [
     './cmake-build-release/hyriseBenchmarkTPCH', #args.executable
-    '--scheduler',
-    '--clients=48',
+    #'--scheduler',
+    #'--clients=48',
     '-m',
     'Shuffled',
     '-s',
@@ -30,9 +30,6 @@ print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
 sp = subprocess.Popen(benchmark_command)
 
-print("Waiting 5 minutes to let setup finish...")
-time.sleep(5 * 60)
-
 print(f"Creating cgroup for memory limit and setting its memory.high property to {memory_limit}.")
 os.system("sudo cgcreate -g memory:memory-limit")
 os.system("sudo cgset -r memory.high=" + str(memory_limit) + " memory-limit")
@@ -45,7 +42,10 @@ os.system("sudo cgget -r memory.max memory-limit")
 print("Moving benchmark process into memory-limited cgroup.")
 os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
 
-print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
+print("Waiting 5 minutes to let setup finish...")
+time.sleep(5 * 60)
+
+print("Letting benchmark run for additional 3 minutes to allow reduction of memory footprint.")
 time.sleep(3 * 60)
 
 print("Setting memory.max hard limit on memory-limit group.")
