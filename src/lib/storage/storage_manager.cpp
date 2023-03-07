@@ -504,9 +504,9 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
-  Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
-  auto* persisted_header =
-      reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
+  auto* map_pointer = mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0});
+  auto* persisted_header = reinterpret_cast<uint32_t*>(map_pointer);
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
   close(fd);
 
@@ -520,8 +520,7 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
     file_header.chunk_offset_ends[header_index] =
         persisted_header[header_constants_size + StorageManager::_chunk_count + header_index];
   }
-  auto return_val = munmap(persisted_header, _file_header_bytes);
-  Assert(return_val == 0, "Unmapping Failed");
+  Assert(munmap(map_pointer, _file_header_bytes) == 0, "Unmapping Failed");
 
   return file_header;
 }
