@@ -38,7 +38,7 @@ uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
 }
 
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
-  // All thiese modes are needed to be set exactly like that, otherwise it will not work.
+  // All these modes are needed to be set exactly like that, otherwise it will not work.
   std::fstream fstream(file_name, std::ios::binary | std::ios::in | std::ios::out);
 
   fstream.seekp(0, std::ios_base::beg);
@@ -460,7 +460,6 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
   auto mapped_chunk = _map_chunk_from_disk(chunk_start_offset, chunk_bytes, table_persistence_file,
                                            chunk->column_count(), column_definitions);
   //evaluate_mapped_chunk(chunk, mapped_chunk);
-
   mapped_chunk->set_mvcc_data(chunk->mvcc_data());
 
   // replace chunk in table
@@ -521,7 +520,8 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
     file_header.chunk_offset_ends[header_index] =
         persisted_header[header_constants_size + StorageManager::_chunk_count + header_index];
   }
-  munmap(persisted_header, _file_header_bytes);
+  auto return_val = munmap(persisted_header, _file_header_bytes);
+  Assert(return_val == 0, "Unmapping Failed");
 
   return file_header;
 }
