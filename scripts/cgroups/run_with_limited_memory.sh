@@ -25,6 +25,7 @@ executable="$@"
 
 # convert the memory limit to giga bytes
 memory_limit=$((memory_limit*GB))
+echo $memory_limit
 
 # create a cgroup
 CGROUP_NAME="memory-limit"
