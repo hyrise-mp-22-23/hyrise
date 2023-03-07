@@ -43,11 +43,11 @@ sp = subprocess.Popen(benchmark_command)
 print("Moving benchmark process into memory-limited cgroup.")
 os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
 
-print("Waiting 5 minutes to let setup finish...")
-time.sleep(5 * 60)
+print("Waiting 3.5 minutes to let setup finish...")
+time.sleep(3.5 * 60)
 
 print("Setting memory.high soft limit on memory-limit group.")
-os.system("sudo cgset -r memory.high=" + str(unlimited) + " memory-limit")
+os.system("sudo cgset -r memory.high=" + str(memory_limit) + " memory-limit")
 os.system("sudo cgget -r memory.high memory-limit")
 
 print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
