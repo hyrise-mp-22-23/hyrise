@@ -98,11 +98,6 @@ class StorageManager : public Noncopyable {
      * @defgroup Manage writing Chunks to disk and keep storage.json synchronized.
      * @{
      */
-  void write_to_disk(const Chunk* chunk);
-  void update_json(const std::string& table_name);
-  void update_json_chunk(const Chunk* chunk);
-  ssize_t find_table_index_in_json(const std::string& table_name) const;
-  ssize_t find_chunk_index_in_json(const nlohmann::json& table_json, const size_t chunk_id) const;
 
   /** @} */
 
@@ -116,12 +111,9 @@ class StorageManager : public Noncopyable {
   void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
                                           const Table* table_address);
 
-  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
-                                             const std::string& filename, const uint32_t segment_count,
-                                             std::vector<DataType> column_definitions);
-
-  std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(std::string table_name, std::string file_name,
-                                                           const std::vector<TableColumnDefinition>& table_column_definitions);
+  std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(
+      std::string table_name, std::string file_name,
+      const std::vector<TableColumnDefinition>& table_column_definitions);
 
   std::vector<TableColumnDefinition> get_table_column_definitions_from_json(const std::string& table_name);
 
@@ -138,8 +130,6 @@ class StorageManager : public Noncopyable {
   }
 
   void save_storage_json_to_disk();
-  void load_storage_data_from_disk();
-  void serialize_table_files_mapping();
 
  protected:
   friend class Hyrise;
@@ -148,7 +138,7 @@ class StorageManager : public Noncopyable {
     std::ifstream const json_file(_storage_json_path);
     // If the file exists, load the contents into the json object.
     if (json_file.good()) {
-      load_storage_data_from_disk();
+      _load_storage_data_from_disk();
     }
   }
 
@@ -225,6 +215,9 @@ class StorageManager : public Noncopyable {
       const CompressedVectorType compressed_vector_type) const;
 
   std::string _get_table_name(const Table* address) const;
+
+  void _load_storage_data_from_disk();
+  void _serialize_table_files_mapping();
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

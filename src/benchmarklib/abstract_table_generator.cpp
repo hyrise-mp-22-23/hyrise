@@ -5,6 +5,7 @@
 #include "hyrise.hpp"
 #include "import_export/binary/binary_parser.hpp"
 #include "import_export/binary/binary_writer.hpp"
+#include "nlohmann/json.hpp"
 #include "operators/sort.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
@@ -451,11 +452,9 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
 std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json(
     const std::string& cache_directory) {
   std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
-
-  // TODO rewrite to use StorageManager
   auto& storage_manager = Hyrise::get().storage_manager;
-
   const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
+
   for (const auto& mapping : tables_files_mapping) {
     const auto table_name = mapping.first;
 
@@ -479,7 +478,6 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     }
 
     auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::No);
-
     BenchmarkTableInfo table_info;
     table_info.table = table;
     table_info.loaded_from_binary = true;
@@ -487,7 +485,6 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     table_info_by_name[table_name] = table_info;
     std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
   }
-
   return table_info_by_name;
 }
 

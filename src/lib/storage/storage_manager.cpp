@@ -6,11 +6,11 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
-#include "nlohmann/json.hpp"
 #include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
+#include "nlohmann/json.hpp"
 
 #include "hyrise.hpp"
 #include "import_export/binary/binary_writer.hpp"
@@ -387,122 +387,6 @@ std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> StorageManager::p
   return result;
 }
 
-ssize_t StorageManager::find_table_index_in_json(const std::string& table_name) const {
-  auto table_index = ssize_t{-1};
-  const auto root_name = "table_files_mapping";
-
-  if (_storage_json.count(root_name) == 0) {
-    return table_index;
-  }
-
-  for (auto index = size_t{0}; index < _storage_json[root_name].size(); ++index) {
-    if (_storage_json[root_name][index]["table_name"] == table_name) {
-      table_index = static_cast<ssize_t>(index);
-      return table_index;
-    }
-  }
-  return table_index;
-}
-
-ssize_t StorageManager::find_chunk_index_in_json(const json& table_json, const size_t chunk_id) const {
-  auto chunk_index = ssize_t{-1};
-  if (table_json.count("chunks") == 0) {
-    return chunk_index;
-  }
-
-  for (auto index = size_t{0}; index < table_json["chunks"].size(); ++index) {
-    if (table_json["chunks"][index]["chunk_id"] == chunk_id) {
-      chunk_index = static_cast<ssize_t>(index);
-      return chunk_index;
-    }
-  }
-  return chunk_index;
-}
-
-void StorageManager::update_json(const std::string& table_name) {
-  std::cout << "Json for table: " << table_name << std::endl;
-
-  auto table_index = find_table_index_in_json(table_name);
-
-  if (has_table(table_name)) {
-    const auto table = get_table(table_name);
-
-    auto table_object = json::object({
-        {"name", table_name},
-        {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
-        {"row_count", table->row_count()},
-        {"column_count", static_cast<uint32_t>(table->column_count())},
-    });
-
-    const auto column_names = table->column_names();
-    const auto column_data_types = table->column_data_types();
-    const auto column_count = table->column_count();
-    for (auto index = size_t{0}; index < column_count; ++index) {
-      const json column_object = {
-          {"id", index},
-          {"name", column_names[index]},
-          {"data_type", column_data_types[index]},
-      };
-      table_object["columns"].push_back(column_object);
-    }
-
-    // If table entry in json already exist, overwrite it. Otherwise, append the table entry.
-    if (table_index != -1) {
-      if (_storage_json["tables"][table_index].count("chunks") != 0) {
-        table_object["chunks"] = _storage_json["tables"][table_index]["chunks"];
-      }
-    } else {
-      _storage_json["tables"].push_back(table_object);
-    }
-
-  } else {
-    if (table_index != -1) {
-      _storage_json["tables"].erase(table_index);
-    }
-  }
-}
-
-/*
-void StorageManager::update_json_chunk(const Chunk* chunk) {
-  std::cout << "Json for table: " << chunk->get_table_name() << " Chunk_id: " << chunk->get_chunk_id() << std::endl;
-
-  const auto table_index = find_table_index_in_json(chunk->get_table_name());
-  const auto table = get_table(chunk->get_table_name());
-  auto table_object = json::object();
-  auto chunk_object = json::object();
-
-  // If table entry in json already exist, use it. Otherwise, create new one.
-  if (table_index != -1) {
-    table_object = _storage_json["tables"][table_index];
-  } else {
-    table_object = {
-        {"name", chunk->get_table_name()},
-        {"chunk_count", static_cast<uint32_t>(table->chunk_count())},
-        {"row_count", table->row_count()},
-        {"column_count", static_cast<uint32_t>(table->column_count())},
-    };
-  }
-
-  const auto chunk_index = find_chunk_index_in_json(table_object, chunk->get_chunk_id());
-
-  // If table entry in json already exist, use it. Otherwise, create new one.
-  if (chunk_index != -1) {
-    chunk_object = _storage_json["tables"][chunk_index];
-    std::cout << "Chunk update in storage.json" << std::endl;
-  } else {
-    chunk_object = {
-        {"row_count", static_cast<uint32_t>(chunk->size())},
-        {"saved_at", "IN_MEMORY"},
-    };
-    table_object["chunks"].push_back(chunk_object);
-    table_object["chunk_count"] = static_cast<uint32_t>(table->chunk_count());
-    table_object["row_count"] = table->row_count();
-  }
-
-  _storage_json["tables"][table_index] = table_object;
-}
- */
-
 void StorageManager::export_all_tables_as_csv(const std::string& path) {
   auto tasks = std::vector<std::shared_ptr<AbstractTask>>{};
   tasks.reserve(_tables.size());
@@ -737,6 +621,31 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
   _tables[table_name]->replace_chunk(chunk_id, mapped_chunk);
 }
 
+std::vector<std::shared_ptr<Chunk>> StorageManager::get_chunks_from_disk(
+    std::string table_name, std::string file_name, const std::vector<TableColumnDefinition>& table_column_definitions) {
+  const auto file_header = _read_file_header(file_name);
+  auto chunks = std::vector<std::shared_ptr<Chunk>>{file_header.chunk_count};
+  auto column_definitions = std::vector<DataType>{table_column_definitions.size()};
+
+  for (auto index = size_t{0}; index < table_column_definitions.size(); ++index) {
+    column_definitions[index] = table_column_definitions[index].data_type;
+  }
+
+  for (auto index = size_t{0}; index < file_header.chunk_count; ++index) {
+    const auto chunk_bytes = file_header.chunk_offset_ends[index];
+    auto chunk_start_offset = _file_header_bytes;
+
+    if (index != 0)
+      chunk_start_offset = file_header.chunk_offset_ends[index - 1] + _file_header_bytes;
+
+    const auto chunk =
+        _map_chunk_from_disk(chunk_start_offset, chunk_bytes, file_name, column_definitions.size(), column_definitions);
+    chunks[index] = chunk;
+  }
+
+  return chunks;
+}
+
 const std::string StorageManager::_get_persistence_file_name(const std::string& table_name) {
   if (_tables_current_persistence_file_mapping[table_name].current_chunk_count == MAX_CHUNK_COUNT_PER_FILE) {
     const auto next_file_index = _tables_current_persistence_file_mapping[table_name].file_index + 1;
@@ -857,9 +766,7 @@ PersistedSegmentEncodingType StorageManager::_resolve_persisted_segment_encoding
   return persisted_vector_type_id;
 }
 
-void StorageManager::serialize_table_files_mapping() {
-  auto tables_json = json::array();
-
+void StorageManager::_serialize_table_files_mapping() {
   for (const auto& mapping : _tables_current_persistence_file_mapping) {
     const auto table = get_table(mapping.first);
     const auto column_count = table->column_count();
@@ -882,14 +789,12 @@ void StorageManager::serialize_table_files_mapping() {
     }
     table_json["columns"] = columns_json;
 
-    tables_json[mapping.first] = table_json;
+    _storage_json[mapping.first] = table_json;
   }
-
-  _storage_json["table_files_mapping"] = tables_json;
 }
 
 void StorageManager::save_storage_json_to_disk() {
-  serialize_table_files_mapping();
+  _serialize_table_files_mapping();
   std::ofstream output_file(_storage_json_path);
   output_file << _storage_json.dump(4);
   output_file.close();
@@ -897,8 +802,7 @@ void StorageManager::save_storage_json_to_disk() {
 
 std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_from_json(
     const std::string& table_name) {
-  const auto table_index = find_table_index_in_json(table_name);
-  const auto table_json = _storage_json["table_files_mapping"][table_index];
+  const auto table_json = _storage_json[table_name];
 
   auto table_column_definitions = std::vector<TableColumnDefinition>{table_json["columns"].size()};
 
@@ -912,15 +816,16 @@ std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_
   return table_column_definitions;
 }
 
-void StorageManager::load_storage_data_from_disk() {
+void StorageManager::_load_storage_data_from_disk() {
   // Read the JSON data from disk into a string
   std::ifstream json_file(_storage_json_path);
   _storage_json = json::parse(json_file);
 
   // Deserialize the JSON into the map
-  for (const auto& item : _storage_json["table_files_mapping"]) {
+  for (const auto& item : _storage_json) {
     const std::string name = item["table_name"];
-    PERSISTENCE_FILE_DATA data{item["file_name"], item["file_index"], item["current_chunk_count"]};
+    PERSISTENCE_FILE_DATA data{item["file_name"], item["file_count"],
+                               static_cast<uint32_t>(item["chunk_count"]) % MAX_CHUNK_COUNT_PER_FILE};
     _tables_current_persistence_file_mapping.emplace(name, std::move(data));
   }
 }
