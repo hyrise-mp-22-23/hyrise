@@ -795,8 +795,9 @@ void StorageManager::_serialize_table_files_mapping() {
 
 void StorageManager::save_storage_json_to_disk() {
   _serialize_table_files_mapping();
-  std::ofstream output_file(_storage_json_path);
-  output_file << _storage_json.dump(4);
+  std::ofstream output_file(_storage_json_path, std::ios::trunc);
+  const auto json_serialized = std::string(_storage_json.dump(4));
+  output_file << json_serialized;
   output_file.close();
 }
 
@@ -823,9 +824,17 @@ void StorageManager::_load_storage_data_from_disk() {
 
   // Deserialize the JSON into the map
   for (const auto& item : _storage_json) {
-    const std::string name = item["table_name"];
-    PERSISTENCE_FILE_DATA data{item["file_name"], item["file_count"],
-                               static_cast<uint32_t>(item["chunk_count"]) % MAX_CHUNK_COUNT_PER_FILE};
+    const auto name = std::string(item["table_name"]);
+    const auto file_name = std::string(item["file_name"]);
+    const auto file_count = static_cast<uint32_t>(item["file_count"]);
+    const auto chunk_count = static_cast<uint32_t>(item["chunk_count"]) % MAX_CHUNK_COUNT_PER_FILE;
+
+    Assert(chunk_count <= MAX_CHUNK_COUNT_PER_FILE, "Chunk count exceeds maximum chunk count per file.");
+    PERSISTENCE_FILE_DATA data;
+    data.file_name = file_name;
+    data.file_index = file_count;
+    data.current_chunk_count = chunk_count;
+
     _tables_current_persistence_file_mapping.emplace(name, std::move(data));
   }
 }
