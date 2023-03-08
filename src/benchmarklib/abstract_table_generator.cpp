@@ -441,10 +441,16 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
       file_name = table_name + "_" + std::to_string(index) + ".bin";
 
       auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
+      for (auto chunk : chunks) {
+        // Set mvcc data to 0
+        auto mvcc_data = std::make_shared<MvccData>(chunk->size(), CommitID{0});
+        chunk->set_mvcc_data(mvcc_data);
+      }
+
       total_chunks.insert(total_chunks.end(), chunks.begin(), chunks.end());
     }
 
-    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::No);
+    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::Yes);
     BenchmarkTableInfo table_info;
     table_info.table = table;
     table_info.loaded_from_binary = true;
