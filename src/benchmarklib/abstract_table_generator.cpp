@@ -342,18 +342,13 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- No indexes created as --indexes was not specified or set to false" << std::endl;
   }
 
+  _table_info_by_name = table_info_by_name;
+
   // Persist tables
   // As last step after completing encoding etc.
   // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
-  {
-    for (auto& [table_name, table_info] : table_info_by_name) {
-      auto& table = table_info_by_name[table_name].table;
-      table->persist();
-    }
-    auto& storage_manager = Hyrise::get().storage_manager;
-    storage_manager.save_storage_json_to_disk();
-  }
+  persist_tables();
 
 #ifdef __APPLE__
   auto return_val = system("purge");
@@ -366,6 +361,31 @@ void AbstractTableGenerator::generate_and_store() {
   // Set scheduler back to previously used scheduler.
   Hyrise::get().topology.use_default_topology(_benchmark_config->cores);
   Hyrise::get().set_scheduler(initial_scheduler);
+}
+
+void AbstractTableGenerator::persist_tables() {
+  // Delete possibly left over binaries.
+  delete_binaries();
+
+  for (const auto& [table_name, table_info] : _table_info_by_name) {
+    const auto& table = table_info.table;
+    table->persist();
+  }
+  auto& storage_manager = Hyrise::get().storage_manager;
+  storage_manager.save_storage_json_to_disk();
+}
+
+void AbstractTableGenerator::delete_binaries() {
+  for (const auto& [table_name, table_info] : _table_info_by_name) {
+    auto file_index = size_t{0};
+    auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
+
+    while (std::filesystem::exists(file_name)) {
+      std::filesystem::remove(file_name);
+      ++file_index;
+      file_name = table_name + "_" + std::to_string(file_index) + ".bin";
+    }
+  }
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(

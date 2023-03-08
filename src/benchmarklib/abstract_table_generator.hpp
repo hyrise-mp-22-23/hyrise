@@ -53,6 +53,7 @@ class AbstractTableGenerator {
   virtual ~AbstractTableGenerator() = default;
 
   void generate_and_store();
+  void delete_binaries();
 
   /**
    * @return A table_name -> TableEntry mapping
@@ -82,6 +83,11 @@ class AbstractTableGenerator {
 
   static std::unordered_map<std::string, BenchmarkTableInfo> _load_binary_tables_from_path(
       const std::string& cache_directory);
+
+  void persist_tables();
+
+ private:
+  std::unordered_map<std::string, BenchmarkTableInfo> _table_info_by_name;
 
   static std::unordered_map<std::string, BenchmarkTableInfo> _load_binary_tables_from_json(
       const std::string& cache_directory);

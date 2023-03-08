@@ -458,14 +458,12 @@ size_t Table::memory_usage(const MemoryUsageCalculationMode mode) const {
 void Table::persist() {
   const auto chunk_count = _chunks.size();
   for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
-    persist_chunk(chunk_id);
+    _persist_chunk(chunk_id);
   }
 }
 
-void Table::persist_chunk(ChunkID chunk_id) {
+void Table::_persist_chunk(ChunkID chunk_id) {
   auto& storage_manager = Hyrise::get().storage_manager;
-  //TODO: It would be nicer to just pass the table and let the StorageManager handle the rest.
-  //And not depend on name registration happening earlier in StorageManager.
   storage_manager.replace_chunk_with_persisted_chunk(_chunks[chunk_id], chunk_id, this);
 }
 

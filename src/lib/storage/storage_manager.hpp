@@ -133,6 +133,9 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                          const Table* table_address);
+
   tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
     return _tables_current_persistence_file_mapping;
   }
@@ -188,35 +191,45 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
-  CHUNK_HEADER read_chunk_header(const std::byte* map, const uint32_t segment_count, const uint32_t chunk_offset_begin);
+ private:
+  CHUNK_HEADER _read_chunk_header(const std::byte* map, const uint32_t segment_count,
+                                  const uint32_t chunk_offset_begin) const;
 
-  FILE_HEADER read_file_header(const std::string& filename);
+  FILE_HEADER _read_file_header(const std::string& filename) const;
 
-  std::vector<uint32_t> calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
+  std::vector<uint32_t> _calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) const;
+
+  std::pair<uint32_t, uint32_t> _persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                                       const std::string& file_name) const;
+
   template <typename T>
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, const std::string& file_name);
+  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
+                                   const std::string& file_name) const;
+
   template <typename T>
-  void write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
-                                               const std::string& file_name);
+  void _write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
+                                                const std::string& file_name) const;
 
-  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
-                           const std::string& file_name);
-  void write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, const std::string& file_name);
+  void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
+                            const std::string& file_name) const;
 
-  void get_map_for_chunk(const std::shared_ptr<Chunk>& chunk, std::string table_name, size_t chunk_start_offset,
-                         size_t chunk_bytes, std::string table_persistence_file, ChunkID chunk_id);
+  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
+                              const std::string& file_name) const;
 
-  uint32_t _chunk_header_bytes(uint32_t column_count);
+  uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
-  const std::string get_persistence_file_name(const std::string table_name);
+  const std::string _get_persistence_file_name(const std::string& table_name);
 
-  PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
-      CompressedVectorType compressed_vector_type);
+  std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
+                                              const std::string& filename, const uint32_t segment_count,
+                                              const std::vector<DataType>& column_definitions) const;
+
+  PersistedSegmentEncodingType _resolve_persisted_segment_encoding_type_from_compression_type(
+      const CompressedVectorType compressed_vector_type) const;
+
   std::string _get_table_name(const Table* address) const;
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);
-
-//const std::string get_next_table_persistence_file_name(std::string table_name, 0)
 
 }  // namespace hyrise
