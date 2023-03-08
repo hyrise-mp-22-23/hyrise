@@ -12,7 +12,7 @@
 
 #include "chunk.hpp"
 #include "lqp_view.hpp"
-#include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
+#include "nlohmann/json.hpp"
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
@@ -113,7 +113,7 @@ class StorageManager : public Noncopyable {
   std::pair<uint32_t, uint32_t> persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
                                                       const std::string& file_name);
 
-  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk>& chunk, ChunkID chunk_id,
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
                                           const Table* table_address);
 
   std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
@@ -132,9 +132,6 @@ class StorageManager : public Noncopyable {
   uint32_t get_storage_format_version_id() {
     return _storage_format_version_id;
   }
-
-  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                          const Table* table_address);
 
   tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
     return _tables_current_persistence_file_mapping;

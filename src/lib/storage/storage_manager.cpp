@@ -3,13 +3,10 @@
 #include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <memory>
-#include <numeric>
-#include <unistd.h>
 #include <fstream>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 #include <numeric>
 #include <string>
 #include <utility>
@@ -33,7 +30,6 @@
 using json = nlohmann::json;
 
 namespace {
-
 
 using namespace hyrise;  // NOLINT
 
@@ -689,10 +685,10 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
 
     _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
 
-      const auto chunk_bytes = chunk_offset_end;
-      const auto chunk_start_offset = file_prev_chunk_end_offset + _file_header_bytes;
-      return std::make_pair(chunk_start_offset, chunk_bytes);
-    }
+    const auto chunk_bytes = chunk_offset_end;
+    const auto chunk_start_offset = file_prev_chunk_end_offset + _file_header_bytes;
+    return std::make_pair(chunk_start_offset, chunk_bytes);
+  }
 
   // create new file
   auto chunk_segment_offset_ends = _calculate_segment_offset_ends(chunk);
@@ -720,7 +716,7 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
 }
 
 void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                                         const Table* table_address) {
+                                                        const Table* table_address) {
   const auto table_name = _get_table_name(table_address);
   Assert(!table_name.empty(), "Only tables registered with StorageManager can be persisted.");
   const auto table_persistence_file = _get_persistence_file_name(table_name);
@@ -867,10 +863,11 @@ void StorageManager::serialize_table_files_mapping() {
   for (const auto& mapping : _tables_current_persistence_file_mapping) {
     const auto table = get_table(mapping.first);
     const auto column_count = table->column_count();
+    const auto chunk_count = mapping.second.file_index * MAX_CHUNK_COUNT_PER_FILE + mapping.second.current_chunk_count;
     json table_json = {{"table_name", mapping.first},
                        {"file_name", mapping.second.file_name},
-                       {"file_index", mapping.second.file_index},
-                       {"current_chunk_count", mapping.second.current_chunk_count},
+                       {"file_count", mapping.second.file_index},
+                       {"chunk_count", chunk_count},
                        {"column_count", static_cast<uint32_t>(table->column_count())}};
 
     const auto column_definitions = table->column_definitions();
@@ -885,7 +882,7 @@ void StorageManager::serialize_table_files_mapping() {
     }
     table_json["columns"] = columns_json;
 
-    tables_json.push_back(table_json);
+    tables_json[mapping.first] = table_json;
   }
 
   _storage_json["table_files_mapping"] = tables_json;
@@ -898,19 +895,21 @@ void StorageManager::save_storage_json_to_disk() {
   output_file.close();
 }
 
-std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_from_json(const std::string& table_name){
-    const auto table_index = find_table_index_in_json(table_name);
-    const auto table_json = _storage_json["table_files_mapping"][table_index];
+std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_from_json(
+    const std::string& table_name) {
+  const auto table_index = find_table_index_in_json(table_name);
+  const auto table_json = _storage_json["table_files_mapping"][table_index];
 
-    auto table_column_definitions = std::vector<TableColumnDefinition>{table_json["columns"].size()};
+  auto table_column_definitions = std::vector<TableColumnDefinition>{table_json["columns"].size()};
 
-    for(auto index = size_t{0}; index < table_json["columns"].size(); ++index){
-        const auto column = table_json["columns"][index];
-        const auto table_column_definition = TableColumnDefinition(column["column_name"], column["data_type"], column["nullable"]);
-        table_column_definitions[index] = table_column_definition;
-    }
+  for (auto index = size_t{0}; index < table_json["columns"].size(); ++index) {
+    const auto column = table_json["columns"][index];
+    const auto table_column_definition =
+        TableColumnDefinition(column["column_name"], column["data_type"], column["nullable"]);
+    table_column_definitions[index] = table_column_definition;
+  }
 
-    return table_column_definitions;
+  return table_column_definitions;
 }
 
 void StorageManager::load_storage_data_from_disk() {
