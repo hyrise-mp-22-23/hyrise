@@ -131,8 +131,10 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
     return _load_binary_tables_from_path(cache_directory);
   }*/
   const auto cache_directory = std::string{"tpch_persisted_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
-  if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
-    return _load_binary_tables_from_json(cache_directory);
+  const auto storage_file = std::string{"resources/storage.json"};
+  if (_benchmark_config->cache_binary_tables && std::filesystem::exists(storage_file)) {
+    std::cout << "Found storage file, loading tables from there." << std::endl;
+    return _load_binary_tables_from_json(storage_file);
   }
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.
   dbgen_reset_seeds();
@@ -290,7 +292,7 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   table_info_by_name["region"].table = region_table;
 
   if (_benchmark_config->cache_binary_tables) {
-    std::filesystem::create_directories(cache_directory);
+    //std::filesystem::create_directories(cache_directory);
     for (auto& [table_name, table_info] : table_info_by_name) {
       table_info.binary_file_path = cache_directory + "/" + table_name + ".bin";  // NOLINT
     }
