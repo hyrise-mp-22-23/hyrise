@@ -12,7 +12,15 @@
 
 #include "chunk.hpp"
 #include "lqp_view.hpp"
+
+#ifdef __APPLE__
+#include "nlohmann/json.hpp"
+#endif
+
+#ifdef __linux__
 #include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
+#endif
+
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
@@ -135,14 +143,15 @@ class StorageManager : public Noncopyable {
   friend class Hyrise;
 
   StorageManager() {
-    std::ifstream const json_file(_storage_json_path);
+    std::ifstream const json_file(_resources_path + _storage_json_name);
     // If the file exists, load the contents into the json object.
     if (json_file.good()) {
       _load_storage_data_from_disk();
     }
   }
 
-  const char* _storage_json_path = "./resources/storage.json";
+  std::string _resources_path = "./resources/";
+  std::string _storage_json_name = "storage.json";
   nlohmann::json _storage_json;
 
   // We preallocate maps to prevent costly re-allocation.

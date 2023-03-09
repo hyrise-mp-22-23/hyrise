@@ -10,7 +10,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "nlohmann/json.hpp"
 
 #include "hyrise.hpp"
 #include "import_export/binary/binary_writer.hpp"
@@ -495,69 +494,70 @@ void StorageManager::_write_fixed_string_dict_segment_to_disk(
 
 template <typename T>
 void StorageManager::_write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
-                                                 const std::string& file_name) const {
+                                                 const std::string& file_path) const {
   /*
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
   const auto compressed_vector_type_id =
       _resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), file_name);
-  export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_name);
-  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
+  export_value(static_cast<uint32_t>(compressed_vector_type_id), file_path);
+  export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_path);
+  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_path);
 
   // we need to ensure that every part can be mapped with a uint32_t map
-  export_values<T>(*segment->dictionary(), file_name);
-  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
+  export_values<T>(*segment->dictionary(), file_path);
+  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_path);
   //TODO: What to do with non-compressed AttributeVectors?
 }
 
 void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
-                                            const std::string& file_name) const {
+                                            const std::string& file_path) const {
   resolve_data_type(abstract_segment->data_type(), [&](auto type) {
     using ColumnDataType = typename decltype(type)::type;
     if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
       const auto fixed_string_dict_segment =
           dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_fixed_string_dict_segment_to_disk(fixed_string_dict_segment, file_name);
+      _write_fixed_string_dict_segment_to_disk(fixed_string_dict_segment, file_path);
     } else {
       const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_dict_segment_to_disk(dict_segment, file_name);
+      _write_dict_segment_to_disk(dict_segment, file_path);
     }
   });
 }
 
 void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
                                           const std::vector<uint32_t>& segment_offset_ends,
-                                          const std::string& file_name) const {
+                                          const std::string& file_path) const {
   auto header = CHUNK_HEADER{};
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
-  export_value(header.row_count, file_name);
+  export_value(header.row_count, file_path);
 
   for (const auto segment_offset_end : header.segment_offset_ends) {
-    export_value(segment_offset_end, file_name);
+    export_value(segment_offset_end, file_path);
   }
 
   const auto segment_count = chunk->column_count();
   for (auto segment_index = ColumnID{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(segment_index);
-    _write_segment_to_disk(abstract_segment, file_name);
+    _write_segment_to_disk(abstract_segment, file_path);
   }
 }
 
 std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::shared_ptr<Chunk> chunk,
                                                                      ChunkID chunk_id,
                                                                      const std::string& file_name) const {
-  if (std::filesystem::exists(file_name)) {
+  const auto file_path = _resources_path + file_name;
+  if (std::filesystem::exists(file_path)) {
     //append to existing file
 
     auto chunk_segment_offset_ends = _calculate_segment_offset_ends(chunk);
     auto chunk_offset_end = chunk_segment_offset_ends.back();
 
     // adapt and rewrite file header
-    FILE_HEADER file_header = _read_file_header(file_name);
+    FILE_HEADER file_header = _read_file_header(file_path);
     const auto file_header_previous_chunk_count = file_header.chunk_count;
     const auto file_prev_chunk_end_offset = file_header.chunk_offset_ends[file_header_previous_chunk_count - 1];
 
@@ -565,9 +565,9 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
     file_header.chunk_ids[file_header_previous_chunk_count] = chunk_id;
     file_header.chunk_offset_ends[file_header_previous_chunk_count] = file_prev_chunk_end_offset + chunk_offset_end;
 
-    overwrite_header(file_header, file_name);
+    overwrite_header(file_header, file_path);
 
-    _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
+    _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_path);
 
     const auto chunk_bytes = chunk_offset_end;
     const auto chunk_start_offset = file_prev_chunk_end_offset + _file_header_bytes;
@@ -590,9 +590,9 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
 
-  export_value<FILE_HEADER>(fh, file_name);
+  export_value<FILE_HEADER>(fh, file_path);
 
-  _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_name);
+  _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_path);
 
   const auto chunk_bytes = chunk_offset_end;
   const auto chunk_start_offset = _file_header_bytes;
@@ -659,7 +659,7 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
-  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
+  Assert((fd = open((_resources_path + filename).c_str(), O_RDONLY)) >= 0, "Open error");
   auto* persisted_header =
       reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
@@ -700,7 +700,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
                                                             const std::vector<DataType>& column_definitions) const {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   auto fd = int32_t{};
-  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+  Assert((fd = open((_resources_path + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
 
   //Calls to mmap need to be pagesize-aligned
   const auto pagesize = getpagesize();
@@ -771,9 +771,8 @@ void StorageManager::_serialize_table_files_mapping() {
     const auto table = get_table(mapping.first);
     const auto column_count = table->column_count();
     const auto chunk_count = mapping.second.file_index * MAX_CHUNK_COUNT_PER_FILE + mapping.second.current_chunk_count;
-    json table_json = {{"table_name", mapping.first},
-                       {"file_name", mapping.second.file_name},
-                       {"file_count", mapping.second.file_index},
+    json table_json = {{"file_name", mapping.second.file_name},
+                       {"file_count", mapping.second.file_index + 1},
                        {"chunk_count", chunk_count},
                        {"column_count", static_cast<uint32_t>(table->column_count())}};
 
@@ -795,7 +794,7 @@ void StorageManager::_serialize_table_files_mapping() {
 
 void StorageManager::save_storage_json_to_disk() {
   _serialize_table_files_mapping();
-  std::ofstream output_file(_storage_json_path, std::ios::trunc);
+  std::ofstream output_file(_resources_path + _storage_json_name, std::ios::trunc);
   const auto json_serialized = std::string(_storage_json.dump(4));
   output_file << json_serialized;
   output_file.close();
@@ -819,23 +818,26 @@ std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_
 
 void StorageManager::_load_storage_data_from_disk() {
   // Read the JSON data from disk into a string
-  std::ifstream json_file(_storage_json_path);
+  std::ifstream json_file(_resources_path + _storage_json_name);
   _storage_json = json::parse(json_file);
 
   // Deserialize the JSON into the map
-  for (const auto& item : _storage_json) {
-    const auto name = std::string(item["table_name"]);
-    const auto file_name = std::string(item["file_name"]);
+
+  for (auto it = _storage_json.begin(); it != _storage_json.end(); ++it) {
+    const auto& table_name = it.key();
+    const auto item = it.value();
     const auto file_count = static_cast<uint32_t>(item["file_count"]);
+    const auto file_index = file_count - 1;
+    const auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
     const auto chunk_count = static_cast<uint32_t>(item["chunk_count"]) % MAX_CHUNK_COUNT_PER_FILE;
 
     Assert(chunk_count <= MAX_CHUNK_COUNT_PER_FILE, "Chunk count exceeds maximum chunk count per file.");
     PERSISTENCE_FILE_DATA data;
     data.file_name = file_name;
-    data.file_index = file_count;
+    data.file_index = file_index;
     data.current_chunk_count = chunk_count;
 
-    _tables_current_persistence_file_mapping.emplace(name, std::move(data));
+    _tables_current_persistence_file_mapping.emplace(table_name, std::move(data));
   }
 }
 }  // namespace hyrise
