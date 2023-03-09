@@ -134,6 +134,7 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   const auto storage_file = std::string{"resources/storage.json"};
   if (_benchmark_config->cache_binary_tables && std::filesystem::exists(storage_file)) {
     std::cout << "Found storage file, loading tables from there." << std::endl;
+    cold_start_used = true;
     return _load_binary_tables_from_json(storage_file);
   }
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.

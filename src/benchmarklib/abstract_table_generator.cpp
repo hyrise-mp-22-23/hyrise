@@ -316,7 +316,9 @@ void AbstractTableGenerator::generate_and_store() {
   // As last step after completing encoding etc.
   // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
-  persist_tables();
+  if (!cold_start_used) {
+    persist_tables();
+  }
 
 #ifdef __APPLE__
   auto return_val = system("purge");
