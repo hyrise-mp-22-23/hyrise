@@ -520,7 +520,6 @@ void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
-
   export_value(header.row_count, ofstream);
 
   for (const auto segment_offset_end : header.segment_offset_ends) {
@@ -591,7 +590,7 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
 }
 
 void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                                         const Table* table_address) {
+                                                        const Table* table_address) {
   const auto table_name = _get_table_name(table_address);
   Assert(!table_name.empty(), "Only tables registered with StorageManager can be persisted.");
   const auto table_persistence_file = _get_persistence_file_name(table_name);
