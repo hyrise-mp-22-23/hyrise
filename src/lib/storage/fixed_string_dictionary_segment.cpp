@@ -220,7 +220,10 @@ void FixedStringDictionarySegment<T>::serialize(std::ofstream& ofstream) const {
   StorageManager::export_value(static_cast<uint32_t>(this->fixed_string_dictionary()->size()), ofstream);
   StorageManager::export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
 
+  // When I tried to use the StorageManageres export_values() methods, Linker errors occured I was not able to solve.
   export_values(*this->fixed_string_dictionary(), ofstream);
+
+
   StorageManager::export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
 }
 
