@@ -350,6 +350,8 @@ void AbstractTableGenerator::generate_and_store() {
   // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
   persist_tables();
 
+
+  // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
 #ifdef __APPLE__
   auto return_val = system("purge");
   (void)return_val;
@@ -374,6 +376,8 @@ void AbstractTableGenerator::persist_tables() {
 }
 
 void AbstractTableGenerator::delete_binaries() {
+  // Currently, the binaries are named like the table names they save. When a file is complete, a counter at the end is
+  // incremented. Binaries from other benchmarks are missed in the following loop.
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     auto file_index = size_t{0};
     auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
