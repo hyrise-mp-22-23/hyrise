@@ -10,17 +10,6 @@
 #include "utils/performance_warning.hpp"
 #include "utils/size_estimation_utils.hpp"
 
-namespace {
-
-using namespace hyrise;  // NOLINT
-
-template <typename T>
-void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-}
-
-}  // namespace
-
 namespace hyrise {
 
 template <typename T>
@@ -234,9 +223,7 @@ void DictionarySegment<T>::serialize(std::ofstream& ofstream) const {
   // Ee need to ensure that every part can be mapped with a uint32_t map.
   StorageManager::export_value(static_cast<uint32_t>(dictionary()->size()), ofstream);
   StorageManager::export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
-
-  // When I tried to use the StorageManageres export_values() methods, Linker errors occured I was not able to solve.
-  export_values<T>(*dictionary(), ofstream);
+  StorageManager::export_values<T>(*dictionary(), ofstream);
 
   // TODO: What to do with non-compressed AttributeVectors?
   StorageManager::export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
