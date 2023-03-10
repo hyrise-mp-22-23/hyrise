@@ -17,6 +17,8 @@
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "types.hpp"
 
+// #include "storage/vector_compression/bitpacking/bitpacking_vector_type.hpp"
+
 namespace hyrise {
 
 class Table;
@@ -108,6 +110,22 @@ class StorageManager : public Noncopyable {
 
   static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
       const CompressedVectorType compressed_vector_type);
+
+  template <typename T>
+  static void export_value(const T& value, std::ofstream& ofstream);
+
+  static void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream);
+
+  static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::ofstream& ofstream);
+
+  template <typename T, typename Alloc>
+  static void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream);
+
+  template <typename T>
+  static void export_values(const std::span<const T>& data_span, std::ofstream& ofstream);
+
+  static void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream);
 
  protected:
   StorageManager() = default;

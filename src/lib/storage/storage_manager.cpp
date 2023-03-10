@@ -37,11 +37,6 @@ uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
  * Copied binary writing function from `binary_writer.cpp`
  */
 
-template <typename T>
-void export_value(const T& value, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
-}
-
 // not copied, own creation
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
   //yes, all modes are needed exactly like that to allow us to overwrite the first part of the file
@@ -51,46 +46,6 @@ void overwrite_header(const FILE_HEADER header, std::string file_name) {
   fstream.write(reinterpret_cast<const char*>(&header), sizeof(FILE_HEADER));
   fstream.close();
 }
-
-// template <typename T, typename Alloc>
-// void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
-//   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
-// }
-
-// template <typename T>
-// void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
-//   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-// }
-
-// void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
-//   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
-// }
-
-// needed for attribute vector which is stored in a compact manner
-// void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
-//   export_value(values.bits(), ofstream);
-//   ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-// }
-
-// void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-//                               std::ofstream& ofstream) {
-//   switch (type) {
-//     case CompressedVectorType::FixedWidthInteger4Byte:
-//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
-//       return;
-//     case CompressedVectorType::FixedWidthInteger2Byte:
-//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
-//       return;
-//     case CompressedVectorType::FixedWidthInteger1Byte:
-//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
-//       return;
-//     case CompressedVectorType::BitPacking:
-//       export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
-//       return;
-//     default:
-//       Fail("Any other type should have been caught before.");
-//   }
-// }
 
 uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
   const auto compressed_vector_type = attribute_vector->type();
@@ -174,6 +129,11 @@ uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompr
 }  // namespace
 
 namespace hyrise {
+
+template <typename T>
+void StorageManager::export_value(const T& value, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
 
 void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> table) {
   const auto table_iter = _tables.find(name);
@@ -733,6 +693,46 @@ PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_
       persisted_vector_type_id = PersistedSegmentEncodingType::Unencoded;
   }
   return persisted_vector_type_id;
+}
+
+// needed for attribute vector which is stored in a compact manner
+void StorageManager::export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
+  export_value(values.bits(), ofstream);
+  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+}
+
+void StorageManager::export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::ofstream& ofstream) {
+  switch (type) {
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::BitPacking:
+      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
+      return;
+    default:
+      Fail("Any other type should have been caught before.");
+  }
+}
+
+template <typename T, typename Alloc>
+void StorageManager::export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+}
+
+template <typename T>
+void StorageManager::export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
+}
+
+void StorageManager::export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
 }
 
 }  // namespace hyrise
