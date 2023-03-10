@@ -15,44 +15,8 @@ namespace {
 using namespace hyrise;  // NOLINT
 
 template <typename T>
-void export_value(const T& value, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
-}
-
-template <typename T>
 void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-}
-
-template <typename T, typename Alloc>
-void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
-}
-
-// needed for attribute vector which is stored in a compact manner
-void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
-  export_value(values.bits(), ofstream);
-  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-}
-
-void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream) {
-  switch (type) {
-    case CompressedVectorType::FixedWidthInteger4Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::FixedWidthInteger2Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::FixedWidthInteger1Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::BitPacking:
-      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
-      return;
-    default:
-      Fail("Any other type should have been caught before.");
-  }
 }
 
 }  // namespace
@@ -261,13 +225,14 @@ template <typename T>
 void DictionarySegment<T>::serialize(std::ofstream& ofstream) const {
   const auto compressed_vector_type_id =
       StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
-  export_value(static_cast<uint32_t>(dictionary()->size()), ofstream);
-  export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
+  StorageManager::export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+  StorageManager::export_value(static_cast<uint32_t>(dictionary()->size()), ofstream);
+  StorageManager::export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
 
-  // // we need to ensure that every part can be mapped with a uint32_t map
+  // When I tried to use the StorageManageres export_values() methods, Linker errors occured I was not able to solve.
   export_values<T>(*dictionary(), ofstream);
-  export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
+
+  StorageManager::export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
 }
 
 EXPLICITLY_INSTANTIATE_DATA_TYPES(DictionarySegment);
