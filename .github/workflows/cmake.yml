@@ -34,10 +34,15 @@ jobs:
             cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
             ./hyriseTest
 
-      - name: Run TPCH (SF 0.1)
+      - name: Run TPCH (SF 0.1) without caching
         run: |
-            cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
-            ./hyriseBenchmarkTPCH -r 1 -s 0.1
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+
+      - name: Run TPCH (SF 0.1) with caching
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1
     
   build-linux-clang:
     runs-on: ubuntu-22.04
@@ -69,11 +74,16 @@ jobs:
         run: |
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseTest
-      
-      - name: Run TPCH (SF 0.1)
+
+      - name: Run TPCH (SF 0.1) without caching
         run: |
-            cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-            ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+
+      - name: Run TPCH (SF 0.1) with caching
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1
 
   build-mac-clang:
     runs-on: macos-latest
@@ -85,7 +95,7 @@ jobs:
             git checkout ${GITHUB_REF#refs/heads/}
 
       - name: Install Dependencies
-        run: brew install llvm autoconf boost cmake coreutils dos2unix graphviz libpq ncurses parallel pkg-config postgresql readline sqlite3 tbb && brew install ninja
+        run: brew install llvm autoconf boost cmake coreutils dos2unix graphviz libpq ncurses nlohmann-json parallel pkg-config postgresql readline sqlite3 tbb && brew install ninja
 
       - name: Run Make with clang
         run: |
@@ -99,7 +109,13 @@ jobs:
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseTest
 
-      - name: Run TPCH (SF 0.1)
+      - name: Run TPCH (SF 0.1) without caching
         run: |
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+  
+      - name: Run TPCH (SF 0.1) with caching
+        run: |
+            cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+            ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+      

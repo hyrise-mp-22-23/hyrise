@@ -139,6 +139,10 @@ class StorageManager : public Noncopyable {
 
   void save_storage_json_to_disk();
 
+  uint32_t get_file_header_bytes() {
+    return _file_header_bytes;
+  }
+
  protected:
   friend class Hyrise;
 
