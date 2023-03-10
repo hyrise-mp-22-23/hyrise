@@ -36,12 +36,12 @@ jobs:
 
       - name: Run TPCH (SF 0.1) without caching
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1 
 
       - name: Run TPCH (SF 0.1) with caching
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1
     
   build-linux-clang:
