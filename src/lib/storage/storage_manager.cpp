@@ -57,10 +57,10 @@ void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream)
   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
 }
 
-template <typename T>
-void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-}
+// template <typename T>
+// void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
+//   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
+// }
 
 void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
@@ -468,7 +468,7 @@ template <typename T>
 void StorageManager::_write_fixed_string_dict_segment_to_disk(
     const std::shared_ptr<FixedStringDictionarySegment<T>> segment, std::ofstream& ofstream) const {
   const auto compressed_vector_type_id =
-      _resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+      resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
   export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
   export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), ofstream);
   export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), ofstream);
@@ -486,16 +486,18 @@ void StorageManager::_write_dict_segment_to_disk(const std::shared_ptr<Dictionar
    * For a description of how dictionary segments look, see the following PR:
    *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
    */
-  const auto compressed_vector_type_id =
-      _resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
-  export_value(static_cast<uint32_t>(segment->dictionary()->size()), ofstream);
-  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
+  // const auto compressed_vector_type_id =
+  //     resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+  // export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+  // export_value(static_cast<uint32_t>(segment->dictionary()->size()), ofstream);
+  // export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
 
-  // we need to ensure that every part can be mapped with a uint32_t map
-  export_values<T>(*segment->dictionary(), ofstream);
-  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
+  // // we need to ensure that every part can be mapped with a uint32_t map
+  // export_values<T>(*segment->dictionary(), ofstream);
+  // export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
   //TODO: What to do with non-compressed AttributeVectors?
+
+  segment->serialize(ofstream);
 }
 
 void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
@@ -709,8 +711,8 @@ uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) const {
   return _row_count_bytes + column_count * _segment_offset_bytes;
 }
 
-PersistedSegmentEncodingType StorageManager::_resolve_persisted_segment_encoding_type_from_compression_type(
-    CompressedVectorType compressed_vector_type) const {
+PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(
+    CompressedVectorType compressed_vector_type) {
   PersistedSegmentEncodingType persisted_vector_type_id = {};
   switch (compressed_vector_type) {
     case CompressedVectorType::FixedWidthInteger4Byte:

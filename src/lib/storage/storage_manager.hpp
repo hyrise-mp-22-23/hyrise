@@ -106,6 +106,9 @@ class StorageManager : public Noncopyable {
   void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
                                           const Table* table_address);
 
+  static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
+      const CompressedVectorType compressed_vector_type);
+
  protected:
   StorageManager() = default;
   friend class Hyrise;
@@ -143,7 +146,6 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
- private:
   CHUNK_HEADER _read_chunk_header(const std::byte* map, const uint32_t segment_count,
                                   const uint32_t chunk_offset_begin) const;
 
@@ -173,9 +175,6 @@ class StorageManager : public Noncopyable {
   std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
                                               const std::string& filename, const uint32_t segment_count,
                                               const std::vector<DataType>& column_definitions) const;
-
-  PersistedSegmentEncodingType _resolve_persisted_segment_encoding_type_from_compression_type(
-      const CompressedVectorType compressed_vector_type) const;
 
   std::string _get_table_name(const Table* address) const;
 };
