@@ -80,7 +80,7 @@ FixedStringDictionarySegment<T>::FixedStringDictionarySegment(const std::byte* s
       break;
     }
     default: {
-      Fail("Unsupported EncodingType.");
+      std::cout << "Muell Daten!!" << std::endl;
       break;
     }
   }
