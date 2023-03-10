@@ -50,5 +50,7 @@ class BaseDictionarySegment : public AbstractEncodedSegment {
    * @brief Returns encoding specific null value ID
    */
   virtual ValueID null_value_id() const = 0;
+
+  virtual void serialize(std::ofstream& ofstream) const = 0;
 };
 }  // namespace hyrise

@@ -181,8 +181,6 @@ class StorageManager : public Noncopyable {
   void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
                             std::ofstream& ofstream) const;
 
-  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, std::ofstream& ofstream) const;
-
   uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
   const std::string _get_persistence_file_name(const std::string& table_name);

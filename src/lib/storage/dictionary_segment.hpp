@@ -88,7 +88,7 @@ class DictionarySegment : public BaseDictionarySegment {
 
   ValueID null_value_id() const final;
 
-  void serialize(std::ofstream& ofstream) const;
+  void serialize(std::ofstream& ofstream) const final;
 
   /**@}*/
 

@@ -419,21 +419,6 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
   return segment_offset_ends;
 }
 
-void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
-                                            std::ofstream& ofstream) const {
-  resolve_data_type(abstract_segment->data_type(), [&](auto type) {
-    using ColumnDataType = typename decltype(type)::type;
-    if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
-      const auto fixed_string_dict_segment =
-          dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
-      fixed_string_dict_segment->serialize(ofstream);
-    } else {
-      const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
-      dict_segment->serialize(ofstream);
-    }
-  });
-}
-
 void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
                                           const std::vector<uint32_t>& segment_offset_ends,
                                           std::ofstream& ofstream) const {
@@ -450,7 +435,8 @@ void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
   const auto segment_count = chunk->column_count();
   for (auto segment_index = ColumnID{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(segment_index);
-    _write_segment_to_disk(abstract_segment, ofstream);
+    const auto base_dictionary_segment = dynamic_pointer_cast<BaseDictionarySegment>(abstract_segment);
+    base_dictionary_segment->serialize(ofstream);
   }
 }
 
