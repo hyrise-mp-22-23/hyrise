@@ -114,8 +114,6 @@ class StorageManager : public Noncopyable {
   template <typename T>
   static void export_value(const T& value, std::ofstream& ofstream);
 
-  static void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream);
-
   static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
                               std::ofstream& ofstream);
 

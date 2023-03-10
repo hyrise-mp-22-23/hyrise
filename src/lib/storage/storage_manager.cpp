@@ -695,12 +695,6 @@ PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_
   return persisted_vector_type_id;
 }
 
-// needed for attribute vector which is stored in a compact manner
-void StorageManager::export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
-  export_value(values.bits(), ofstream);
-  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-}
-
 void StorageManager::export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
                               std::ofstream& ofstream) {
   switch (type) {
@@ -714,8 +708,7 @@ void StorageManager::export_compressed_vector(const CompressedVectorType type, c
       export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
       return;
     case CompressedVectorType::BitPacking:
-      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
-      return;
+      Fail("BitPacking not supported.");
     default:
       Fail("Any other type should have been caught before.");
   }
