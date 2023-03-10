@@ -155,18 +155,16 @@ class StorageManager : public Noncopyable {
                                                        const std::string& file_name) const;
 
   template <typename T>
-  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
-                                   const std::string& file_name) const;
+  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment, std::ofstream& ofstream) const;
 
   template <typename T>
   void _write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
-                                                const std::string& file_name) const;
+                                                std::ofstream& ofstream) const;
 
   void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
-                            const std::string& file_name) const;
+                            std::ofstream& ofstream) const;
 
-  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
-                              const std::string& file_name) const;
+  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment, std::ofstream& ofstream) const;
 
   uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
