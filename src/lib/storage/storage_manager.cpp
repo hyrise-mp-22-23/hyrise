@@ -52,45 +52,45 @@ void overwrite_header(const FILE_HEADER header, std::string file_name) {
   fstream.close();
 }
 
-template <typename T, typename Alloc>
-void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
-}
+// template <typename T, typename Alloc>
+// void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
+//   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+// }
 
 // template <typename T>
 // void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
 //   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
 // }
 
-void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
-}
+// void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
+//   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
+// }
 
 // needed for attribute vector which is stored in a compact manner
-void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
-  export_value(values.bits(), ofstream);
-  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-}
+// void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
+//   export_value(values.bits(), ofstream);
+//   ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+// }
 
-void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream) {
-  switch (type) {
-    case CompressedVectorType::FixedWidthInteger4Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::FixedWidthInteger2Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::FixedWidthInteger1Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
-      return;
-    case CompressedVectorType::BitPacking:
-      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
-      return;
-    default:
-      Fail("Any other type should have been caught before.");
-  }
-}
+// void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+//                               std::ofstream& ofstream) {
+//   switch (type) {
+//     case CompressedVectorType::FixedWidthInteger4Byte:
+//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
+//       return;
+//     case CompressedVectorType::FixedWidthInteger2Byte:
+//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
+//       return;
+//     case CompressedVectorType::FixedWidthInteger1Byte:
+//       export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
+//       return;
+//     case CompressedVectorType::BitPacking:
+//       export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
+//       return;
+//     default:
+//       Fail("Any other type should have been caught before.");
+//   }
+// }
 
 uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
   const auto compressed_vector_type = attribute_vector->type();
@@ -467,16 +467,18 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
 template <typename T>
 void StorageManager::_write_fixed_string_dict_segment_to_disk(
     const std::shared_ptr<FixedStringDictionarySegment<T>> segment, std::ofstream& ofstream) const {
-  const auto compressed_vector_type_id =
-      resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
-  export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), ofstream);
-  export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), ofstream);
-  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
+  // const auto compressed_vector_type_id =
+  //     resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
+  // export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+  // export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), ofstream);
+  // export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), ofstream);
+  // export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
 
-  export_values(*segment->fixed_string_dictionary(), ofstream);
-  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
+  // export_values(*segment->fixed_string_dictionary(), ofstream);
+  // export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
   //TODO: What to do with non-compressed AttributeVectors?
+
+  segment->serialize(ofstream);
 }
 
 template <typename T>

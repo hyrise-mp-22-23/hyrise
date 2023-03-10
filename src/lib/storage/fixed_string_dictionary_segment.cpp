@@ -10,6 +10,52 @@
 #include "utils/assert.hpp"
 #include "utils/performance_warning.hpp"
 
+namespace {
+
+using namespace hyrise;  // NOLINT
+
+template <typename T>
+void export_value(const T& value, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
+}
+
+template <typename T, typename Alloc>
+void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+}
+
+// needed for attribute vector which is stored in a compact manner
+void export_compact_vector(const pmr_compact_vector& values, std::ofstream& ofstream) {
+  export_value(values.bits(), ofstream);
+  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
+}
+
+void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::ofstream& ofstream) {
+  switch (type) {
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::BitPacking:
+      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), ofstream);
+      return;
+    default:
+      Fail("Any other type should have been caught before.");
+  }
+}
+
+}  // namespace
+
 namespace hyrise {
 
 template <typename T>
@@ -199,6 +245,19 @@ std::shared_ptr<const BaseCompressedVector> FixedStringDictionarySegment<T>::att
 template <typename T>
 ValueID FixedStringDictionarySegment<T>::null_value_id() const {
   return ValueID{static_cast<ValueID::base_type>(_dictionary->size())};
+}
+
+template <typename T>
+void FixedStringDictionarySegment<T>::serialize(std::ofstream& ofstream) const {
+  const auto compressed_vector_type_id =
+      StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(compressed_vector_type().value());
+  export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+  export_value(static_cast<uint32_t>(this->fixed_string_dictionary()->string_length()), ofstream);
+  export_value(static_cast<uint32_t>(this->fixed_string_dictionary()->size()), ofstream);
+  export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
+
+  export_values(*this->fixed_string_dictionary(), ofstream);
+  export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
 }
 
 template class FixedStringDictionarySegment<pmr_string>;
