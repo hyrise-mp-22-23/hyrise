@@ -557,7 +557,7 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
     auto chunk_offset_end = chunk_segment_offset_ends.back();
 
     // adapt and rewrite file header
-    FILE_HEADER file_header = _read_file_header(file_path);
+    FILE_HEADER file_header = _read_file_header(file_name);
     const auto file_header_previous_chunk_count = file_header.chunk_count;
     const auto file_prev_chunk_end_offset = file_header.chunk_offset_ends[file_header_previous_chunk_count - 1];
 
@@ -771,8 +771,7 @@ void StorageManager::_serialize_table_files_mapping() {
     const auto table = get_table(mapping.first);
     const auto column_count = table->column_count();
     const auto chunk_count = mapping.second.file_index * MAX_CHUNK_COUNT_PER_FILE + mapping.second.current_chunk_count;
-    json table_json = {{"file_name", mapping.second.file_name},
-                       {"file_count", mapping.second.file_index + 1},
+    json table_json = {{"file_count", mapping.second.file_index + 1},
                        {"chunk_count", chunk_count},
                        {"column_count", static_cast<uint32_t>(table->column_count())}};
 

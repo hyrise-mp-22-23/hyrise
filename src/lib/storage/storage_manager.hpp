@@ -150,7 +150,7 @@ class StorageManager : public Noncopyable {
     }
   }
 
-  std::string _resources_path = "./resources/";
+  std::string _resources_path = "resources/";
   std::string _storage_json_name = "storage.json";
   nlohmann::json _storage_json;
 

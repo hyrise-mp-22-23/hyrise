@@ -130,7 +130,8 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
     return _load_binary_tables_from_path(cache_directory);
   }*/
-  const auto cache_directory = std::string{"tpch_persisted_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
+  const auto cache_directory =
+      std::string{"resources/tpch_persisted_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
   const auto storage_file = std::string{"resources/storage.json"};
   if (_benchmark_config->cache_binary_tables && std::filesystem::exists(storage_file)) {
     std::cout << "Found storage file, loading tables from there." << std::endl;
