@@ -424,44 +424,6 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
   return segment_offset_ends;
 }
 
-template <typename T>
-void StorageManager::_write_fixed_string_dict_segment_to_disk(
-    const std::shared_ptr<FixedStringDictionarySegment<T>> segment, std::ofstream& ofstream) const {
-  // const auto compressed_vector_type_id =
-  //     resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  // export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
-  // export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), ofstream);
-  // export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), ofstream);
-  // export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
-
-  // export_values(*segment->fixed_string_dictionary(), ofstream);
-  // export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
-  //TODO: What to do with non-compressed AttributeVectors?
-
-  segment->serialize(ofstream);
-}
-
-template <typename T>
-void StorageManager::_write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
-                                                 std::ofstream& ofstream) const {
-  /*
-   * For a description of how dictionary segments look, see the following PR:
-   *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
-   */
-  // const auto compressed_vector_type_id =
-  //     resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  // export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
-  // export_value(static_cast<uint32_t>(segment->dictionary()->size()), ofstream);
-  // export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), ofstream);
-
-  // // we need to ensure that every part can be mapped with a uint32_t map
-  // export_values<T>(*segment->dictionary(), ofstream);
-  // export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), ofstream);
-  //TODO: What to do with non-compressed AttributeVectors?
-
-  segment->serialize(ofstream);
-}
-
 void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
                                             std::ofstream& ofstream) const {
   resolve_data_type(abstract_segment->data_type(), [&](auto type) {
@@ -469,10 +431,10 @@ void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegmen
     if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
       const auto fixed_string_dict_segment =
           dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_fixed_string_dict_segment_to_disk(fixed_string_dict_segment, ofstream);
+      fixed_string_dict_segment->serialize(ofstream);
     } else {
       const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_dict_segment_to_disk(dict_segment, ofstream);
+      dict_segment->serialize(ofstream);
     }
   });
 }

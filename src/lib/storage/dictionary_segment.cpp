@@ -223,15 +223,22 @@ ValueID DictionarySegment<T>::null_value_id() const {
 
 template <typename T>
 void DictionarySegment<T>::serialize(std::ofstream& ofstream) const {
+  /*
+   * For a description of how dictionary segments look, see the following PR:
+   *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
+   */
   const auto compressed_vector_type_id =
       StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(compressed_vector_type().value());
   StorageManager::export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+
+  // Ee need to ensure that every part can be mapped with a uint32_t map.
   StorageManager::export_value(static_cast<uint32_t>(dictionary()->size()), ofstream);
   StorageManager::export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
 
   // When I tried to use the StorageManageres export_values() methods, Linker errors occured I was not able to solve.
   export_values<T>(*dictionary(), ofstream);
 
+  // TODO: What to do with non-compressed AttributeVectors?
   StorageManager::export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
 }
 
