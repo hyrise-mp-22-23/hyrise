@@ -329,39 +329,48 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQU
 }
 #endif
 
+static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
+  const std::vector<uint32_t> parameters = {10000, 100000};
+  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+
+  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
+    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
+      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
+}
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_SEQUENTIAL)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_SEQUENTIAL_OLD)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {0}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 #endif
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, MMAP_ATOMIC_MAP_SHARED_RANDOM)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, UMAP_ATOMIC_MAP_PRIVATE_RANDOM_OLD)
-    ->ArgsProduct({{10000, 100000}, {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64}, {1}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 #endif
 
