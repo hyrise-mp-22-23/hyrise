@@ -98,6 +98,8 @@ std::shared_ptr<MvccData> Chunk::mvcc_data() const {
   return _mvcc_data;
 }
 
+// Because there can not be Chunks without MVCC data and MVCC is not considered in our mmap mode implementation, we
+// need this method to set dummy MVCC data for chunks.
 void Chunk::set_mvcc_data(std::shared_ptr<MvccData> mvcc_data) {
   _mvcc_data = mvcc_data;
 }

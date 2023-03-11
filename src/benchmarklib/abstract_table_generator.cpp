@@ -344,10 +344,8 @@ void AbstractTableGenerator::generate_and_store() {
 
   _table_info_by_name = table_info_by_name;
 
-  // Persist tables
-  // As last step after completing encoding etc.
-  // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
-  // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
+  // This is the last step after encodings were applied and statistics were generated.
+  // TODO(anyone): Implement the ability to persist on an individual chunk basis.
   persist_tables();
 
 

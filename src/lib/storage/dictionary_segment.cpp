@@ -21,10 +21,10 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const pmr_vector<T
           std::make_shared<std::span<const T>>(_dictionary_base_vector->data(), _dictionary_base_vector->size())},
       _attribute_vector{attribute_vector},
       _decompressor{_attribute_vector->create_base_decompressor()} {
-  // NULL is represented by _dictionary_base_vector.size(). INVALID_VALUE_ID, which is the highest possible number in
+  // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
   // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
-  Assert(_dictionary_base_vector->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
+  Assert(_dictionary->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");
 }
 
 template <typename T>
@@ -35,7 +35,7 @@ DictionarySegment<T>::DictionarySegment(const std::shared_ptr<const std::span<co
       _dictionary{dictionary},
       _attribute_vector{attribute_vector},
       _decompressor{_attribute_vector->create_base_decompressor()} {
-  // NULL is represented by _dictionary_base_vector.size(). INVALID_VALUE_ID, which is the highest possible number in
+  // NULL is represented by _dictionary.size(). INVALID_VALUE_ID, which is the highest possible number in
   // ValueID::base_type (2^32 - 1), is needed to represent "value not found" in calls to lower_bound/upper_bound.
   // For a DictionarySegment of the max size Chunk::MAX_SIZE, those two values overlap.
   Assert(_dictionary->size() < std::numeric_limits<ValueID::base_type>::max(), "Input segment too big");

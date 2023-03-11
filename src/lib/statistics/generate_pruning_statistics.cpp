@@ -63,6 +63,8 @@ void generate_chunk_pruning_statistics(const std::shared_ptr<Chunk>& chunk) {
       if constexpr (std::is_same_v<SegmentType, DictionarySegment<ColumnDataType>>) {
         // we can use the fact that dictionary segments have an accessor for the dictionary
         const auto& dictionary = *typed_segment.dictionary();
+        // DictionarySements use std::spans now, but this method still requires a std::vector. Because of this, we
+        // create a vector with the content of the span.
         pmr_vector<ColumnDataType> dictionary_vector{dictionary.begin(), dictionary.end()};
         create_pruning_statistics_for_segment(*segment_statistics, dictionary_vector);
       } else {
