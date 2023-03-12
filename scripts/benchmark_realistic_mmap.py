@@ -1,9 +1,11 @@
 import subprocess
 import itertools
 import math
+import os
 
 num_cores = [1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64]
 for num_core, do_warmup in itertools.product(num_cores, [True, False]):
+    os.system("sudo rm -rf *.bin")
     print(num_core, do_warmup)
     benchmark_command = [
         'numactl',
