@@ -125,19 +125,31 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   Assert(_scale_factor < 1.0f || std::round(_scale_factor) == _scale_factor,
          "Due to tpch_dbgen limitations, only scale factors less than one can have a fractional part.");
 
-  /*
   const auto cache_directory = std::string{"tpch_cached_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
-  if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
-    return _load_binary_tables_from_path(cache_directory);
-  }*/
-  const auto cache_directory =
-      std::string{"resources/tpch_persisted_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
+
+  // Quick & dirty acces to the old and new way of reading cached data. Only for debug purposes.
+  const auto old_way = true;
+
+  if (old_way && _benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
+    auto start = std::chrono::high_resolution_clock::now();
+    auto result = _load_binary_tables_from_path(cache_directory);
+    auto stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Start: " << start.time_since_epoch().count() << " Stop: " << stop.time_since_epoch().count() << std::endl;
+    return result;
+  }
+
+
   const auto storage_file = std::string{"resources/storage.json"};
-  if (_benchmark_config->cache_binary_tables && std::filesystem::exists(storage_file)) {
+  if (!old_way && _benchmark_config->cache_binary_tables && std::filesystem::exists(storage_file)) {
     std::cout << "Found storage file, loading tables from there." << std::endl;
     cold_start_used = true;
-    return _load_binary_tables_from_json(storage_file);
+    auto start = std::chrono::high_resolution_clock::now();
+    auto result = _load_binary_tables_from_json(storage_file);
+    auto stop = std::chrono::high_resolution_clock::now();
+    std::cout << " Start: " << start.time_since_epoch().count() << " Stop: " << stop.time_since_epoch().count() << std::endl;
+    return result;
   }
+
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.
   dbgen_reset_seeds();
   dbgen_init_scale_factor(_scale_factor);

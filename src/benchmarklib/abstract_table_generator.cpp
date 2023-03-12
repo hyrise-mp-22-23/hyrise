@@ -237,6 +237,41 @@ void AbstractTableGenerator::generate_and_store() {
    * (Removed by Robert Richter @ 2023-03-08).
    */
 
+  if (_benchmark_config->cache_binary_tables) {
+    for (auto& [table_name, table_info] : table_info_by_name) {
+      const auto& table = table_info.table;
+      if (table->chunk_count() > 1 && table->get_chunk(ChunkID{0})->size() != _benchmark_config->chunk_size) {
+        Fail("Table '" + table_name + "' was loaded from binary, but has a mismatching chunk size of " +
+             std::to_string(table->get_chunk(ChunkID{0})->size()) +
+             ". Delete cached files or use '--dont_cache_binary_tables'.");
+      }
+    }
+
+    std::cout << "- Writing tables into binary files if necessary" << std::endl;
+
+    for (auto& [table_name, table_info] : table_info_by_name) {
+      if (table_info.loaded_from_binary && !table_info.re_encoded && !table_info.binary_file_out_of_date) {
+        continue;
+      }
+
+      auto binary_file_path = std::filesystem::path{};
+      if (table_info.binary_file_path) {
+        binary_file_path = *table_info.binary_file_path;
+      } else {
+        binary_file_path = *table_info.text_file_path;
+        binary_file_path.replace_extension(".bin");
+      }
+
+      std::cout << "-  Writing '" << table_name << "' into binary file " << binary_file_path << " " << std::flush;
+      Timer per_table_timer;
+      BinaryWriter::write(*table_info.table, binary_file_path);
+      std::cout << "(" << per_table_timer.lap_formatted() << ")" << std::endl;
+    }
+    metrics.binary_caching_duration = timer.lap();
+    std::cout << "- Writing tables into binary files done (" << format_duration(metrics.binary_caching_duration) << ")"
+              << std::endl;
+  }
+
   /**
    * Add the Tables to the StorageManager
    */
