@@ -154,8 +154,6 @@ void BenchmarkRunner::run() {
     }
   }
 
-  //_table_generator->delete_binaries();
-
   // Fail if verification against SQLite was requested and failed
   if (_config.verify) {
     auto any_verification_failed = false;

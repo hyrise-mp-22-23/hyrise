@@ -7,7 +7,7 @@
 namespace hyrise {
 
 class StorageManagerTestUtil {
- /*
+  /*
  public:
 
   static std::shared_ptr<Chunk> create_dictionary_segment_chunk(const uint32_t row_count, const uint32_t column_count) {

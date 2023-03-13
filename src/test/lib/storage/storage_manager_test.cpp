@@ -45,7 +45,7 @@ class StorageManagerTest : public BaseTest {
   }
 
   const uint32_t file_header_bytes = StorageManager::_file_header_bytes;
-/*
+  /*
   FILE_HEADER _read_file_header(const std::string& filename) {
     return Hyrise::get().storage_manager._read_file_header(filename);
   }

@@ -134,6 +134,7 @@ class StorageManager : public Noncopyable {
   }
 
   tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
+    _load_storage_data_from_disk();
     return _tables_current_persistence_file_mapping;
   }
 
@@ -143,19 +144,18 @@ class StorageManager : public Noncopyable {
     return _file_header_bytes;
   }
 
+  void set_cache_directory(std::string cache_dir) {
+    _cache_directory = cache_dir;
+  }
+
  protected:
   friend class Hyrise;
 
-  StorageManager() {
-    std::ifstream const json_file(_resources_path + _storage_json_name);
-    // If the file exists, load the contents into the json object.
-    if (json_file.good()) {
-      _load_storage_data_from_disk();
-    }
-  }
+  StorageManager() = default;
 
-  std::string _resources_path = "resources/";
+  std::string _cache_directory;
   std::string _storage_json_name = "storage.json";
+
   nlohmann::json _storage_json;
 
   // We preallocate maps to prevent costly re-allocation.
@@ -229,8 +229,8 @@ class StorageManager : public Noncopyable {
 
   std::string _get_table_name(const Table* address) const;
 
-  void _load_storage_data_from_disk();
   void _serialize_table_files_mapping();
+  void _load_storage_data_from_disk();
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

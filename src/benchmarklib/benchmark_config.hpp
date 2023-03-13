@@ -44,6 +44,7 @@ class BenchmarkConfig {
   bool enable_visualization = false;
   bool verify = false;
   bool cache_binary_tables = false;  // Defaults to false for internal use, but the CLI sets it to true by default
+  bool use_storage_json = false;
   bool metrics = false;
 
  private:

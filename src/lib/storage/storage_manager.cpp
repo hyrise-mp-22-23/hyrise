@@ -14,6 +14,7 @@
 #include "hyrise.hpp"
 #include "import_export/binary/binary_writer.hpp"
 #include "import_export/file_type.hpp"
+#include "magic_enum.hpp"
 #include "operators/export.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
@@ -549,7 +550,7 @@ void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
 std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::shared_ptr<Chunk> chunk,
                                                                      ChunkID chunk_id,
                                                                      const std::string& file_name) const {
-  const auto file_path = _resources_path + file_name;
+  const auto file_path = _cache_directory + file_name;
   if (std::filesystem::exists(file_path)) {
     //append to existing file
 
@@ -659,7 +660,7 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
-  Assert((fd = open((_resources_path + filename).c_str(), O_RDONLY)) >= 0, "Open error");
+  Assert((fd = open((_cache_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
   auto* persisted_header =
       reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
@@ -700,7 +701,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
                                                             const std::vector<DataType>& column_definitions) const {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   auto fd = int32_t{};
-  Assert((fd = open((_resources_path + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+  Assert((fd = open((_cache_directory + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
 
   //Calls to mmap need to be pagesize-aligned
   const auto pagesize = getpagesize();
@@ -780,7 +781,7 @@ void StorageManager::_serialize_table_files_mapping() {
     for (auto index = size_t{0}; index < column_count; ++index) {
       const json column_object = {
           {"column_name", column_definitions[index].name},
-          {"data_type", column_definitions[index].data_type},
+          {"data_type", magic_enum::enum_name(column_definitions[index].data_type)},
           {"nullable", column_definitions[index].nullable},
       };
       columns_json.push_back(column_object);
@@ -793,8 +794,8 @@ void StorageManager::_serialize_table_files_mapping() {
 
 void StorageManager::save_storage_json_to_disk() {
   _serialize_table_files_mapping();
-  std::ofstream output_file(_resources_path + _storage_json_name, std::ios::trunc);
-  const auto json_serialized = std::string(_storage_json.dump(4));
+  std::ofstream output_file(_cache_directory + _storage_json_name, std::ios::trunc);
+  const auto json_serialized = _storage_json.dump(4);
   output_file << json_serialized;
   output_file.close();
 }
@@ -807,8 +808,9 @@ std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_
 
   for (auto index = size_t{0}; index < table_json["columns"].size(); ++index) {
     const auto column = table_json["columns"][index];
+    const auto data_type = magic_enum::enum_cast<DataType>(std::string(column["data_type"]));
     const auto table_column_definition =
-        TableColumnDefinition(column["column_name"], column["data_type"], column["nullable"]);
+        TableColumnDefinition(column["column_name"], data_type.value(), column["nullable"]);
     table_column_definitions[index] = table_column_definition;
   }
 
@@ -817,11 +819,10 @@ std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_
 
 void StorageManager::_load_storage_data_from_disk() {
   // Read the JSON data from disk into a string
-  std::ifstream json_file(_resources_path + _storage_json_name);
+  std::ifstream json_file(_cache_directory + _storage_json_name);
   _storage_json = json::parse(json_file);
 
   // Deserialize the JSON into the map
-
   for (auto it = _storage_json.begin(); it != _storage_json.end(); ++it) {
     const auto& table_name = it.key();
     const auto item = it.value();

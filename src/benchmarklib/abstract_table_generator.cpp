@@ -1,3 +1,6 @@
+#include <filesystem>
+#include <iostream>
+
 #include "abstract_table_generator.hpp"
 
 #include "benchmark_config.hpp"
@@ -234,10 +237,9 @@ void AbstractTableGenerator::generate_and_store() {
 
   /**
    * Write the Tables into binary files if required
-   * (Removed by Robert Richter @ 2023-03-08).
    */
 
-  if (_benchmark_config->cache_binary_tables) {
+  if (_benchmark_config->cache_binary_tables && !_benchmark_config->use_storage_json) {
     for (auto& [table_name, table_info] : table_info_by_name) {
       const auto& table = table_info.table;
       if (table->chunk_count() > 1 && table->get_chunk(ChunkID{0})->size() != _benchmark_config->chunk_size) {
@@ -343,12 +345,27 @@ void AbstractTableGenerator::generate_and_store() {
 
   _table_info_by_name = table_info_by_name;
 
-  // Persist tables
-  // As last step after completing encoding etc.
-  // As we will later persist on chunk basis, this implementation iterates over all chunks and persists them
-  // This is a short-cut for a proof of concept of running benchmarks with persisted chunks
-  if (!cold_start_used) {
-    persist_tables();
+  /**
+   * Persist the tables in binary files if we want to use the new file format
+   * and the cached tables are not already mmap-based.
+   * The tables will have chunks whose data will be managed by the Storage Manager.
+   */
+  if (_benchmark_config->use_storage_json) {
+    auto& storage_manager = Hyrise::get().storage_manager;
+    const auto cache_directory = _table_info_by_name.begin()->second.binary_file_path->parent_path().string() + "/";
+    storage_manager.set_cache_directory(cache_directory);
+
+    std::filesystem::directory_iterator dir_iter(cache_directory);
+    auto files_present = false;
+    for (const auto& entry : dir_iter) {
+      if (entry.is_regular_file()) {
+        files_present = true;
+        break;
+      }
+    }
+    if (!files_present)
+      persist_tables();
+    storage_manager.save_storage_json_to_disk();
   }
 
 #ifdef __APPLE__
@@ -365,27 +382,9 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
-  // Delete possibly left over binaries.
-  delete_binaries();
-
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     const auto& table = table_info.table;
     table->persist();
-  }
-  auto& storage_manager = Hyrise::get().storage_manager;
-  storage_manager.save_storage_json_to_disk();
-}
-
-void AbstractTableGenerator::delete_binaries() {
-  for (const auto& [table_name, table_info] : _table_info_by_name) {
-    auto file_index = size_t{0};
-    auto file_name = "resources/" + table_name + "_" + std::to_string(file_index) + ".bin";
-
-    while (std::filesystem::exists(file_name)) {
-      std::filesystem::remove(file_name);
-      ++file_index;
-      file_name = table_name + "_" + std::to_string(file_index) + ".bin";
-    }
   }
 }
 
@@ -450,9 +449,10 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
 }
 
 std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json(
-    const std::string& storage_file) {
+    const std::string& cache_directory) {
   std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
   auto& storage_manager = Hyrise::get().storage_manager;
+  storage_manager.set_cache_directory(cache_directory);
   const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
 
   for (const auto& mapping : tables_files_mapping) {
@@ -474,7 +474,7 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
       file_name = table_name + "_" + std::to_string(index) + ".bin";
 
       auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
-      for (auto chunk : chunks) {
+      for (const auto& chunk : chunks) {
         // Set mvcc data to 0
         auto mvcc_data = std::make_shared<MvccData>(chunk->size(), CommitID{0});
         chunk->set_mvcc_data(mvcc_data);
