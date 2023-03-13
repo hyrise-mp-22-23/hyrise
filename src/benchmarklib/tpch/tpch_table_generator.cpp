@@ -128,7 +128,7 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   const auto cache_directory = std::string{"tpch_cached_tables/sf-"} + std::to_string(_scale_factor);  // NOLINT
 
   // Quick & dirty acces to the old and new way of reading cached data. Only for debug purposes.
-  const auto old_way = true;
+  const auto old_way = false;
 
   if (old_way && _benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
     auto start = std::chrono::high_resolution_clock::now();
@@ -306,7 +306,7 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   table_info_by_name["region"].table = region_table;
 
   if (_benchmark_config->cache_binary_tables) {
-    //std::filesystem::create_directories(cache_directory);
+    std::filesystem::create_directories(cache_directory);
     for (auto& [table_name, table_info] : table_info_by_name) {
       table_info.binary_file_path = cache_directory + "/" + table_name + ".bin";  // NOLINT
     }

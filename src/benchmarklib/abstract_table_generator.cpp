@@ -246,14 +246,11 @@ void AbstractTableGenerator::generate_and_store() {
              ". Delete cached files or use '--dont_cache_binary_tables'.");
       }
     }
-
     std::cout << "- Writing tables into binary files if necessary" << std::endl;
-
     for (auto& [table_name, table_info] : table_info_by_name) {
       if (table_info.loaded_from_binary && !table_info.re_encoded && !table_info.binary_file_out_of_date) {
         continue;
       }
-
       auto binary_file_path = std::filesystem::path{};
       if (table_info.binary_file_path) {
         binary_file_path = *table_info.binary_file_path;
@@ -261,7 +258,6 @@ void AbstractTableGenerator::generate_and_store() {
         binary_file_path = *table_info.text_file_path;
         binary_file_path.replace_extension(".bin");
       }
-
       std::cout << "-  Writing '" << table_name << "' into binary file " << binary_file_path << " " << std::flush;
       Timer per_table_timer;
       BinaryWriter::write(*table_info.table, binary_file_path);
