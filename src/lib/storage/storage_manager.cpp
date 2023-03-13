@@ -41,13 +41,6 @@ uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
  * Copied binary writing function from `binary_writer.cpp`
  */
 
-template <typename T>
-void export_value(const T& value, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
-  ofstream.close();
-}
-
 // not copied, own creation
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
   //yes, all modes are needed exactly like that to allow us to overwrite the first part of the file
@@ -56,54 +49,6 @@ void overwrite_header(const FILE_HEADER header, std::string file_name) {
   fstream.seekp(0, std::ios_base::beg);
   fstream.write(reinterpret_cast<const char*>(&header), sizeof(FILE_HEADER));
   fstream.close();
-}
-
-template <typename T, typename Alloc>
-void export_values(const std::vector<T, Alloc>& values, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
-  ofstream.close();
-}
-
-template <typename T>
-void export_values(const std::span<const T>& data_span, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-  ofstream.close();
-}
-
-void export_values(const FixedStringSpan& data_span, std::string file_name) {
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
-  ofstream.close();
-}
-
-// needed for attribute vector which is stored in a compact manner
-void export_compact_vector(const pmr_compact_vector& values, std::string file_name) {
-  export_value(values.bits(), file_name);
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
-  ofstream.write(reinterpret_cast<const char*>(values.get()), static_cast<int64_t>(values.bytes()));
-  ofstream.close();
-}
-
-void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::string file_name) {
-  switch (type) {
-    case CompressedVectorType::FixedWidthInteger4Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::FixedWidthInteger2Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::FixedWidthInteger1Byte:
-      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), file_name);
-      return;
-    case CompressedVectorType::BitPacking:
-      export_compact_vector(dynamic_cast<const BitPackingVector&>(compressed_vector).data(), file_name);
-      return;
-    default:
-      Fail("Any other type should have been caught before.");
-  }
 }
 
 uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompressedVector> attribute_vector) {
@@ -478,72 +423,24 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
   return segment_offset_ends;
 }
 
-template <typename T>
-void StorageManager::_write_fixed_string_dict_segment_to_disk(
-    const std::shared_ptr<FixedStringDictionarySegment<T>> segment, const std::string& file_name) const {
-  const auto compressed_vector_type_id =
-      _resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), file_name);
-  export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->string_length()), file_name);
-  export_value(static_cast<uint32_t>(segment->fixed_string_dictionary()->size()), file_name);
-  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_name);
-
-  export_values(*segment->fixed_string_dictionary(), file_name);
-  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_name);
-  //TODO: What to do with non-compressed AttributeVectors?
-}
-
-template <typename T>
-void StorageManager::_write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
-                                                 const std::string& file_path) const {
-  /*
-   * For a description of how dictionary segments look, see the following PR:
-   *    https://github.com/hyrise-mp-22-23/hyrise/pull/94
-   */
-  const auto compressed_vector_type_id =
-      _resolve_persisted_segment_encoding_type_from_compression_type(segment->compressed_vector_type().value());
-  export_value(static_cast<uint32_t>(compressed_vector_type_id), file_path);
-  export_value(static_cast<uint32_t>(segment->dictionary()->size()), file_path);
-  export_value(static_cast<uint32_t>(segment->attribute_vector()->size()), file_path);
-
-  // we need to ensure that every part can be mapped with a uint32_t map
-  export_values<T>(*segment->dictionary(), file_path);
-  export_compressed_vector(*segment->compressed_vector_type(), *segment->attribute_vector(), file_path);
-  //TODO: What to do with non-compressed AttributeVectors?
-}
-
-void StorageManager::_write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
-                                            const std::string& file_path) const {
-  resolve_data_type(abstract_segment->data_type(), [&](auto type) {
-    using ColumnDataType = typename decltype(type)::type;
-    if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
-      const auto fixed_string_dict_segment =
-          dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_fixed_string_dict_segment_to_disk(fixed_string_dict_segment, file_path);
-    } else {
-      const auto dict_segment = dynamic_pointer_cast<DictionarySegment<ColumnDataType>>(abstract_segment);
-      _write_dict_segment_to_disk(dict_segment, file_path);
-    }
-  });
-}
-
 void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
                                           const std::vector<uint32_t>& segment_offset_ends,
-                                          const std::string& file_path) const {
+                                          std::ofstream& ofstream) const {
   auto header = CHUNK_HEADER{};
   header.row_count = chunk->size();
   header.segment_offset_ends = segment_offset_ends;
 
-  export_value(header.row_count, file_path);
+  export_value(header.row_count, ofstream);
 
   for (const auto segment_offset_end : header.segment_offset_ends) {
-    export_value(segment_offset_end, file_path);
+    export_value(segment_offset_end, ofstream);
   }
 
   const auto segment_count = chunk->column_count();
   for (auto segment_index = ColumnID{0}; segment_index < segment_count; ++segment_index) {
     const auto abstract_segment = chunk->get_segment(segment_index);
-    _write_segment_to_disk(abstract_segment, file_path);
+    const auto base_dictionary_segment = dynamic_pointer_cast<BaseDictionarySegment>(abstract_segment);
+    base_dictionary_segment->serialize(ofstream);
   }
 }
 
@@ -568,7 +465,9 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
 
     overwrite_header(file_header, file_path);
 
-    _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_path);
+    std::ofstream ofstream(file_path, std::ios::binary | std::ios::app);
+    _write_chunk_to_disk(chunk, chunk_segment_offset_ends, ofstream);
+    ofstream.close();
 
     const auto chunk_bytes = chunk_offset_end;
     const auto chunk_start_offset = file_prev_chunk_end_offset + _file_header_bytes;
@@ -591,9 +490,11 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
 
-  export_value<FILE_HEADER>(fh, file_path);
+  std::ofstream ofstream(file_path, std::ios::binary | std::ios::app);
+  export_value<FILE_HEADER>(fh, ofstream);
 
-  _write_chunk_to_disk(chunk, chunk_segment_offset_ends, file_path);
+  _write_chunk_to_disk(chunk, chunk_segment_offset_ends, ofstream);
+  ofstream.close();
 
   const auto chunk_bytes = chunk_offset_end;
   const auto chunk_start_offset = _file_header_bytes;
@@ -745,8 +646,8 @@ uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) const {
   return _row_count_bytes + column_count * _segment_offset_bytes;
 }
 
-PersistedSegmentEncodingType StorageManager::_resolve_persisted_segment_encoding_type_from_compression_type(
-    CompressedVectorType compressed_vector_type) const {
+PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(
+    CompressedVectorType compressed_vector_type) {
   PersistedSegmentEncodingType persisted_vector_type_id = {};
   switch (compressed_vector_type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
@@ -840,4 +741,27 @@ void StorageManager::_load_storage_data_from_disk() {
     _tables_current_persistence_file_mapping.emplace(table_name, std::move(data));
   }
 }
+void StorageManager::export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::ofstream& ofstream) {
+  switch (type) {
+    case CompressedVectorType::FixedWidthInteger4Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger2Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint16_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::FixedWidthInteger1Byte:
+      export_values(dynamic_cast<const FixedWidthIntegerVector<uint8_t>&>(compressed_vector).data(), ofstream);
+      return;
+    case CompressedVectorType::BitPacking:
+      Fail("BitPacking not supported.");
+    default:
+      Fail("Any other type should have been caught before.");
+  }
+}
+
+void StorageManager::export_values(const FixedStringSpan& data_span, std::ofstream& ofstream) {
+  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
+}
+
 }  // namespace hyrise

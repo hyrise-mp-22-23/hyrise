@@ -201,6 +201,20 @@ ValueID FixedStringDictionarySegment<T>::null_value_id() const {
   return ValueID{static_cast<ValueID::base_type>(_dictionary->size())};
 }
 
+template <typename T>
+void FixedStringDictionarySegment<T>::serialize(std::ofstream& ofstream) const {
+  const auto compressed_vector_type_id =
+      StorageManager::resolve_persisted_segment_encoding_type_from_compression_type(compressed_vector_type().value());
+  StorageManager::export_value(static_cast<uint32_t>(compressed_vector_type_id), ofstream);
+
+  StorageManager::export_value(static_cast<uint32_t>(this->fixed_string_dictionary()->string_length()), ofstream);
+  StorageManager::export_value(static_cast<uint32_t>(this->fixed_string_dictionary()->size()), ofstream);
+  StorageManager::export_value(static_cast<uint32_t>(attribute_vector()->size()), ofstream);
+
+  StorageManager::export_values(*this->fixed_string_dictionary(), ofstream);
+  StorageManager::export_compressed_vector(*compressed_vector_type(), *attribute_vector(), ofstream);
+}
+
 template class FixedStringDictionarySegment<pmr_string>;
 
 }  // namespace hyrise

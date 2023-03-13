@@ -27,6 +27,8 @@
 #include "storage/fixed_string_dictionary_segment.hpp"
 #include "types.hpp"
 
+// #include "storage/vector_compression/bitpacking/bitpacking_vector_type.hpp"
+
 namespace hyrise {
 
 class Table;
@@ -148,6 +150,29 @@ class StorageManager : public Noncopyable {
     _cache_directory = cache_dir;
   }
 
+  static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
+      const CompressedVectorType compressed_vector_type);
+
+  template <typename T>
+  static void export_value(const T& value, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+  }
+
+  static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                              std::ofstream& ofstream);
+
+  template <typename T, typename Alloc>
+  static void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+  }
+
+  template <typename T>
+  static void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
+  }
+
+  static void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream);
+
  protected:
   friend class Hyrise;
 
@@ -191,7 +216,6 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
- private:
   CHUNK_HEADER _read_chunk_header(const std::byte* map, const uint32_t segment_count,
                                   const uint32_t chunk_offset_begin) const;
 
@@ -202,19 +226,8 @@ class StorageManager : public Noncopyable {
   std::pair<uint32_t, uint32_t> _persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
                                                        const std::string& file_name) const;
 
-  template <typename T>
-  void _write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<T>> segment,
-                                   const std::string& file_name) const;
-
-  template <typename T>
-  void _write_fixed_string_dict_segment_to_disk(const std::shared_ptr<FixedStringDictionarySegment<T>> segment,
-                                                const std::string& file_name) const;
-
   void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
-                            const std::string& file_name) const;
-
-  void _write_segment_to_disk(const std::shared_ptr<AbstractSegment> abstract_segment,
-                              const std::string& file_name) const;
+                            std::ofstream& ofstream) const;
 
   uint32_t _chunk_header_bytes(const uint32_t column_count) const;
 
@@ -223,9 +236,6 @@ class StorageManager : public Noncopyable {
   std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
                                               const std::string& filename, const uint32_t segment_count,
                                               const std::vector<DataType>& column_definitions) const;
-
-  PersistedSegmentEncodingType _resolve_persisted_segment_encoding_type_from_compression_type(
-      const CompressedVectorType compressed_vector_type) const;
 
   std::string _get_table_name(const Table* address) const;
 

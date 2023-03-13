@@ -65,18 +65,9 @@ void export_values(std::ofstream& ofstream, const std::vector<T, Alloc>& values)
   ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
 }
 
-//template <typename T>
-//void export_values(std::ofstream& ofstream, const std::span<const T>& data_span) {
-//  ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
-//}
-
 void export_values(std::ofstream& ofstream, const FixedStringSpan& data_span) {
   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
 }
-
-//void export_values(std::ofstream& ofstream, const FixedStringVector& values) {
-//  ofstream.write(values.data(), static_cast<int64_t>(values.size() * values.string_length()));
-//}
 
 // specialized implementation for string values
 template <>

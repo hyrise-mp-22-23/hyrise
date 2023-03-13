@@ -4,6 +4,8 @@
 
 namespace hyrise {
 
+// Because it is hardly possible to save regular std:strings on disk, we use FixedStringDictionary as the default
+// encoding for string segments. 
 EncodingConfig::EncodingConfig()
     : EncodingConfig{
           SegmentEncodingSpec{EncodingType::Dictionary},

@@ -368,6 +368,8 @@ void AbstractTableGenerator::generate_and_store() {
     storage_manager.save_storage_json_to_disk();
   }
 
+
+  // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
 #ifdef __APPLE__
   auto return_val = system("purge");
   (void)return_val;
