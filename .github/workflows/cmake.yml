@@ -36,22 +36,22 @@ jobs:
 
       - name: Run TPCH (SF 0.1) without caching (old-school way)
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1
 
       - name: Run TPCH (SF 0.1) with caching (old-school way)
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1
 
       - name: Run TPCH (SF 0.1) without caching (MMAP-based)
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
 
       - name: Run TPCH (SF 0.1) with caching (MMAP-based)
         run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
     
   build-linux-clang:
