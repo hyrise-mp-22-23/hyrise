@@ -21,7 +21,7 @@ std::shared_ptr<TableStatistics> TableStatistics::from_table(const Table& table)
    * Determine bin count, within mostly arbitrarily chosen bounds: 5 (for tables with <=2k rows) up to 100 bins
    * (for tables with >= 200m rows) are created.
    */
-  const auto histogram_bin_count = std::min<size_t>(100, std::max<size_t>(5, table.row_count() / 2'000));
+  // const auto histogram_bin_count = std::min<size_t>(100, std::max<size_t>(5, table.row_count() / 2'000));
 
   /**
    * We highly recommend setting up a multithreaded scheduler before the following procedure is executed to parallelly
@@ -42,7 +42,7 @@ std::shared_ptr<TableStatistics> TableStatistics::from_table(const Table& table)
         const auto histogram =
             EqualDistinctCountHistogram<ColumnDataType>::from_column(table, column_id, histogram_bin_count);
 
-        if (histogram) {
+        /*if (histogram) {
           output_column_statistics->set_statistics_object(histogram);
 
           // Use the insight that the histogram will only contain non-null values to generate the NullValueRatio
@@ -52,11 +52,11 @@ std::shared_ptr<TableStatistics> TableStatistics::from_table(const Table& table)
                   ? 0.0f
                   : 1.0f - (static_cast<float>(histogram->total_count()) / static_cast<float>(table.row_count()));
           output_column_statistics->set_statistics_object(std::make_shared<NullValueRatioStatistics>(null_value_ratio));
-        } else {
+        } else { */
           // Failure to generate a histogram currently only stems from all-null segments.
           // TODO(anybody) this is a slippery assumption. But the alternative would be a full segment scan...
           output_column_statistics->set_statistics_object(std::make_shared<NullValueRatioStatistics>(1.0f));
-        }
+        // }
 
         column_statistics[column_id] = output_column_statistics;
       });

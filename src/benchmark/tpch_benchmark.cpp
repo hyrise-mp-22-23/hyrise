@@ -203,5 +203,5 @@ int main(int argc, char* argv[]) {
                           benchmark_runner->sqlite_wrapper);
   }
 
-  benchmark_runner->run();
+  // benchmark_runner->run();
 }
