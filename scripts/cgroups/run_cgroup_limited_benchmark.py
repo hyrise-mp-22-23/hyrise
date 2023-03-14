@@ -1,32 +1,29 @@
 import os
 import subprocess
 import time
-import signal
 
-GiB = 1024 * 1024 * 1024
-# memory_limit = 1 * GiB
-unlimited = 200 * GiB
+GB = 1000 * 1000 * 1000
+unlimited = 200 * GB
 
-memory_limits = [0.5, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-memory_limits = [i * GiB for i in memory_limits]
-
-# print execution directory
-print("Current working directory: " + os.getcwd())
+memory_limits = [20, 10, 8]
 
 for memory_limit in memory_limits:
 
     benchmark_command = [
-    './cmake-build-release/hyriseBenchmarkTPCH', #args.executable
-        #'--scheduler',
-        #'--clients=48',
+    './cmake-build-release/hyriseBenchmarkTPCH',
+        'numactl'
+        '-m',
+        '0',
+        '-N',
+        '0',
         '-m',
         'Shuffled',
         '-s',
         '10',
         '-t',
-        '1200',
+        '200',
         '-w',
-        '20',
+        '5',
         '-o',
         'benchmark_mmap_based_page_cache_' + str(memory_limit) + 'gb.json'
         ]
@@ -41,7 +38,6 @@ for memory_limit in memory_limits:
     os.system("sudo cgget -r memory.high memory-limit")
     os.system("sudo cgget -r memory.max memory-limit")
 
-
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
     sp = subprocess.Popen(benchmark_command)
@@ -53,19 +49,16 @@ for memory_limit in memory_limits:
     time.sleep(3.5 * 60)
 
     print("Setting memory.high soft limit on memory-limit group.")
-    os.system("sudo cgset -r memory.high=" + str(memory_limit) + " memory-limit")
+    os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
     os.system("sudo cgget -r memory.high memory-limit")
 
     print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    for i in range(0, 6):
+    for i in range(0, 3):
         print("********* Memory Metadata of benchmark process: *******************:")
         os.system("sudo cgget -r memory.current memory-limit")
         os.system("sudo cgget -r memory.pressure memory-limit")
         os.system("sudo cgget -r memory.stat memory-limit")
 
         time.sleep(30)
-
-    print("Setting memory.max hard limit on memory-limit group.")
-    os.system("sudo cgset -r memory.max=" + str(memory_limit) + " memory-limit")
 
     sp.wait()
