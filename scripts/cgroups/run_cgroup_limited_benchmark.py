@@ -5,7 +5,7 @@ import time
 GB = 1000 * 1000 * 1000
 unlimited = 200 * GB
 
-memory_limits = [20, 10, 8]
+memory_limits = [20, 16, 14, 12, 10, 8, 7, 6]
 
 for memory_limit in memory_limits:
 
@@ -18,10 +18,11 @@ for memory_limit in memory_limits:
         './cmake-build-release/hyriseBenchmarkTPCH',
         '-m',
         'Shuffled',
+        '--scheduler',
         '-s',
         '10',
         '-t',
-        '200',
+        '600',
         '-w',
         '5',
         '-o',
