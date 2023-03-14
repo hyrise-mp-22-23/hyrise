@@ -2,7 +2,7 @@ import subprocess
 import itertools
 import math
 
-num_cores = [1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64]
+num_cores = [2, 4, 8, 16, 24, 32, 48]
 for num_core, do_warmup in itertools.product(num_cores, [True]):
     print(num_core, do_warmup)
     benchmark_command = [
@@ -15,12 +15,12 @@ for num_core, do_warmup in itertools.product(num_cores, [True]):
         '-s',
         '10',
         '--scheduler',
-        f'--clients={num_core}',
-        f'--cores={math.ceil(num_core/2)}',
+        f'--clients={math.ceil(num_core/2)}',
+        f'--cores={num_cores}',
         '-m',
         'Shuffled',
         '-t',
-        '300',
+        '600',
         '-o',
         f'benchmark_hyrise_master_{num_core}_cores_{"with_warmup" if do_warmup else ""}.json'
     ]

@@ -3,8 +3,8 @@ import itertools
 import math
 import os
 
-num_cores = [1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64]
-for num_core, do_warmup in itertools.product(num_cores, [True, False]):
+num_cores = [2, 4, 8, 16, 24, 32, 48]
+for num_core, do_warmup in itertools.product(num_cores, [True]):
     os.system("sudo rm -rf *.bin")
     print(num_core, do_warmup)
     benchmark_command = [
@@ -17,12 +17,12 @@ for num_core, do_warmup in itertools.product(num_cores, [True, False]):
         '-s',
         '10',
         '--scheduler',
-        f'--clients={num_core}',
-        f'--cores={math.ceil(num_core/2)}',
+        f'--clients={math.ceil(num_core/2)}',
+        f'--cores={num_core}',
         '-m',
         'Shuffled',
         '-t',
-        '1200',
+        '600',
         '-o',
         f'benchmark_mmap_hyrise_{num_core}_cores_{"with_warmup" if do_warmup else ""}.json'
     ]
