@@ -18,6 +18,7 @@ for filename in os.listdir("./scripts/mmap_multi_core_results_corrected"):
         with open(f"./scripts/mmap_multi_core_results_corrected/{filename}") as f:
             #load json
             data = json.load(f)
+
             type = filename.split("_")[1] + "_" + filename.split("_")[2]
             if filename.split("_")[-2].startswith('warmup') or filename.split("_")[-1].startswith('warmup'):
                 type += "_warmup"
