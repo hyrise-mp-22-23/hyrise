@@ -43,7 +43,7 @@ for filename in os.listdir("./scripts/mmap_multi_core_results_corrected"):
 benchmark_results = sns.lineplot(data=data_df, x="num_cores", y="latency", hue="type", marker='o', linestyle='--')
 
 benchmark_results.set(
-    xlabel="#Cores", ylabel="Latency in ms/iter (Sum over all queries)", title=f"Comparison of MMAP-based Hyrise vs. Hyrise Master in \nsum of average latency over all queries depending on number of cores."
+    xlabel="Available #Cores", ylabel="Latency in ms/iter (Sum over all Queries)", title=f"Comparison of MMAP-based Hyrise vs. Hyrise Master in \nSum of Average Latency over All Queries Depending on Available Number of Cores."
 )
 
 benchmark_results.set(xticks=data_df.num_cores.values)

@@ -1,5 +1,12 @@
-import json
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import seaborn as sns
+import json
+import pandas as pd
+
+# set plot styles
+plt.style.use("ggplot")
+sns.set(font_scale=1.5)
 
 GB = 1000 * 1000 * 1000
 #load json
@@ -21,6 +28,25 @@ for key,value in data.items():
     print(f"{key} : {data[key]['memory_peak'] / GB}GB")
 
 # plot data values
-    plt.plot(data[key]['memory_sizes'])
-    plt.title(f'{key}GB')
-    plt.show()
+#     plt.plot(data[key]['memory_sizes'])
+#     plt.title(f'{key}GB')
+#     plt.show()
+
+#plot memory peak against scale factor
+#create pandas data frame
+integer_keys = sorted([int(key) for key in data.keys()])
+memory_peaks_percents = [((data[str(key)]['memory_peak'] / GB) / key) * 100 for key in integer_keys]
+df = pd.DataFrame(columns=['scale_factor', 'memory_peak'])
+#add list as column to data frame
+df.scale_factor = [str(key) for key in integer_keys]
+df.memory_peak = memory_peaks_percents
+
+memory_peaks = sns.barplot(data=df, x='scale_factor', y='memory_peak')
+
+memory_peaks.set(
+    xlabel="Scale Factor", ylabel="Percent of Benchmark Data Size", title=f"Memory Peaks for Query Execution of TPC-H Benchmark\non Hyrise Master depending on Scale Factor."
+)
+
+memory_peaks.yaxis.set_major_formatter(mtick.PercentFormatter())
+
+plt.show()

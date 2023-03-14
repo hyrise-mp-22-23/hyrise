@@ -45,7 +45,7 @@ print(data_df)
 benchmark_results = sns.lineplot(data=data_df, x="memory", y="latency", hue="type", marker='o', linestyle='--')
 
 benchmark_results.set(
-    xlabel="Available RAM in GB", ylabel="Latency in ms/iter (Sum over all queries)", title=f"MMAP-based Hyrise Sum of Average Latency over all Queries Depending on Memory Limitation."
+    xlabel="Available RAM in GB", ylabel="Latency in ms/iter (Sum over all Queries)", title=f"MMAP-based Hyrise Sum of Average Latency over all Queries Depending on Memory Limitation."
 )
 
 #benchmark_results.set(xticks=data_df.memory.values)
