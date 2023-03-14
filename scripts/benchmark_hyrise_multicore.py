@@ -16,7 +16,7 @@ for num_core, do_warmup in itertools.product(num_cores, [True]):
         '10',
         '--scheduler',
         f'--clients={math.ceil(num_core/2)}',
-        f'--cores={num_cores}',
+        f'--cores={num_core}',
         '-m',
         'Shuffled',
         '-t',
