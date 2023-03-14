@@ -207,6 +207,7 @@ void AbstractTableGenerator::generate_and_store() {
   /**
    * Encode the tables
    */
+   /*
   {
     std::cout << "- Encoding tables (if necessary) and generating pruning statistics" << std::endl;
 
@@ -233,7 +234,7 @@ void AbstractTableGenerator::generate_and_store() {
     metrics.encoding_duration = timer.lap();
     std::cout << "- Encoding tables and generating pruning statistic done ("
               << format_duration(metrics.encoding_duration) << ")" << std::endl;
-  }
+  }*/
 
   /**
    * Write the Tables into binary files if required
@@ -273,6 +274,7 @@ void AbstractTableGenerator::generate_and_store() {
   /**
    * Add the Tables to the StorageManager
    */
+
   {
     std::cout << "- Adding tables to StorageManager and generating table statistics" << std::endl;
     auto& storage_manager = Hyrise::get().storage_manager;
@@ -301,6 +303,7 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- Adding tables to StorageManager and generating table statistics done ("
               << format_duration(metrics.store_duration) << ")" << std::endl;
   }
+
 
   /**
    * Create indexes if requested by the user

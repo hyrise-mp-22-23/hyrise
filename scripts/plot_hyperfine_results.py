@@ -2,7 +2,7 @@ import json
 import matplotlib.pyplot as plt
 
 # read in the JSON data
-path = '../cmake-build-debug/output.json'
+path = '../cmake-build-release/merge_10.json'
 with open(path, 'r') as f:
     data = json.load(f)
 

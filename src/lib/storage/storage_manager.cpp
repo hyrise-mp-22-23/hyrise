@@ -152,7 +152,7 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
   // Create table statistics and chunk pruning statistics for added table.
 
   table->set_table_statistics(TableStatistics::from_table(*table));
-  generate_chunk_pruning_statistics(table);
+  //generate_chunk_pruning_statistics(table);
 
   _tables[name] = std::move(table);
 

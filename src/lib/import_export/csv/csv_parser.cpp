@@ -172,6 +172,7 @@ bool CsvParser::_find_fields_in_chunk(std::string_view csv_content, const Table&
     }
 
     ++field_count;
+    std::cout << field_count << std::endl;
     field_ends.push_back(pos);
   }
 
