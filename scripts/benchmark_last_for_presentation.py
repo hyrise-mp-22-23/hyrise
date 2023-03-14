@@ -1,4 +1,6 @@
 import subprocess
+import os
+import signal
 
 bc_realistic_scenario_hyrise_master = ['sudo', 'python3', 'scripts/benchmark_hyrise_multicore.py']
 bc_realistic_scenario_hyrise_master_cwd = '/mnt/md0/Theresa.Hradilak/hyrise_master/hyrise'
@@ -61,17 +63,18 @@ benchmarks =[
     (bc_hyrise_master_tpch_100, bc_hyrise_master_tpch_100_cwd),
     (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
 ]
-
+timeout_seconds = 10
 for benchmark in benchmarks:
     benchmark_command = benchmark[0]
     benchmark_cwd = benchmark[1]
 
-    sp = subprocess.Process(benchmark_command, cwd=benchmark_cwd)
     try:
-        sp.wait(timeout=60)
+        p = subprocess.Popen(benchmark_command, cwd= benchmark_cwd, start_new_session=True)
+        p.wait(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        print(f"Timeout for command {benchmark_command} expired: " + str(60))
-        sp.terminate()
+        print(f'Timeout for {benchmark_command} ({timeout_seconds}s) expired')
+        print('Terminating the whole process group...')
+        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
 
 
 # - Realistic Scenario new benchmark
