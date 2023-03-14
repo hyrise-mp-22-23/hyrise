@@ -10,12 +10,12 @@ memory_limits = [20, 10, 8]
 for memory_limit in memory_limits:
 
     benchmark_command = [
-    './cmake-build-release/hyriseBenchmarkTPCH',
         'numactl'
         '-m',
         '0',
         '-N',
         '0',
+        './cmake-build-release/hyriseBenchmarkTPCH',
         '-m',
         'Shuffled',
         '-s',
