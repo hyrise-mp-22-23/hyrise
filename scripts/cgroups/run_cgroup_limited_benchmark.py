@@ -54,12 +54,6 @@ for memory_limit in memory_limits:
     os.system("sudo cgget -r memory.high memory-limit")
 
     print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    for i in range(0, 3):
-        print("********* Memory Metadata of benchmark process: *******************:")
-        os.system("sudo cgget -r memory.current memory-limit")
-        os.system("sudo cgget -r memory.pressure memory-limit")
-        os.system("sudo cgget -r memory.stat memory-limit")
-
-        time.sleep(30)
+    time.sleep(3 * 60)
 
     sp.wait()

@@ -1,6 +1,10 @@
 import subprocess
 import itertools
 import math
+import os
+
+#print script working directory
+print("Working directory: " + os.getcwd())
 
 num_cores = [2, 4, 8, 16, 24, 32, 48]
 for num_core, do_warmup in itertools.product(num_cores, [True]):
