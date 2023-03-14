@@ -64,7 +64,8 @@ benchmarks =[
     (bc_hyrise_master_tpch_100, bc_hyrise_master_tpch_100_cwd),
     (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
 ]
-timeout_seconds = 10
+timeout_seconds = 60 * 60 * 5 #max 5 hours per benchmark command allowed
+
 for benchmark in benchmarks:
     benchmark_command = benchmark[0]
     benchmark_cwd = benchmark[1]
