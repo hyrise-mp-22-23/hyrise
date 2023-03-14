@@ -28,7 +28,7 @@ for num_core, do_warmup in itertools.product(num_cores, [True]):
     ]
     if (do_warmup):
         benchmark_command.append('-w')
-        benchmark_command.append('20')
+        benchmark_command.append('5')
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
     p = subprocess.Popen(benchmark_command, stdout=subprocess.PIPE)
