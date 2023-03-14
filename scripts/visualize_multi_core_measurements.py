@@ -8,6 +8,7 @@ import json
 
 # set plot styles
 plt.style.use("ggplot")
+sns.set(font_scale=1.5)
 
 #initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["scale_factor", "warmup", "latency"])
@@ -18,13 +19,13 @@ for filename in os.listdir("./scripts/mmap_multi_core_results_corrected"):
             #load json
             data = json.load(f)
             type = filename.split("_")[1] + "_" + filename.split("_")[2]
-            print(filename.split("_"))
-            print([filename.split("_")[-2], filename.split("_")[-1]])
             if filename.split("_")[-2].startswith('warmup') or filename.split("_")[-1].startswith('warmup'):
                 type += "_warmup"
             else:
                 type += "_no_warmup"
             num_cores = filename.split("_")[3]
+            if num_cores == "1" or num_cores == "64":
+                continue
             #calculate latency
             latency_all = 0
             for benchmark in data['benchmarks']:
@@ -36,13 +37,20 @@ for filename in os.listdir("./scripts/mmap_multi_core_results_corrected"):
             #convert latency_all from nanoseconds to milliseconds
             latency_all /= 1000000
             #append data to data frame
-            data_df = data_df.append({"scale_factor": int(num_cores), "type": type, "latency": latency_all}, ignore_index=True)
+            data_df = data_df.append({"num_cores": int(num_cores), "type": type, "latency": latency_all}, ignore_index=True)
 
-benchmark_results = sns.lineplot(data=data_df, x="scale_factor", y="latency", hue="type", marker='o')
+benchmark_results = sns.lineplot(data=data_df, x="num_cores", y="latency", hue="type", marker='o', linestyle='--')
 
 benchmark_results.set(
-    xlabel="scale_factor", ylabel="Latency Sum in ms/iter", title=f"Latency sum for MMAP-Hyrise depending on scale_factor and warmup"
+    xlabel="#Cores", ylabel="Latency in ms/iter (Sum over all queries)", title=f"Comparison of MMAP-based Hyrise vs. Hyrise Master in \nsum of average latency over all queries depending on number of cores."
 )
+
+benchmark_results.set(xticks=data_df.num_cores.values)
+# for item, color in zip(data_df.groupby('type'), sns.color_palette()):
+#     #item[1] is a grouped data frame
+#     if (item[1][['type']].values[0] == 'mmap_hyrise_warmup'):
+#         for x,y in item[1][['scale_factor','latency']].values:
+#             benchmark_results.text(x,y,f'{x:.2f}',color='black',horizontalalignment='center',verticalalignment='bottom')
 
 plt.legend(title="Warmup")
 plt.show()
