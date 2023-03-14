@@ -16,7 +16,7 @@ print("Current working directory: " + os.getcwd())
 for memory_limit in memory_limits:
 
     benchmark_command = [
-    'sudo ./cmake-build-release/hyriseBenchmarkTPCH', #args.executable
+    './cmake-build-release/hyriseBenchmarkTPCH', #args.executable
         #'--scheduler',
         #'--clients=48',
         '-m',
