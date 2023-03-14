@@ -65,10 +65,13 @@ benchmarks =[
 for benchmark in benchmarks:
     benchmark_command = benchmark[0]
     benchmark_cwd = benchmark[1]
+
+    sp = subprocess.Process(benchmark_command, cwd=benchmark_cwd)
     try:
-        sp = subprocess.run(benchmark_command, cwd=benchmark_cwd, timeout=60)
-    except subprocess.TimeoutExpired as timeout:
-        print(f"Timeout for command {benchmark_command} expired: " + str(timeout))
+        sp.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        print(f"Timeout for command {benchmark_command} expired: " + str(60))
+        sp.terminate()
 
 
 # - Realistic Scenario new benchmark
