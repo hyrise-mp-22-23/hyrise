@@ -66,7 +66,6 @@ for benchmark in benchmarks:
     benchmark_command = benchmark[0]
     benchmark_cwd = benchmark[1]
     sp = subprocess.run(benchmark_command, cwd=benchmark_cwd, timeout=60)
-    sp.wait()
 
 
 # - Realistic Scenario new benchmark
