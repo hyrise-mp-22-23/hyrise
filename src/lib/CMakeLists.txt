@@ -666,7 +666,7 @@ set(
 )
 
 if (NOT APPLE)
-    set(LIBRARIES ${LIBRARIES} atomic pthread umap aio)
+    set(LIBRARIES ${LIBRARIES} atomic pthread)
 endif()
 
 if (${ENABLE_NUMA_SUPPORT})
