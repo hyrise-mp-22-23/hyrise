@@ -1,6 +1,7 @@
 import subprocess
 import os
 import signal
+import time
 
 bc_realistic_scenario_hyrise_master = ['sudo', 'python3', 'scripts/benchmark_hyrise_multicore.py']
 bc_realistic_scenario_hyrise_master_cwd = '/mnt/md0/Theresa.Hradilak/hyrise_master/hyrise'
@@ -28,7 +29,7 @@ bc_hyrise_master_tpch_10 = ['numactl',
                             ]
 bc_hyrise_master_tpch_10_cwd = '/mnt/md0/Theresa.Hradilak/hyrise_master/hyrise'
 
-bc_hyrise_mmap_limited_memory_sf_10 = ['sudo', 'python3', 'scripts/cgroup/run_cgroup_limited_benchmark.py']
+bc_hyrise_mmap_limited_memory_sf_10 = ['sudo', 'python3', 'scripts/cgroups/run_cgroup_limited_benchmark.py']
 bc_hyrise_mmap_limited_memory_sf_10_cwd = '/mnt/md0/Theresa.Hradilak/hyrise'
 
 bc_hyrise_master_tpch_100 = ['numactl',
@@ -51,7 +52,7 @@ bc_hyrise_master_tpch_100 = ['numactl',
                             ]
 bc_hyrise_master_tpch_100_cwd = '/mnt/md0/Theresa.Hradilak/hyrise_master/hyrise'
 
-bc_hyrise_mmap_limited_memory_sf_100 = ['sudo', 'python3', 'scripts/cgroup/run_cgroup_limited_benchmark_100.py']
+bc_hyrise_mmap_limited_memory_sf_100 = ['sudo', 'python3', 'scripts/cgroups/run_cgroup_limited_benchmark_100.py']
 bc_hyrise_mmap_limited_memory_sf_100_cwd = '/mnt/md0/Theresa.Hradilak/hyrise'
 
 
@@ -75,6 +76,7 @@ for benchmark in benchmarks:
         print(f'Timeout for {benchmark_command} ({timeout_seconds}s) expired')
         print('Terminating the whole process group...')
         os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+        time.sleep(10)
 
 
 # - Realistic Scenario new benchmark
