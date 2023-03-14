@@ -10,7 +10,7 @@ memory_limits = [20, 10, 8]
 for memory_limit in memory_limits:
 
     benchmark_command = [
-        'numactl'
+        'numactl',
         '-m',
         '0',
         '-N',
