@@ -10,10 +10,12 @@ extern "C" {
 #include <utility>
 
 #include "benchmark_config.hpp"
+#include "hyrise.hpp"
 #include "storage/chunk.hpp"
 #include "storage/table_key_constraint.hpp"
 #include "table_builder.hpp"
 #include "utils/timer.hpp"
+
 
 extern const char** asc_date;  // NOLINT
 extern seed_t seed[];          // NOLINT
@@ -125,16 +127,22 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   Assert(_scale_factor < 1.0f || std::round(_scale_factor) == _scale_factor,
          "Due to tpch_dbgen limitations, only scale factors less than one can have a fractional part.");
 
-  const auto* const directory_suffix =
-      _benchmark_config->use_storage_json ? "tpch_cached_tables_storage_json/sf-" : "tpch_cached_tables/sf-";
-  const auto cache_directory = directory_suffix + std::to_string(_scale_factor);  // NOLINT
+  auto cache_directory = "tpch_cached_tables/sf-" + std::to_string(_scale_factor);  // NOLINT
+
+  if(_benchmark_config->use_storage_json){
+    auto& storage_manager = Hyrise::get().storage_manager;
+    cache_directory = "tpch_cached_tables_storage_json/sf-" + std::to_string(_scale_factor) + "/";  // NOLINT
+    storage_manager.set_cache_directory(cache_directory);
+  }
 
   if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
     if (_benchmark_config->use_storage_json) {
-      return _load_binary_tables_from_json(cache_directory + "/");
+      return _load_binary_tables_from_json();
     }
     return _load_binary_tables_from_path(cache_directory);
   }
+
+
 
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.
   dbgen_reset_seeds();

@@ -638,8 +638,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
     });
   }
 
-  const auto chunk = std::make_shared<Chunk>(segments);
-  return chunk;
+  return std::make_shared<Chunk>(segments);
 }
 
 uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) const {

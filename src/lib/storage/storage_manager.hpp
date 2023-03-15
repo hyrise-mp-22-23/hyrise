@@ -150,6 +150,10 @@ class StorageManager : public Noncopyable {
     _cache_directory = cache_dir;
   }
 
+  std::string get_cache_directory(){
+    return _cache_directory;
+  }
+
   static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
       const CompressedVectorType compressed_vector_type);
 

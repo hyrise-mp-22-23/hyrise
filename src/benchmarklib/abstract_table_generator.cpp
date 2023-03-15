@@ -352,10 +352,7 @@ void AbstractTableGenerator::generate_and_store() {
    */
   if (_benchmark_config->use_storage_json) {
     auto& storage_manager = Hyrise::get().storage_manager;
-    const auto cache_directory = _table_info_by_name.begin()->second.binary_file_path->parent_path().string() + "/";
-    storage_manager.set_cache_directory(cache_directory);
-
-    std::filesystem::directory_iterator dir_iter(cache_directory);
+    std::filesystem::directory_iterator dir_iter(storage_manager.get_cache_directory());
     auto files_present = false;
     for (const auto& entry : dir_iter) {
       if (entry.is_regular_file()) {
@@ -450,11 +447,9 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
   return table_info_by_name;
 }
 
-std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json(
-    const std::string& cache_directory) {
+std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json() {
   std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
   auto& storage_manager = Hyrise::get().storage_manager;
-  storage_manager.set_cache_directory(cache_directory);
   const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
 
   for (const auto& mapping : tables_files_mapping) {
