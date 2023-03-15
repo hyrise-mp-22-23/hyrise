@@ -47,12 +47,12 @@ jobs:
       - name: Run TPCH (SF 0.1) without caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
 
       - name: Run TPCH (SF 0.1) with caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
     
   build-linux-clang:
     runs-on: ubuntu-22.04
@@ -98,12 +98,12 @@ jobs:
       - name: Run TPCH (SF 0.1) without caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
 
       - name: Run TPCH (SF 0.1) with caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
 
   build-mac-clang:
     runs-on: macos-latest
@@ -142,10 +142,10 @@ jobs:
       - name: Run TPCH (SF 0.1) without caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
 
       - name: Run TPCH (SF 0.1) with caching (MMAP-based)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_storage_json
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
       

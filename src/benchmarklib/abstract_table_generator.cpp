@@ -239,7 +239,7 @@ void AbstractTableGenerator::generate_and_store() {
    * Write the Tables into binary files if required
    */
 
-  if (_benchmark_config->cache_binary_tables && !_benchmark_config->use_storage_json) {
+  if (_benchmark_config->cache_binary_tables && !_benchmark_config->use_mmap) {
     for (auto& [table_name, table_info] : table_info_by_name) {
       const auto& table = table_info.table;
       if (table->chunk_count() > 1 && table->get_chunk(ChunkID{0})->size() != _benchmark_config->chunk_size) {
@@ -350,7 +350,7 @@ void AbstractTableGenerator::generate_and_store() {
    * and the cached tables are not already mmap-based.
    * The tables will have chunks whose data will be managed by the Storage Manager.
    */
-  if (_benchmark_config->use_storage_json) {
+  if (_benchmark_config->use_mmap) {
     auto& storage_manager = Hyrise::get().storage_manager;
     std::filesystem::directory_iterator dir_iter(storage_manager.get_cache_directory());
     auto files_present = false;
