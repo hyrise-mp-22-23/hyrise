@@ -150,7 +150,7 @@ class StorageManager : public Noncopyable {
     _cache_directory = cache_dir;
   }
 
-  std::string get_cache_directory(){
+  std::string get_cache_directory() {
     return _cache_directory;
   }
 
@@ -163,7 +163,7 @@ class StorageManager : public Noncopyable {
   }
 
   static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream);
+                                       std::ofstream& ofstream);
 
   template <typename T, typename Alloc>
   static void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {

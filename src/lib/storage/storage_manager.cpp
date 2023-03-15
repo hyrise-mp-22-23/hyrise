@@ -740,8 +740,9 @@ void StorageManager::_load_storage_data_from_disk() {
     _tables_current_persistence_file_mapping.emplace(table_name, std::move(data));
   }
 }
-void StorageManager::export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream) {
+
+void StorageManager::export_compressed_vector(const CompressedVectorType type,
+                                              const BaseCompressedVector& compressed_vector, std::ofstream& ofstream) {
   switch (type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
       export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
