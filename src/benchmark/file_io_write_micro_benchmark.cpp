@@ -303,15 +303,25 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
 }
 
 // Arguments are file size in MB
+static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
+  const std::vector<uint32_t> parameters = {10000, 100000};
+  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+
+  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
+    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
+      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
+}
+
+
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10000)->Arg(100000)->UseRealTime();
 
 }  // namespace hyrise
