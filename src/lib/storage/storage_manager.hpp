@@ -140,18 +140,18 @@ class StorageManager : public Noncopyable {
     return _tables_current_persistence_file_mapping;
   }
 
-  void save_storage_json_to_disk();
+  void update_storage_json();
 
   uint32_t get_file_header_bytes() {
     return _file_header_bytes;
   }
 
-  void set_cache_directory(std::string cache_dir) {
-    _cache_directory = cache_dir;
+  void set_persistence_directory(std::string persistence_dir) {
+    _persistence_directory = persistence_dir;
   }
 
-  std::string get_cache_directory() {
-    return _cache_directory;
+  std::string get_persistence_directory() {
+    return _persistence_directory;
   }
 
   static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
@@ -182,7 +182,7 @@ class StorageManager : public Noncopyable {
 
   StorageManager() = default;
 
-  std::string _cache_directory;
+  std::string _persistence_directory;
   std::string _storage_json_name = "storage.json";
 
   nlohmann::json _storage_json;

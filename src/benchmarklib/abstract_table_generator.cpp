@@ -352,7 +352,7 @@ void AbstractTableGenerator::generate_and_store() {
    */
   if (_benchmark_config->use_mmap) {
     auto& storage_manager = Hyrise::get().storage_manager;
-    std::filesystem::directory_iterator dir_iter(storage_manager.get_cache_directory());
+    std::filesystem::directory_iterator dir_iter(storage_manager.get_persistence_directory());
     auto files_present = false;
     for (const auto& entry : dir_iter) {
       if (entry.is_regular_file()) {
@@ -362,7 +362,7 @@ void AbstractTableGenerator::generate_and_store() {
     }
     if (!files_present)
       persist_tables();
-    storage_manager.save_storage_json_to_disk();
+    storage_manager.update_storage_json();
   }
 
   // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
@@ -449,7 +449,11 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
 std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json() {
   std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
   auto& storage_manager = Hyrise::get().storage_manager;
+
+  std::cout << "-  Loading tables file mapping from storage json. " << std::endl;
+  Timer timer_json_parsing;
   const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
+  std::cout << " (" << timer_json_parsing.lap_formatted() << ")" << std::endl;
 
   for (const auto& mapping : tables_files_mapping) {
     const auto table_name = mapping.first;

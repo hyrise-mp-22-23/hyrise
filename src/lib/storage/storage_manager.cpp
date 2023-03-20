@@ -447,7 +447,7 @@ void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
 std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::shared_ptr<Chunk> chunk,
                                                                      ChunkID chunk_id,
                                                                      const std::string& file_name) const {
-  const auto file_path = _cache_directory + file_name;
+  const auto file_path = _persistence_directory + file_name;
   if (std::filesystem::exists(file_path)) {
     //append to existing file
 
@@ -561,7 +561,7 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
-  Assert((fd = open((_cache_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
+  Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
   auto* persisted_header =
       reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
@@ -602,7 +602,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
                                                             const std::vector<DataType>& column_definitions) const {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   auto fd = int32_t{};
-  Assert((fd = open((_cache_directory + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+  Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
 
   //Calls to mmap need to be pagesize-aligned
   const auto pagesize = getpagesize();
@@ -672,9 +672,9 @@ void StorageManager::_serialize_table_files_mapping() {
     const auto table = get_table(mapping.first);
     const auto column_count = table->column_count();
     const auto chunk_count = mapping.second.file_index * MAX_CHUNK_COUNT_PER_FILE + mapping.second.current_chunk_count;
-    json table_json = {{"file_count", mapping.second.file_index + 1},
-                       {"chunk_count", chunk_count},
-                       {"column_count", static_cast<uint32_t>(table->column_count())}};
+    auto table_json = json({{"file_count", mapping.second.file_index + 1},
+                            {"chunk_count", chunk_count},
+                            {"column_count", static_cast<uint32_t>(table->column_count())}});
 
     const auto column_definitions = table->column_definitions();
     auto columns_json = json::array();
@@ -692,9 +692,9 @@ void StorageManager::_serialize_table_files_mapping() {
   }
 }
 
-void StorageManager::save_storage_json_to_disk() {
+void StorageManager::update_storage_json() {
   _serialize_table_files_mapping();
-  std::ofstream output_file(_cache_directory + _storage_json_name, std::ios::trunc);
+  std::ofstream output_file(_persistence_directory + _storage_json_name, std::ios::trunc);
   const auto json_serialized = _storage_json.dump(4);
   output_file << json_serialized;
   output_file.close();
@@ -719,7 +719,7 @@ std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_
 
 void StorageManager::_load_storage_data_from_disk() {
   // Read the JSON data from disk into a string
-  std::ifstream json_file(_cache_directory + _storage_json_name);
+  std::ifstream json_file(_persistence_directory + _storage_json_name);
   _storage_json = json::parse(json_file);
 
   // Deserialize the JSON into the map

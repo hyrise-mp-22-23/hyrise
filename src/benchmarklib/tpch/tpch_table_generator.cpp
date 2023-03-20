@@ -131,14 +131,16 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   if (_benchmark_config->use_mmap) {
     auto& storage_manager = Hyrise::get().storage_manager;
     cache_directory = "tpch_cached_tables_storage_json/sf-" + std::to_string(_scale_factor) + "/";  // NOLINT
-    storage_manager.set_cache_directory(cache_directory);
+    storage_manager.set_persistence_directory(cache_directory);
   }
 
-  if (_benchmark_config->cache_binary_tables && std::filesystem::is_directory(cache_directory)) {
+  if (std::filesystem::is_directory(cache_directory)) {
     if (_benchmark_config->use_mmap) {
       return _load_binary_tables_from_json();
     }
-    return _load_binary_tables_from_path(cache_directory);
+    if (_benchmark_config->cache_binary_tables) {
+      return _load_binary_tables_from_path(cache_directory);
+    }
   }
 
   // Init tpch_dbgen - it is important this is done before any data structures from tpch_dbgen are read.
