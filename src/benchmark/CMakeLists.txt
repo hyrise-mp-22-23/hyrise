@@ -21,7 +21,6 @@ add_executable(
     operators/union_all_benchmark.cpp
     tpch_data_micro_benchmark.cpp
     tpch_table_generator_benchmark.cpp)
-        # file_io_read_mmap_benchmark.cpp)
 
 target_link_libraries(
     hyriseMicroBenchmarks
@@ -58,8 +57,8 @@ target_link_libraries_system(
 #         hyriseBenchmarkLib
 # )
 
-# Ignore -Wshift-sign-overflow of google benchmark introduced with
-# https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
+# # Ignore -Wshift-sign-overflow of google benchmark introduced with
+# # https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
 # target_link_libraries_system(
 #         hyriseMicroIOReadBenchmark
 
@@ -86,8 +85,8 @@ target_link_libraries_system(
 #         hyriseBenchmarkLib
 # )
 
-# Ignore -Wshift-sign-overflow of google benchmark introduced with
-# https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
+# # Ignore -Wshift-sign-overflow of google benchmark introduced with
+# # https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
 # target_link_libraries_system(
 #         hyriseMicroIOWriteBenchmark
 
@@ -114,8 +113,8 @@ target_link_libraries_system(
 #         hyrise
 #         hyriseBenchmarkLib
 # )
-# Ignore -Wshift-sign-overflow of google benchmark introduced with
-# https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
+# # Ignore -Wshift-sign-overflow of google benchmark introduced with
+# # https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
 # target_link_libraries_system(
 #         hyriseMicroIOWriteMmapBenchmark
 
@@ -141,8 +140,8 @@ target_link_libraries_system(
 #         hyrise
 #         hyriseBenchmarkLib
 # )
-# Ignore -Wshift-sign-overflow of google benchmark introduced with
-# https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
+# # Ignore -Wshift-sign-overflow of google benchmark introduced with
+# # https://github.com/google/benchmark/commit/926f61da9ac8d0100eb75a5246b45484cc9c94b7
 # target_link_libraries_system(
 #         hyriseMicroIOReadMmapBenchmark
 

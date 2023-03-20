@@ -1,3 +1,6 @@
+#include <filesystem>
+#include <iostream>
+
 #include "abstract_table_generator.hpp"
 
 #include "benchmark_config.hpp"
@@ -5,6 +8,7 @@
 #include "hyrise.hpp"
 #include "import_export/binary/binary_parser.hpp"
 #include "import_export/binary/binary_writer.hpp"
+#include "nlohmann/json.hpp"
 #include "operators/sort.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
@@ -234,7 +238,8 @@ void AbstractTableGenerator::generate_and_store() {
   /**
    * Write the Tables into binary files if required
    */
-  if (_benchmark_config->cache_binary_tables) {
+
+  if (_benchmark_config->cache_binary_tables && !_benchmark_config->use_mmap) {
     for (auto& [table_name, table_info] : table_info_by_name) {
       const auto& table = table_info.table;
       if (table->chunk_count() > 1 && table->get_chunk(ChunkID{0})->size() != _benchmark_config->chunk_size) {
@@ -243,14 +248,11 @@ void AbstractTableGenerator::generate_and_store() {
              ". Delete cached files or use '--dont_cache_binary_tables'.");
       }
     }
-
     std::cout << "- Writing tables into binary files if necessary" << std::endl;
-
     for (auto& [table_name, table_info] : table_info_by_name) {
       if (table_info.loaded_from_binary && !table_info.re_encoded && !table_info.binary_file_out_of_date) {
         continue;
       }
-
       auto binary_file_path = std::filesystem::path{};
       if (table_info.binary_file_path) {
         binary_file_path = *table_info.binary_file_path;
@@ -258,7 +260,6 @@ void AbstractTableGenerator::generate_and_store() {
         binary_file_path = *table_info.text_file_path;
         binary_file_path.replace_extension(".bin");
       }
-
       std::cout << "-  Writing '" << table_name << "' into binary file " << binary_file_path << " " << std::flush;
       Timer per_table_timer;
       BinaryWriter::write(*table_info.table, binary_file_path);
@@ -344,10 +345,25 @@ void AbstractTableGenerator::generate_and_store() {
 
   _table_info_by_name = table_info_by_name;
 
-  // This is the last step after encodings were applied and statistics were generated.
-  // TODO(anyone): Implement the ability to persist on an individual chunk basis.
-  persist_tables();
-
+  /**
+   * Persist the tables in binary files if we want to use the new file format
+   * and the cached tables are not already mmap-based.
+   * The tables will have chunks whose data will be managed by the Storage Manager.
+   */
+  if (_benchmark_config->use_mmap) {
+    auto& storage_manager = Hyrise::get().storage_manager;
+    std::filesystem::directory_iterator dir_iter(storage_manager.get_persistence_directory());
+    auto files_present = false;
+    for (const auto& entry : dir_iter) {
+      if (entry.is_regular_file()) {
+        files_present = true;
+        break;
+      }
+    }
+    if (!files_present)
+      persist_tables();
+    storage_manager.update_storage_json();
+  }
 
   // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
 #ifdef __APPLE__
@@ -364,27 +380,9 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
-  // Delete possibly left over binaries.
-  delete_binaries();
-
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     const auto& table = table_info.table;
     table->persist();
-  }
-}
-
-void AbstractTableGenerator::delete_binaries() {
-  // Currently, the binaries are named like the table names they save. When a file is complete, a counter at the end is
-  // incremented. Binaries from other benchmarks are missed in the following loop.
-  for (const auto& [table_name, table_info] : _table_info_by_name) {
-    auto file_index = size_t{0};
-    auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
-
-    while (std::filesystem::exists(file_name)) {
-      std::filesystem::remove(file_name);
-      ++file_index;
-      file_name = table_name + "_" + std::to_string(file_index) + ".bin";
-    }
   }
 }
 
@@ -445,6 +443,54 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
   }
 
+  return table_info_by_name;
+}
+
+std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json() {
+  std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
+  auto& storage_manager = Hyrise::get().storage_manager;
+
+  std::cout << "-  Loading tables file mapping from storage json. " << std::endl;
+  Timer timer_json_parsing;
+  const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
+  std::cout << " (" << timer_json_parsing.lap_formatted() << ")" << std::endl;
+
+  for (const auto& mapping : tables_files_mapping) {
+    const auto table_name = mapping.first;
+
+    std::cout << "-  Loading table '" << table_name << "' from storage json. " << std::endl;
+    Timer timer;
+
+    const auto persistence_data = mapping.second;
+    auto file_name = persistence_data.file_name;
+    const auto file_count = persistence_data.file_index;
+    auto total_chunks = std::vector<std::shared_ptr<Chunk>>{};
+
+    // Create column definitions
+    const auto column_definitions = storage_manager.get_table_column_definitions_from_json(table_name);
+
+    // Load chunks from files
+    for (auto index = size_t{0}; index < file_count + 1; ++index) {
+      file_name = table_name + "_" + std::to_string(index) + ".bin";
+
+      auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
+      for (const auto& chunk : chunks) {
+        // Set mvcc data to 0
+        auto mvcc_data = std::make_shared<MvccData>(chunk->size(), CommitID{0});
+        chunk->set_mvcc_data(mvcc_data);
+      }
+
+      total_chunks.insert(total_chunks.end(), chunks.begin(), chunks.end());
+    }
+
+    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::Yes);
+    BenchmarkTableInfo table_info;
+    table_info.table = table;
+    table_info.loaded_from_binary = true;
+    table_info.binary_file_path = file_name;
+    table_info_by_name[table_name] = table_info;
+    std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
+  }
   return table_info_by_name;
 }
 

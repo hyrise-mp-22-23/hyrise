@@ -10,7 +10,17 @@
 #include <string>
 #include <vector>
 
+#include "chunk.hpp"
 #include "lqp_view.hpp"
+
+#ifdef __APPLE__
+#include "nlohmann/json.hpp"
+#endif
+
+#ifdef __linux__
+#include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
+#endif
+
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
@@ -94,8 +104,28 @@ class StorageManager : public Noncopyable {
   std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> prepared_plans() const;
   /** @} */
 
+  /**
+     * @defgroup Manage writing Chunks to disk and keep storage.json synchronized.
+     * @{
+     */
+
+  /** @} */
+
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
+
+  void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
+  std::pair<uint32_t, uint32_t> persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                                      const std::string& file_name);
+
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                          const Table* table_address);
+
+  std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(
+      std::string table_name, std::string file_name,
+      const std::vector<TableColumnDefinition>& table_column_definitions);
+
+  std::vector<TableColumnDefinition> get_table_column_definitions_from_json(const std::string& table_name);
 
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
@@ -105,8 +135,24 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
-  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
-                                          const Table* table_address);
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
+    _load_storage_data_from_disk();
+    return _tables_current_persistence_file_mapping;
+  }
+
+  void update_storage_json();
+
+  uint32_t get_file_header_bytes() {
+    return _file_header_bytes;
+  }
+
+  void set_persistence_directory(std::string persistence_dir) {
+    _persistence_directory = persistence_dir;
+  }
+
+  std::string get_persistence_directory() {
+    return _persistence_directory;
+  }
 
   static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
       const CompressedVectorType compressed_vector_type);
@@ -117,7 +163,7 @@ class StorageManager : public Noncopyable {
   }
 
   static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream);
+                                       std::ofstream& ofstream);
 
   template <typename T, typename Alloc>
   static void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
@@ -132,8 +178,14 @@ class StorageManager : public Noncopyable {
   static void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream);
 
  protected:
-  StorageManager() = default;
   friend class Hyrise;
+
+  StorageManager() = default;
+
+  std::string _persistence_directory;
+  std::string _storage_json_name = "storage.json";
+
+  nlohmann::json _storage_json;
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
@@ -190,6 +242,9 @@ class StorageManager : public Noncopyable {
                                               const std::vector<DataType>& column_definitions) const;
 
   std::string _get_table_name(const Table* address) const;
+
+  void _serialize_table_files_mapping();
+  void _load_storage_data_from_disk();
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

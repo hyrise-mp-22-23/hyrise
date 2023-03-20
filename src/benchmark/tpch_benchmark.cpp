@@ -50,13 +50,15 @@ int main(int argc, char* argv[]) {
     ("clustering", "Clustering of TPC-H data. The default of --clustering=None means the data is stored as generated "
                    "by the TPC-H data generator. With --clustering=\"Pruning\", the two largest tables 'lineitem' "
                    "and 'orders' are sorted by 'l_shipdate' and 'o_orderdate' for improved chunk pruning. Both are "
-                   "legal TPC-H input data.", cxxopts::value<std::string>()->default_value("None")); // NOLINT
+                   "legal TPC-H input data.", cxxopts::value<std::string>()->default_value("None")) // NOLINT
+    ("use_mmap", "Use storage.json to load TPCH data using the fileformat for chunks that hold their data with mmap."); // NOLINT
   // clang-format on
 
   std::shared_ptr<BenchmarkConfig> config;
   std::string comma_separated_queries;
   float scale_factor;
   bool use_prepared_statements;
+  bool use_mmap;
   bool jcch;
   auto jcch_skewed = false;
 
@@ -76,6 +78,7 @@ int main(int argc, char* argv[]) {
   config = std::make_shared<BenchmarkConfig>(CLIConfigParser::parse_cli_options(cli_parse_result));
 
   use_prepared_statements = cli_parse_result["use_prepared_statements"].as<bool>();
+  use_mmap = cli_parse_result["use_mmap"].as<bool>();
   jcch = cli_parse_result.count("jcch");
   if (jcch) {
     const auto jcch_mode = cli_parse_result["jcch"].as<std::string>();
@@ -144,12 +147,15 @@ int main(int argc, char* argv[]) {
 
   std::cout << "- " << (jcch ? "JCC-H" : "TPC-H") << " scale factor is " << scale_factor << std::endl;
   std::cout << "- Using prepared statements: " << (use_prepared_statements ? "yes" : "no") << std::endl;
+  std::cout << "- Using mmap/storage.json: " << (use_mmap ? "yes" : "no") << std::endl;
 
   // Add TPCH-specific information
   context.emplace("scale_factor", scale_factor);
   context.emplace("clustering", magic_enum::enum_name(clustering_configuration));
   context.emplace("use_prepared_statements", use_prepared_statements);
+  context.emplace("use_mmap", use_mmap);
   config->encoding_config = EncodingConfig();
+  config->use_mmap = use_mmap;
 
   auto table_generator = std::unique_ptr<AbstractTableGenerator>{};
   auto item_runner = std::unique_ptr<AbstractBenchmarkItemRunner>{};

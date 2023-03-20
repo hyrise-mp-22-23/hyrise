@@ -154,10 +154,6 @@ void BenchmarkRunner::run() {
     }
   }
 
-  // In our current implementation, we write new files to the disk in every benchmark run. Because of this, the
-  // binaries are deleted when the benchmark is finished.
-  _table_generator->delete_binaries();
-
   // Fail if verification against SQLite was requested and failed
   if (_config.verify) {
     auto any_verification_failed = false;

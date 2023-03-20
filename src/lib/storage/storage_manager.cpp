@@ -3,7 +3,9 @@
 #include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <fstream>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <string>
 #include <utility>
@@ -12,6 +14,7 @@
 #include "hyrise.hpp"
 #include "import_export/binary/binary_writer.hpp"
 #include "import_export/file_type.hpp"
+#include "magic_enum.hpp"
 #include "operators/export.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
@@ -24,6 +27,7 @@
 #include "storage/value_segment.hpp"
 #include "utils/assert.hpp"
 #include "utils/meta_table_manager.hpp"
+using json = nlohmann::json;
 
 namespace {
 
@@ -443,7 +447,8 @@ void StorageManager::_write_chunk_to_disk(const std::shared_ptr<Chunk> chunk,
 std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::shared_ptr<Chunk> chunk,
                                                                      ChunkID chunk_id,
                                                                      const std::string& file_name) const {
-  if (std::filesystem::exists(file_name)) {
+  const auto file_path = _persistence_directory + file_name;
+  if (std::filesystem::exists(file_path)) {
     //append to existing file
 
     auto chunk_segment_offset_ends = _calculate_segment_offset_ends(chunk);
@@ -458,9 +463,9 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
     file_header.chunk_ids[file_header_previous_chunk_count] = chunk_id;
     file_header.chunk_offset_ends[file_header_previous_chunk_count] = file_prev_chunk_end_offset + chunk_offset_end;
 
-    overwrite_header(file_header, file_name);
+    overwrite_header(file_header, file_path);
 
-    std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+    std::ofstream ofstream(file_path, std::ios::binary | std::ios::app);
     _write_chunk_to_disk(chunk, chunk_segment_offset_ends, ofstream);
     ofstream.close();
 
@@ -485,7 +490,7 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   fh.chunk_ids = chunk_ids;
   fh.chunk_offset_ends = chunk_offset_ends;
 
-  std::ofstream ofstream(file_name, std::ios::binary | std::ios::app);
+  std::ofstream ofstream(file_path, std::ios::binary | std::ios::app);
   export_value<FILE_HEADER>(fh, ofstream);
 
   _write_chunk_to_disk(chunk, chunk_segment_offset_ends, ofstream);
@@ -518,6 +523,31 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
   _tables[table_name]->replace_chunk(chunk_id, mapped_chunk);
 }
 
+std::vector<std::shared_ptr<Chunk>> StorageManager::get_chunks_from_disk(
+    std::string table_name, std::string file_name, const std::vector<TableColumnDefinition>& table_column_definitions) {
+  const auto file_header = _read_file_header(file_name);
+  auto chunks = std::vector<std::shared_ptr<Chunk>>{file_header.chunk_count};
+  auto column_definitions = std::vector<DataType>{table_column_definitions.size()};
+
+  for (auto index = size_t{0}; index < table_column_definitions.size(); ++index) {
+    column_definitions[index] = table_column_definitions[index].data_type;
+  }
+
+  for (auto index = size_t{0}; index < file_header.chunk_count; ++index) {
+    const auto chunk_bytes = file_header.chunk_offset_ends[index];
+    auto chunk_start_offset = _file_header_bytes;
+
+    if (index != 0)
+      chunk_start_offset = file_header.chunk_offset_ends[index - 1] + _file_header_bytes;
+
+    const auto chunk =
+        _map_chunk_from_disk(chunk_start_offset, chunk_bytes, file_name, column_definitions.size(), column_definitions);
+    chunks[index] = chunk;
+  }
+
+  return chunks;
+}
+
 const std::string StorageManager::_get_persistence_file_name(const std::string& table_name) {
   if (_tables_current_persistence_file_mapping[table_name].current_chunk_count == MAX_CHUNK_COUNT_PER_FILE) {
     const auto next_file_index = _tables_current_persistence_file_mapping[table_name].file_index + 1;
@@ -531,7 +561,7 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto file_header = FILE_HEADER{};
   auto fd = int32_t{};
 
-  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Open error");
+  Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
   auto* persisted_header =
       reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
@@ -572,7 +602,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
                                                             const std::vector<DataType>& column_definitions) const {
   auto segments = pmr_vector<std::shared_ptr<AbstractSegment>>{};
   auto fd = int32_t{};
-  Assert((fd = open(filename.c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
+  Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Opening of file failed.");
 
   //Calls to mmap need to be pagesize-aligned
   const auto pagesize = getpagesize();
@@ -608,8 +638,7 @@ std::shared_ptr<Chunk> StorageManager::_map_chunk_from_disk(const uint32_t chunk
     });
   }
 
-  const auto chunk = std::make_shared<Chunk>(segments);
-  return chunk;
+  return std::make_shared<Chunk>(segments);
 }
 
 uint32_t StorageManager::_chunk_header_bytes(uint32_t column_count) const {
@@ -638,8 +667,82 @@ PersistedSegmentEncodingType StorageManager::resolve_persisted_segment_encoding_
   return persisted_vector_type_id;
 }
 
-void StorageManager::export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
-                              std::ofstream& ofstream) {
+void StorageManager::_serialize_table_files_mapping() {
+  for (const auto& mapping : _tables_current_persistence_file_mapping) {
+    const auto table = get_table(mapping.first);
+    const auto column_count = table->column_count();
+    const auto chunk_count = mapping.second.file_index * MAX_CHUNK_COUNT_PER_FILE + mapping.second.current_chunk_count;
+    auto table_json = json({{"file_count", mapping.second.file_index + 1},
+                            {"chunk_count", chunk_count},
+                            {"column_count", static_cast<uint32_t>(table->column_count())}});
+
+    const auto column_definitions = table->column_definitions();
+    auto columns_json = json::array();
+    for (auto index = size_t{0}; index < column_count; ++index) {
+      const json column_object = {
+          {"column_name", column_definitions[index].name},
+          {"data_type", magic_enum::enum_name(column_definitions[index].data_type)},
+          {"nullable", column_definitions[index].nullable},
+      };
+      columns_json.push_back(column_object);
+    }
+    table_json["columns"] = columns_json;
+
+    _storage_json[mapping.first] = table_json;
+  }
+}
+
+void StorageManager::update_storage_json() {
+  _serialize_table_files_mapping();
+  std::ofstream output_file(_persistence_directory + _storage_json_name, std::ios::trunc);
+  const auto json_serialized = _storage_json.dump(4);
+  output_file << json_serialized;
+  output_file.close();
+}
+
+std::vector<TableColumnDefinition> StorageManager::get_table_column_definitions_from_json(
+    const std::string& table_name) {
+  const auto table_json = _storage_json[table_name];
+
+  auto table_column_definitions = std::vector<TableColumnDefinition>{table_json["columns"].size()};
+
+  for (auto index = size_t{0}; index < table_json["columns"].size(); ++index) {
+    const auto column = table_json["columns"][index];
+    const auto data_type = magic_enum::enum_cast<DataType>(std::string(column["data_type"]));
+    const auto table_column_definition =
+        TableColumnDefinition(column["column_name"], data_type.value(), column["nullable"]);
+    table_column_definitions[index] = table_column_definition;
+  }
+
+  return table_column_definitions;
+}
+
+void StorageManager::_load_storage_data_from_disk() {
+  // Read the JSON data from disk into a string
+  std::ifstream json_file(_persistence_directory + _storage_json_name);
+  _storage_json = json::parse(json_file);
+
+  // Deserialize the JSON into the map
+  for (auto it = _storage_json.begin(); it != _storage_json.end(); ++it) {
+    const auto& table_name = it.key();
+    const auto item = it.value();
+    const auto file_count = static_cast<uint32_t>(item["file_count"]);
+    const auto file_index = file_count - 1;
+    const auto file_name = table_name + "_" + std::to_string(file_index) + ".bin";
+    const auto chunk_count = static_cast<uint32_t>(item["chunk_count"]) % MAX_CHUNK_COUNT_PER_FILE;
+
+    Assert(chunk_count <= MAX_CHUNK_COUNT_PER_FILE, "Chunk count exceeds maximum chunk count per file.");
+    PERSISTENCE_FILE_DATA data;
+    data.file_name = file_name;
+    data.file_index = file_index;
+    data.current_chunk_count = chunk_count;
+
+    _tables_current_persistence_file_mapping.emplace(table_name, std::move(data));
+  }
+}
+
+void StorageManager::export_compressed_vector(const CompressedVectorType type,
+                                              const BaseCompressedVector& compressed_vector, std::ofstream& ofstream) {
   switch (type) {
     case CompressedVectorType::FixedWidthInteger4Byte:
       export_values(dynamic_cast<const FixedWidthIntegerVector<uint32_t>&>(compressed_vector).data(), ofstream);
