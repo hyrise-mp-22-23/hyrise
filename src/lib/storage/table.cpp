@@ -463,6 +463,8 @@ void Table::persist() {
 }
 
 void Table::_persist_chunk(ChunkID chunk_id) {
+  Assert(!_chunks[chunk_id]->is_mutable(), "It is not possible to persist mutable chunks.");
+
   auto& storage_manager = Hyrise::get().storage_manager;
   storage_manager.replace_chunk_with_persisted_chunk(_chunks[chunk_id], chunk_id, this);
 }

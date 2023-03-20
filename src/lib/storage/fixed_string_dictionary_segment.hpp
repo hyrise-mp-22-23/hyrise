@@ -82,13 +82,13 @@ class FixedStringDictionarySegment : public BaseDictionarySegment {
   std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 
+ private:
+  // Constants used for the construction of FixedStringDictionarySegments from memory-mapped storage.
   static constexpr auto ENCODING_TYPE_OFFSET_INDEX = uint32_t{0};
   static constexpr auto STRING_LENGTH_OFFSET_INDEX = uint32_t{1};
   static constexpr auto DICTIONARY_SIZE_OFFSET_INDEX = uint32_t{2};
   static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{3};
   static constexpr auto HEADER_OFFSET_BYTES = uint32_t{16};
-  static constexpr auto NUM_BYTES_32_BIT_ENCODING = uint32_t{4};
-  static constexpr auto NUM_BYTES_16_BIT_ENCODING = uint32_t{2};
 };
 
 extern template class FixedStringDictionarySegment<pmr_string>;

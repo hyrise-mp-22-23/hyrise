@@ -37,15 +37,10 @@ uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
   return byte_index / element_size;
 }
 
-/*
- * Copied binary writing function from `binary_writer.cpp`
- */
-
-// not copied, own creation
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
-  //yes, all modes are needed exactly like that to allow us to overwrite the first part of the file
-  //yes, fstream should open with "std::ios::in | std::ios::out by default", don't ask me, this was a pain to figure out
+  // All thiese modes are needed to be set exactly like that, otherwise it will not work.
   std::fstream fstream(file_name, std::ios::binary | std::ios::in | std::ios::out);
+
   fstream.seekp(0, std::ios_base::beg);
   fstream.write(reinterpret_cast<const char*>(&header), sizeof(FILE_HEADER));
   fstream.close();
@@ -74,62 +69,6 @@ uint32_t calculate_byte_size_of_attribute_vector(std::shared_ptr<const BaseCompr
   return size;
 }
 
-[[maybe_unused]] void evaluate_mapped_chunk(const std::shared_ptr<Chunk>& chunk,
-                                            const std::shared_ptr<Chunk>& mapped_chunk) {
-  const auto created_segment = chunk->get_segment(ColumnID{0});
-
-  resolve_data_type(created_segment->data_type(), [&](auto segment_data_type) {
-    using SegmentDataType = typename decltype(segment_data_type)::type;
-    const auto created_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(created_segment);
-    auto dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*created_dict_segment);
-
-    auto column_sum_of_created_chunk = SegmentDataType{};
-    dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_created_chunk =
-          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-            return accumulator + SegmentDataType{currentValue.value()};
-          });
-    });
-
-    std::cout << "Sum of column 1 of created chunk: " << column_sum_of_created_chunk << std::endl;
-  });
-
-  const auto mapped_segment = mapped_chunk->get_segment(ColumnID{0});
-
-  resolve_data_type(mapped_segment->data_type(), [&](auto segment_data_type) {
-    using SegmentDataType = typename decltype(segment_data_type)::type;
-    const auto mapped_dict_segment = dynamic_pointer_cast<DictionarySegment<SegmentDataType>>(mapped_segment);
-    auto mapped_dict_segment_iterable = create_iterable_from_segment<SegmentDataType>(*mapped_dict_segment);
-
-    auto column_sum_of_mapped_chunk = SegmentDataType{};
-    mapped_dict_segment_iterable.with_iterators([&](auto it, auto end) {
-      column_sum_of_mapped_chunk =
-          std::accumulate(it, end, SegmentDataType{0}, [](const auto& accumulator, const auto& currentValue) {
-            return accumulator + SegmentDataType{currentValue.value()};
-          });
-    });
-
-    std::cout << "Sum of column 1 of mapped chunk: " << column_sum_of_mapped_chunk << std::endl;
-  });
-
-  // print row 17 of created and mapped chunk
-  std::cout << "Row 2 of created chunk: ";
-  for (auto column_index = ColumnID{0}; column_index < chunk->column_count(); ++column_index) {
-    const auto segment = chunk->get_segment(column_index);
-    const auto attribute_value = (*segment)[ChunkOffset{1}];
-    std::cout << attribute_value << " ";
-  }
-  std::cout << std::endl;
-
-  std::cout << "Row 2 of mapped chunk: ";
-  for (auto column_index = ColumnID{0}; column_index < mapped_chunk->column_count(); ++column_index) {
-    const auto segment = mapped_chunk->get_segment(column_index);
-    const auto attribute_value = (*segment)[ChunkOffset{1}];
-    std::cout << attribute_value << " ";
-  }
-  std::cout << std::endl;
-}
-
 }  // namespace
 
 namespace hyrise {
@@ -156,7 +95,7 @@ void StorageManager::add_table(const std::string& name, std::shared_ptr<Table> t
 
   _tables[name] = std::move(table);
 
-  auto table_persistence_file_name = name + "_0.bin";
+  const auto table_persistence_file_name = name + "_0.bin";
   _tables_current_persistence_file_mapping[name] = {table_persistence_file_name, 0, 0};
 }
 
@@ -185,7 +124,7 @@ std::string StorageManager::_get_table_name(const Table* address) const {
       return name;
     }
   }
-  return std::string{};
+  Fail("Table is not registered with the StorageManager.");
 }
 
 bool StorageManager::has_table(const std::string& name) const {
@@ -393,17 +332,21 @@ std::vector<uint32_t> StorageManager::_calculate_segment_offset_ends(const std::
   auto segment_offset_ends = std::vector<uint32_t>(segment_count);
 
   auto offset_end = _chunk_header_bytes(segment_count);
-  for (auto segment_index = size_t{0}; segment_index < segment_count; ++segment_index) {
-    const auto abstract_segment = chunk->get_segment(static_cast<ColumnID>(static_cast<uint16_t>(segment_index)));
+  for (auto segment_index = ColumnID{0}; segment_index < segment_count; ++segment_index) {
+    const auto abstract_segment = chunk->get_segment(segment_index);
 
     resolve_data_type(abstract_segment->data_type(), [&](auto type) {
       using ColumnDataType = typename decltype(type)::type;
       if constexpr (std::is_same<ColumnDataType, pmr_string>::value) {
         offset_end += _segment_header_bytes + 4;
-        //TODO: this should be encapsulated in a size_bytes() function
+        // TODO: this should be encapsulated in a size_bytes() function
         const auto fixed_string_dict_segment =
             std::dynamic_pointer_cast<FixedStringDictionarySegment<ColumnDataType>>(abstract_segment);
+
+        // Because the data of strings is stored on the heap we are not able to persist non-FixedString string
+        // DictionarySegments on disk.
         Assert(fixed_string_dict_segment, "Trying to map a non-FixedString String DictionarySegment");
+
         const auto fixed_string_dict_size_bytes = fixed_string_dict_segment->fixed_string_dictionary()->size() *
                                                   fixed_string_dict_segment->fixed_string_dictionary()->string_length();
         const auto attribute_vector_size_bytes =

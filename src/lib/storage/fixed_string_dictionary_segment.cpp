@@ -127,7 +127,11 @@ ChunkOffset FixedStringDictionarySegment<T>::size() const {
 template <typename T>
 std::shared_ptr<AbstractSegment> FixedStringDictionarySegment<T>::copy_using_allocator(
     const PolymorphicAllocator<size_t>& alloc) const {
+  // Currently there are no methods to cope the data of a FixedStringSpan into a FixedStringVector. Therefore it is
+  // currently not possible to copy FixedStringDictionarySegments that rely on memory-mapped storage. It should not be
+  // hard to implement the needed methods.
   Assert(_dictionary_base_vector, "Cannot copy span-based FixedStringDictionarySegments.");
+
   auto new_dictionary = std::make_shared<FixedStringVector>(*_dictionary_base_vector, alloc);
   auto new_attribute_vector = _attribute_vector->copy_using_allocator(alloc);
 

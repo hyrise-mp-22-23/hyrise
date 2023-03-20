@@ -229,9 +229,10 @@ class Table : private Noncopyable {
 
   /*
    * Persist table to use mmap-based storage for its data.
-   * TODO: Explanation.
+   * The call of this method will write the data of the Chunks (and their Segments) of the Table to disk. After this,
+   * the written data is accessed using memory-mapped storage and new Segments are created using that data. Last, the 
+   * old Chunks are replaced with new Chunks holding the memory-mapped segments.
    */
-
   void persist();
 
  protected:
