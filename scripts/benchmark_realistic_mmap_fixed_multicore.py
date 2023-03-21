@@ -3,11 +3,13 @@ import itertools
 import math
 import os
 
-num_cores = [2, 4, 8, 16, 24, 32, 48]
+#num physical cores, num logical cores
+num_cores = [24, 48]
 warmup = [True, False]
-for num_core, do_warmup in itertools.product(num_cores, warmup):
+num_clients = [1, 2, 4, 8, 16, 24, 32, 48]
+for num_core, do_warmup in itertools.product(num_cores, num_clients, warmup):
     os.system("sudo rm -rf *.bin")
-    print(f'Num Core: {num_core}, Warmup: {do_warmup}')
+    print(f'Num Core: {num_core}, NumClients: {num_clients}, Warmup: {do_warmup}')
     benchmark_command = [
         'numactl',
         '-m',
@@ -18,7 +20,7 @@ for num_core, do_warmup in itertools.product(num_cores, warmup):
         '-s',
         '10',
         '--scheduler',
-        f'--clients={math.ceil(num_core/2)}',
+        f'--clients={num_clients}',
         f'--cores={num_core}',
         '-m',
         'Shuffled',

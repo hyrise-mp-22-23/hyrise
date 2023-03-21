@@ -5,7 +5,7 @@ import time
 GB = 1000 * 1000 * 1000
 unlimited = 200 * GB
 
-memory_limits = [20, 16, 14, 12, 10, 8, 7, 6]
+memory_limits = [20, 19, 18, 17, 16, 15, 14, 13.5, 13, 12.5, 12.25, 12, 11.75, 11.5, 11, 10, 9, 8, 7, 6.5, 6, 5.5, 5, 4.5, 4]
 
 for memory_limit in memory_limits:
 
@@ -22,9 +22,9 @@ for memory_limit in memory_limits:
         '-s',
         '10',
         '-t',
-        '600',
+        '1200',
         '-w',
-        '5',
+        '20',
         '-o',
         'benchmark_mmap_based_page_cache_' + str(memory_limit) + 'gb.json'
         ]
@@ -41,6 +41,8 @@ for memory_limit in memory_limits:
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
+    timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
+
     sp = subprocess.Popen(benchmark_command)
 
     print("Moving benchmark process into memory-limited cgroup.")
@@ -56,4 +58,8 @@ for memory_limit in memory_limits:
     print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
     time.sleep(3 * 60)
 
-    sp.wait()
+    try:
+        sp.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        print(f"Benchmark {benchmark_command} timed out after {timeout_s} seconds. Killing it.")
+        sp.kill()

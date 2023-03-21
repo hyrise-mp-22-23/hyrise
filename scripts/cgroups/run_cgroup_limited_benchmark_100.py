@@ -3,9 +3,11 @@ import subprocess
 import time
 
 GB = 1000 * 1000 * 1000
-unlimited = 200 * GB
+unlimited = 500 * GB
 
-memory_limits = [20, 16, 14, 12, 10, 8, 7, 6]
+timeout_s = 60 * 45  #max 45 minutes for TPC-H 100
+
+memory_limits = [300, 250, 100]
 
 for memory_limit in memory_limits:
 
@@ -22,11 +24,11 @@ for memory_limit in memory_limits:
         '-s',
         '100',
         '-t',
-        '600',
+        '1200',
         '-w',
-        '5',
+        '20',
         '-o',
-        'benchmark_mmap_based_page_cache_' + str(memory_limit) + 'gb.json'
+        'benchmark_mmap_based_100_gb_page_cache_' + str(memory_limit) + 'gb.json'
         ]
 
     os.system("sudo rm *.bin")
@@ -62,4 +64,8 @@ for memory_limit in memory_limits:
 
         time.sleep(30)
 
-    sp.wait()
+    try:
+        sp.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        print(f"Benchmark {benchmark_command} timed out after {timeout_s} seconds. Killing it.")
+        sp.kill()

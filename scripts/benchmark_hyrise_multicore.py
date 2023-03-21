@@ -7,8 +7,8 @@ import os
 print("Working directory: " + os.getcwd())
 
 num_cores = [2, 4, 8, 16, 24, 32, 48]
-do_warmup = [True, False]
-for num_core, do_warmup in itertools.product(num_cores, do_warmup):
+warmup = [True, False]
+for num_core, do_warmup in itertools.product(num_cores, warmup):
     print(num_core, do_warmup)
     benchmark_command = [
         'numactl',
