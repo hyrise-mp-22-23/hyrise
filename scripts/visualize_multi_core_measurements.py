@@ -13,9 +13,9 @@ sns.set(font_scale=1.5)
 #initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["scale_factor", "warmup", "latency"])
 #iterate over files in mmap_multi_core_benchmark_results which end with .json
-for filename in os.listdir("./scripts/mmap_multi_core_results_corrected"):
+for filename in os.listdir("./scripts/mmap_multi_core_final_results"):
     if filename.endswith(".json"):
-        with open(f"./scripts/mmap_multi_core_results_corrected/{filename}") as f:
+        with open(f"./scripts/mmap_multi_core_final_results/{filename}") as f:
             #load json
             data = json.load(f)
 
