@@ -18,7 +18,6 @@ for memory_limit in memory_limits:
         './cmake-build-release/hyriseBenchmarkTPCH',
         '-m',
         'Shuffled',
-        '--scheduler',
         '-s',
         '10',
         '-t',
