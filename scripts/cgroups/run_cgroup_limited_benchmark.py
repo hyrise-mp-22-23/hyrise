@@ -40,22 +40,22 @@ for memory_limit in memory_limits:
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
-    timeout_s = 15  #max 45 minutes for TPC-H 10
+    timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
     sp = subprocess.Popen(benchmark_command)
 
-    # print("Moving benchmark process into memory-limited cgroup.")
-    # os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
-    #
-    # print("Waiting 3.5 minutes to let setup finish...")
-    # time.sleep(3.5 * 60)
-    #
-    # print("Setting memory.high soft limit on memory-limit group.")
-    # os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
-    # os.system("sudo cgget -r memory.high memory-limit")
-    #
-    # print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    # time.sleep(3 * 60)
+    print("Moving benchmark process into memory-limited cgroup.")
+    os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
+
+    print("Waiting 3.5 minutes to let setup finish...")
+    time.sleep(3.5 * 60)
+
+    print("Setting memory.high soft limit on memory-limit group.")
+    os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
+    os.system("sudo cgget -r memory.high memory-limit")
+
+    print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
+    time.sleep(3 * 60)
 
     try:
         sp.wait(timeout=timeout_s)

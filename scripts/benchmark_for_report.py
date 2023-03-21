@@ -70,7 +70,7 @@ benchmarks = [
     (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
 ]
 #failsafe, scripts should handle own timeouts if in doubt
-timeout_seconds = 20  # max 36 hours per benchmark script allowed
+timeout_seconds = 60 * 60 * 36  # max 36 hours per benchmark script allowed
 
 for benchmark in benchmarks:
     benchmark_command = benchmark[0]
