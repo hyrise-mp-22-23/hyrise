@@ -27,7 +27,7 @@ for num_core, do_warmup in itertools.product(num_cores, num_clients, warmup):
         '-t',
         '1200',
         '-o',
-        f'benchmark_mmap_hyrise_{num_core}_cores_{"with_warmup" if do_warmup else ""}.json'
+        f'benchmark_mmap_hyrise_{num_core}_cores_{num_clients}_clients_{"with_warmup" if do_warmup else ""}.json'
     ]
     if (do_warmup):
         benchmark_command.append('-w')
