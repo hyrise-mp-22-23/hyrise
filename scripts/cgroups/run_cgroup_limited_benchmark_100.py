@@ -5,7 +5,7 @@ import time
 GB = 1000 * 1000 * 1000
 unlimited = 500 * GB
 
-timeout_s = 60 * 45  #max 45 minutes for TPC-H 100
+timeout_s = 15  #max 45 minutes for TPC-H 100
 
 memory_limits = [300, 250, 100]
 
@@ -45,24 +45,24 @@ for memory_limit in memory_limits:
 
     sp = subprocess.Popen(benchmark_command)
 
-    print("Moving benchmark process into memory-limited cgroup.")
-    os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
-
-    print("Waiting 3.5 minutes to let setup finish...")
-    time.sleep(3.5 * 60)
-
-    print("Setting memory.high soft limit on memory-limit group.")
-    os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
-    os.system("sudo cgget -r memory.high memory-limit")
-
-    print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    for i in range(0, 3):
-        print("********* Memory Metadata of benchmark process: *******************:")
-        os.system("sudo cgget -r memory.current memory-limit")
-        os.system("sudo cgget -r memory.pressure memory-limit")
-        os.system("sudo cgget -r memory.stat memory-limit")
-
-        time.sleep(30)
+    # print("Moving benchmark process into memory-limited cgroup.")
+    # os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
+    #
+    # print("Waiting 3.5 minutes to let setup finish...")
+    # time.sleep(3.5 * 60)
+    #
+    # print("Setting memory.high soft limit on memory-limit group.")
+    # os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
+    # os.system("sudo cgget -r memory.high memory-limit")
+    #
+    # print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
+    # for i in range(0, 3):
+    #     print("********* Memory Metadata of benchmark process: *******************:")
+    #     os.system("sudo cgget -r memory.current memory-limit")
+    #     os.system("sudo cgget -r memory.pressure memory-limit")
+    #     os.system("sudo cgget -r memory.stat memory-limit")
+    #
+    #     time.sleep(30)
 
     try:
         sp.wait(timeout=timeout_s)
