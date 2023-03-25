@@ -239,7 +239,7 @@ void AbstractTableGenerator::generate_and_store() {
    * Write the Tables into binary files if required
    */
 
-  if (_benchmark_config->cache_binary_tables && !_benchmark_config->use_mmap) {
+  if (_benchmark_config->cache_binary_tables) {
     for (auto& [table_name, table_info] : table_info_by_name) {
       const auto& table = table_info.table;
       if (table->chunk_count() > 1 && table->get_chunk(ChunkID{0})->size() != _benchmark_config->chunk_size) {
@@ -269,6 +269,34 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- Writing tables into binary files done (" << format_duration(metrics.binary_caching_duration) << ")"
               << std::endl;
   }
+
+  /**
+   * Persist the tables in binary files if we want to use the new file format
+   * and the cached tables are not already mmap-based.
+   * The tables will have chunks whose data will be managed by the Storage Manager.
+   */
+  if (_benchmark_config->use_mmap) {
+    std::filesystem::directory_iterator dir_iter(Hyrise::get().storage_manager.get_persistence_directory());
+    auto files_present = false;
+    for (const auto& entry : dir_iter) {
+      if (entry.is_regular_file()) {
+        files_present = true;
+        break;
+      }
+    }
+    if (!files_present) {
+      persist_tables();
+    } 
+  }
+
+// To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
+// #ifdef __APPLE__
+//   auto return_val = system("purge");
+//   (void)return_val;
+// #else
+//   auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
+//   (void)return_val;
+// #endif
 
   /**
    * Add the Tables to the StorageManager
@@ -345,35 +373,6 @@ void AbstractTableGenerator::generate_and_store() {
 
   _table_info_by_name = table_info_by_name;
 
-  /**
-   * Persist the tables in binary files if we want to use the new file format
-   * and the cached tables are not already mmap-based.
-   * The tables will have chunks whose data will be managed by the Storage Manager.
-   */
-  if (_benchmark_config->use_mmap) {
-    auto& storage_manager = Hyrise::get().storage_manager;
-    std::filesystem::directory_iterator dir_iter(storage_manager.get_persistence_directory());
-    auto files_present = false;
-    for (const auto& entry : dir_iter) {
-      if (entry.is_regular_file()) {
-        files_present = true;
-        break;
-      }
-    }
-    if (!files_present)
-      persist_tables();
-    storage_manager.update_storage_json();
-  }
-
-  // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
-#ifdef __APPLE__
-  auto return_val = system("purge");
-  (void)return_val;
-#else
-  auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
-  (void)return_val;
-#endif
-
   // Set scheduler back to previously used scheduler.
   Hyrise::get().topology.use_default_topology(_benchmark_config->cores);
   Hyrise::get().set_scheduler(initial_scheduler);
@@ -384,6 +383,7 @@ void AbstractTableGenerator::persist_tables() {
     const auto& table = table_info.table;
     table->persist();
   }
+  Hyrise::get().storage_manager.update_storage_json();
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(

@@ -126,19 +126,19 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   Assert(_scale_factor < 1.0f || std::round(_scale_factor) == _scale_factor,
          "Due to tpch_dbgen limitations, only scale factors less than one can have a fractional part.");
 
-  auto cache_directory = "tpch_cached_tables/sf-" + std::to_string(_scale_factor);  // NOLINT
+  auto cache_directory = std::string{};
 
   if (_benchmark_config->use_mmap) {
-    auto& storage_manager = Hyrise::get().storage_manager;
     cache_directory = "tpch_cached_tables_storage_json/sf-" + std::to_string(_scale_factor) + "/";  // NOLINT
-    storage_manager.set_persistence_directory(cache_directory);
-  }
+    Hyrise::get().storage_manager.set_persistence_directory(cache_directory);
 
-  if (std::filesystem::is_directory(cache_directory)) {
-    if (_benchmark_config->use_mmap) {
+    if (std::filesystem::is_directory(cache_directory)) {
       return _load_binary_tables_from_json();
     }
-    if (_benchmark_config->cache_binary_tables) {
+  } else if (_benchmark_config->cache_binary_tables) {
+    cache_directory = "tpch_cached_tables/sf-" + std::to_string(_scale_factor);  // NOLINT
+
+    if (std::filesystem::is_directory(cache_directory)) {
       return _load_binary_tables_from_path(cache_directory);
     }
   }

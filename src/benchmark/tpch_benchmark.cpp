@@ -148,6 +148,10 @@ int main(int argc, char* argv[]) {
   std::cout << "- " << (jcch ? "JCC-H" : "TPC-H") << " scale factor is " << scale_factor << std::endl;
   std::cout << "- Using prepared statements: " << (use_prepared_statements ? "yes" : "no") << std::endl;
   std::cout << "- Using mmap/storage.json: " << (use_mmap ? "yes" : "no") << std::endl;
+  if (use_mmap) {
+    std::cout << "- Binary caching is deactivated because mmap is used." << std::endl;
+    config->cache_binary_tables = false;
+  }
 
   // Add TPCH-specific information
   context.emplace("scale_factor", scale_factor);
