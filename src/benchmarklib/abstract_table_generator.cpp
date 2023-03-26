@@ -275,18 +275,8 @@ void AbstractTableGenerator::generate_and_store() {
    * and the cached tables are not already mmap-based.
    * The tables will have chunks whose data will be managed by the Storage Manager.
    */
-  if (_benchmark_config->use_mmap) {
-    std::filesystem::directory_iterator dir_iter(Hyrise::get().storage_manager.get_persistence_directory());
-    auto files_present = false;
-    for (const auto& entry : dir_iter) {
-      if (entry.is_regular_file()) {
-        files_present = true;
-        break;
-      }
-    }
-    if (!files_present) {
-      persist_tables();
-    } 
+  if (_benchmark_config->use_mmap && !std::filesystem::is_directory(Hyrise::get().storage_manager.get_persistence_directory())) {
+    persist_tables();
   }
 
 // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
