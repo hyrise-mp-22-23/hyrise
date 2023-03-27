@@ -129,6 +129,9 @@ std::unordered_map<std::string, BenchmarkTableInfo> TPCHTableGenerator::generate
   auto cache_directory = std::string{};
 
   if (_benchmark_config->use_mmap) {
+    if (!std::filesystem::is_directory("tpch_cached_tables_storage_json")) {
+      std::filesystem::create_directory("tpch_cached_tables_storage_json");
+    }
     cache_directory = "tpch_cached_tables_storage_json/sf-" + std::to_string(_scale_factor) + "/";  // NOLINT
     Hyrise::get().storage_manager.set_persistence_directory(cache_directory);
 

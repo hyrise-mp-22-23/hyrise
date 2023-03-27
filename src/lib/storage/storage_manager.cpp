@@ -434,6 +434,7 @@ std::pair<uint32_t, uint32_t> StorageManager::_persist_chunk_to_file(const std::
   fh.chunk_offset_ends = chunk_offset_ends;
 
   std::ofstream ofstream(file_path, std::ios::binary | std::ios::app);
+  Assert(ofstream.is_open(), "Open filestream failed.");
   export_value<FILE_HEADER>(fh, ofstream);
 
   _write_chunk_to_disk(chunk, chunk_segment_offset_ends, ofstream);

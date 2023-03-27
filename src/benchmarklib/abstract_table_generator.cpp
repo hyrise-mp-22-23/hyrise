@@ -271,24 +271,6 @@ void AbstractTableGenerator::generate_and_store() {
   }
 
   /**
-   * Persist the tables in binary files if we want to use the new file format
-   * and the cached tables are not already mmap-based.
-   * The tables will have chunks whose data will be managed by the Storage Manager.
-   */
-  if (_benchmark_config->use_mmap && !std::filesystem::is_directory(Hyrise::get().storage_manager.get_persistence_directory())) {
-    persist_tables();
-  }
-
-// To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
-// #ifdef __APPLE__
-//   auto return_val = system("purge");
-//   (void)return_val;
-// #else
-//   auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
-//   (void)return_val;
-// #endif
-
-  /**
    * Add the Tables to the StorageManager
    */
   {
@@ -361,7 +343,25 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- No indexes created as --indexes was not specified or set to false" << std::endl;
   }
 
+  /**
+   * Persist the tables in binary files if we want to use the new file format
+   * and the cached tables are not already mmap-based.
+   * The tables will have chunks whose data will be managed by the Storage Manager.
+   */
   _table_info_by_name = table_info_by_name;
+  if (_benchmark_config->use_mmap && !std::filesystem::is_directory(Hyrise::get().storage_manager.get_persistence_directory())) {
+    std::filesystem::create_directory(Hyrise::get().storage_manager.get_persistence_directory());
+    persist_tables();
+  }
+
+// To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
+// #ifdef __APPLE__
+//   auto return_val = system("purge");
+//   (void)return_val;
+// #else
+//   auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
+//   (void)return_val;
+// #endif
 
   // Set scheduler back to previously used scheduler.
   Hyrise::get().topology.use_default_topology(_benchmark_config->cores);
