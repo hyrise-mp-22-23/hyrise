@@ -369,7 +369,9 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
+  std::cout << "- Persisting tables to disk" << std::endl;
   for (const auto& [table_name, table_info] : _table_info_by_name) {
+    std::cout << "-  Writing '" << table_name << "' to disk" << std::endl;
     const auto& table = table_info.table;
     table->persist();
   }
