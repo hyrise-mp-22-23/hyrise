@@ -14,9 +14,9 @@ limit_sizes = [6, 7, 8, 10, 12, 16, 18, 20]
 
 #initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["memory", "type", "latency"])
-for filename in os.listdir("./scripts/benchmark_mmap_based_single_threaded"):
+for filename in os.listdir("./scripts/23-03-25/limited_memory_mmap_23_03_25/"):
     if filename.endswith(".json"):
-        with open(f"./scripts/benchmark_mmap_based_single_threaded/{filename}") as f:
+        with open(f"./scripts/23-03-25/limited_memory_mmap_23_03_25/{filename}") as f:
             data = json.load(f)
 
             latency_all = 0
@@ -35,11 +35,11 @@ for filename in os.listdir("./scripts/benchmark_mmap_based_single_threaded"):
                     data_df = data_df.append({"memory": int(limit_size), "type": type, "latency": latency_all}, ignore_index=True)
             else:
                 type = 'mmap-based'
-                memory = int(filename.split("_")[5][:-2])
+                memory = float(filename.split("_")[5][:-7])
                 #calculate latency
 
                 #append data to data frame
-                data_df = data_df.append({"memory": int(memory), "type": type, "latency": int(latency_all)}, ignore_index=True)
+                data_df = data_df.append({"memory": float(memory), "type": type, "latency": int(latency_all)}, ignore_index=True)
 
 print(data_df)
 benchmark_results = sns.lineplot(data=data_df, x="memory", y="latency", hue="type", marker='o', linestyle='--')
