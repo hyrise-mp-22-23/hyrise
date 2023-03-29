@@ -9,7 +9,7 @@ print("Working directory: " + os.getcwd())
 #num physical cores, num logical cores
 num_cores = [24, 48]
 warmup = [True, False]
-num_clients = [1, 2, 4, 8, 16, 24, 32, 48]
+num_clients = [2, 12, 24]
 for num_core, num_client, do_warmup in itertools.product(num_cores, num_clients, warmup):
     print(f"Num cores: {num_core}, Num clients: {num_client}, Warmup: {do_warmup}")
     benchmark_command = [
