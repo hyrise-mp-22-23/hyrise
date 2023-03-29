@@ -63,9 +63,9 @@ benchmarks = [
     # (bc_realistic_scenario_martin_hyrise_master, bc_realistic_scenario_martin_hyrise_master_cwd),
     (bc_realistic_scenario_marcel_hyrise_master, bc_realistic_scenario_marcel_hyrise_master_cwd),
     # (bc_realistic_scenario_martin_hyrise_mmap, bc_realistic_scenario_martin_hyrise_mmap_cwd),
-    (bc_realistic_scenario_marcel_hyrise_mmap, bc_realistic_scenario_marcel_hyrise_mmap_cwd),
+    #(bc_realistic_scenario_marcel_hyrise_mmap, bc_realistic_scenario_marcel_hyrise_mmap_cwd),
     # (bc_hyrise_master_tpch_10, bc_hyrise_master_tpch_10_cwd),
-    # (bc_hyrise_mmap_limited_memory_sf_10, bc_hyrise_mmap_limited_memory_sf_10_cwd),
+     (bc_hyrise_mmap_limited_memory_sf_10, bc_hyrise_mmap_limited_memory_sf_10_cwd),
     # (bc_hyrise_master_tpch_100, bc_hyrise_master_tpch_100_cwd),
     # (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
 ]
