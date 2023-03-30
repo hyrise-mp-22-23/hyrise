@@ -63,6 +63,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   void pread_atomic_single_threaded(benchmark::State& state);
   void pread_atomic_random_multi_threaded(benchmark::State& state, uint16_t thread_count);
   void pread_atomic_random_single_threaded(benchmark::State& state);
+
 #ifdef __linux__
   void libaio_sequential_read_single_threaded(benchmark::State& state);
   void libaio_sequential_read_multi_threaded(benchmark::State& state, uint16_t aio_request_count);
