@@ -1,4 +1,5 @@
 #include "micro_benchmark_utils.hpp"
+#include "micro_benchmark_basic_fixture.hpp"
 #include "utils/assert.hpp"
 
 #include <aio.h>
@@ -47,18 +48,17 @@ void aio_error_handling(aiocb* aiocb, uint32_t expected_bytes) {
 /**
  * Generates a vector containing random indexes between 0 and number.
 */
-std::vector<uint32_t> generate_random_indexes(uint32_t number) {
-  std::vector<uint32_t> sequence(number);
+std::vector<uint64_t> generate_random_indexes(uint64_t size) {
+  std::vector<uint64_t> sequence(size);
   std::iota(std::begin(sequence), std::end(sequence), 0);
   auto rng = std::default_random_engine{};
   std::shuffle(std::begin(sequence), std::end(sequence), rng);
-
   return sequence;
 }
 
-std::vector<uint32_t> generate_random_positive_numbers(uint32_t size) {
+std::vector<uint32_t> generate_random_positive_numbers(uint64_t size) {
   auto numbers = std::vector<uint32_t>(size);
-  for (auto index = size_t{0}; index < size; ++index) {
+  for (auto index = uint64_t{0}; index < size; ++index) {
     numbers[index] = std::rand() % UINT32_MAX;
   }
 
@@ -70,11 +70,22 @@ std::string close_file_and_return_error_message(int32_t fd, std::string message,
   return message + std::strerror(error_num);
 }
 
-std::string close_files_and_return_error_message(std::vector<int32_t> filedescriptors, std::string message, const int error_num) {
+std::string close_files_and_return_error_message(std::vector<int32_t> filedescriptors, std::string message,
+                                                 const int error_num) {
   for (auto index = size_t{0}; index < filedescriptors.size(); ++index) {
     close(filedescriptors[index]);
   }
   return message + std::strerror(error_num);
+}
+
+// Arguments are file size in MB
+void CustomArguments(benchmark::internal::Benchmark* benchmark) {
+  const std::vector<uint32_t> parameters = {10000, 100000};
+  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+
+  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
+    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
+      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
 }
 
 }  // namespace hyrise

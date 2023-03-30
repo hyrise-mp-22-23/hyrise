@@ -39,7 +39,8 @@ void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32
 
   /* Wait until end of transaction */
   auto err = int{0};
-  while ((err = aio_error(&aiocb)) == EINPROGRESS);
+  while ((err = aio_error(&aiocb)) == EINPROGRESS)
+    ;
 
   aio_error_handling(&aiocb, bytes_to_write);
 }
@@ -199,7 +200,8 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
 
     /* Wait until end of transaction */
     auto err = int{0};
-    while ((err = aio_error(&aiocb)) == EINPROGRESS);
+    while ((err = aio_error(&aiocb)) == EINPROGRESS)
+      ;
 
     aio_error_handling(&aiocb, NUMBER_OF_BYTES);
 
@@ -302,16 +304,11 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
   }
 }
 
-// Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10)->Arg(100)->Arg(1000)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)->Apply(CustomArguments)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)->Apply(CustomArguments)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10000)->Arg(100000)->UseRealTime();
 
 }  // namespace hyrise
