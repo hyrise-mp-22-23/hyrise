@@ -13,15 +13,15 @@
 #include <thread>
 #include "file_io_read_micro_benchmark.hpp"
 #include "micro_benchmark_basic_fixture.hpp"
+#include "micro_benchmark_utils.hpp"
 
 namespace hyrise {
-
 
 void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
                           std::atomic<bool>& threads_ready_to_be_executed) {
   while (!threads_ready_to_be_executed) {}
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
+  const auto total_bytes_to_read = static_cast<size_t>(uint32_t_size * (to - from));
   const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
   const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
 
@@ -30,9 +30,9 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
     auto elements_remaining = elements_to_read;
     while (elements_remaining > 0) {
       lseek(fd, (from + elements_read) * uint32_t_size, SEEK_SET);
-      auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
-      auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
-      auto bytes_read_this_iteration =
+      const auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+      const auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+      const auto bytes_read_this_iteration =
           static_cast<size_t>(read(fd, read_data_start + from + elements_read, bytes_to_read));
       Assert((bytes_read_this_iteration == bytes_to_read),
              close_file_and_return_error_message(fd, "Read error: ", errno));
@@ -41,7 +41,7 @@ void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32
     }
   } else {
     lseek(fd, from * uint32_t_size, SEEK_SET);
-    Assert((read(fd, read_data_start + from, total_bytes_to_read) == total_bytes_to_read),
+    Assert((read(fd, read_data_start + from, total_bytes_to_read) == static_cast<ssize_t>(total_bytes_to_read)),
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
 }
@@ -86,7 +86,6 @@ void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint3
     Assert((pread(fd, read_data_start + from, total_bytes_to_read, from * uint32_t_size) == total_bytes_to_read),
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
-
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
@@ -102,7 +101,6 @@ void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t 
     Assert((pread(fd, read_data_start + index, uint32_t_size, uint32_t_size * random_indices[index]) == uint32_t_size),
            close_file_and_return_error_message(fd, "Read error: ", errno));
   }
-
 }
 
 #ifdef __linux__
@@ -122,10 +120,6 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
 
   for (auto index = size_t{0}; index < REQUEST_COUNT; ++index) {
     auto from = batch_size_thread * index + thread_from;
-    auto to = from + batch_size_thread;
-    if (to + batch_size_thread >= NUMBER_OF_ELEMENTS_PER_THREAD) {
-      to = NUMBER_OF_ELEMENTS_PER_THREAD;
-    }
 
     // io_prep_pread(struct iocb *iocb, int fd, void *buf, size_t count, long long offset);
     io_prep_pread(&iocbs[index], fd, read_data_start + from, batch_size_thread * uint32_t_size, from * uint32_t_size);
@@ -306,7 +300,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     //  incl possible duplicates
     for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       lseek(fd, uint32_t_size * random_indexes[index], SEEK_SET);
-      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
+      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == static_cast<ssize_t>(uint32_t_size)),
              close_file_and_return_error_message(fd, "Read error: ", errno));
     }
 
@@ -485,7 +479,7 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
     // TODO(everyone) Randomize inidzes to not read all the data but really randomize
     for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indexes[index]) ==
-              uint32_t_size),
+              static_cast<ssize_t>(uint32_t_size)),
              close_file_and_return_error_message(fd, "Read error: ", errno));
     }
 
@@ -802,18 +796,6 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(bench
   }
 }
 
-// Arguments are file size in MB
-
-static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
-  const std::vector<uint32_t> parameters = {10000, 100000};
-  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
-
-  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
-    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
-      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
-}
-
-
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
@@ -829,15 +811,15 @@ BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THR
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
-/*
+
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)->Apply(CustomArguments)->UseRealTime();
 #endif
-*/
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
-//BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(100000)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(100000)->UseRealTime();
 
 }  // namespace hyrise

@@ -1,4 +1,5 @@
 #include "micro_benchmark_utils.hpp"
+#include "micro_benchmark_basic_fixture.hpp"
 #include "utils/assert.hpp"
 
 #include <aio.h>
@@ -75,6 +76,16 @@ std::string close_files_and_return_error_message(std::vector<int32_t> filedescri
     close(filedescriptors[index]);
   }
   return message + std::strerror(error_num);
+}
+
+// Arguments are file size in MB
+void CustomArguments(benchmark::internal::Benchmark* benchmark) {
+  const std::vector<uint32_t> parameters = {10000, 100000};
+  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
+
+  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
+    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
+      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
 }
 
 }  // namespace hyrise

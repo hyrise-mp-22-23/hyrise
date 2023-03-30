@@ -39,7 +39,8 @@ void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32
 
   /* Wait until end of transaction */
   auto err = int{0};
-  while ((err = aio_error(&aiocb)) == EINPROGRESS);
+  while ((err = aio_error(&aiocb)) == EINPROGRESS)
+    ;
 
   aio_error_handling(&aiocb, bytes_to_write);
 }
@@ -199,7 +200,8 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
 
     /* Wait until end of transaction */
     auto err = int{0};
-    while ((err = aio_error(&aiocb)) == EINPROGRESS);
+    while ((err = aio_error(&aiocb)) == EINPROGRESS)
+      ;
 
     aio_error_handling(&aiocb, NUMBER_OF_BYTES);
 
@@ -302,26 +304,11 @@ BENCHMARK_DEFINE_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)(benchmark:
   }
 }
 
-// Arguments are file size in MB
-static void CustomArguments(benchmark::internal::Benchmark* benchmark) {
-  const std::vector<uint32_t> parameters = {10000, 100000};
-  const std::vector<uint8_t> thread_counts = {1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64};
-
-  for (auto param_index = size_t{0}; param_index < parameters.size(); ++param_index)
-    for (auto thread_index = size_t{0}; thread_index < thread_counts.size(); ++thread_index)
-      benchmark->Args({parameters[param_index], thread_counts[thread_index]});
-}
-
-
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, WRITE_NON_ATOMIC_THREADED)
     ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)
-    ->Apply(CustomArguments)
-    ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)
-    ->Apply(CustomArguments)
-    ->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, PWRITE_ATOMIC_THREADED)->Apply(CustomArguments)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, AIO_THREADED)->Apply(CustomArguments)->UseRealTime();
 BENCHMARK_REGISTER_F(FileIOWriteMicroBenchmarkFixture, IN_MEMORY_WRITE)->Arg(10000)->Arg(100000)->UseRealTime();
 
 }  // namespace hyrise

@@ -35,7 +35,7 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
 
     filename = "benchmark_data_" + std::to_string(size_parameter) + ".bin";
     std::ofstream file(filename, std::ios::binary);
-    file.write(reinterpret_cast<const char*>(numbers.data()), numbers.size() * sizeof(uint32_t));
+    file.write(reinterpret_cast<const char*>(numbers.data()), numbers.size() * uint32_t_size);
     chmod(filename.c_str(), S_IRWXU);  // enables owner to rwx file
     file.close();
   }
@@ -45,9 +45,9 @@ class FileIOMicroReadBenchmarkFixture : public MicroBenchmarkBasicFixture {
   }
 
  protected:
-  const ssize_t uint32_t_size = ssize_t{sizeof(uint32_t)};
+  const size_t uint32_t_size = size_t{sizeof(uint32_t)};
   // read / write accept at most up to = 2,147,479,552 bytes
-  const uint64_t MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+  const uint64_t MAX_NUMBER_OF_ELEMENTS = 2147479552 / uint32_t_size;
   std::string filename;
   uint64_t control_sum = uint64_t{0};
   uint64_t NUMBER_OF_BYTES = uint64_t{0};
