@@ -24,9 +24,9 @@ pagefault_stats = defaultdict(dict)
 
 def get_memory_stats(cgroup_name, print_info=""):
     print(print_info)
-    memory_stat = os.system(f"sudo cgget -r memory.stat {cgroup_name}")
-    memory_events = os.system(f"sudo cgget -r memory.events {cgroup_name}")
-    memory_pressure = os.system(f"sudo cgget -r memory.pressure {cgroup_name}")
+    memory_stat = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.stat', cgroup_name])
+    memory_events = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.events', cgroup_name])
+    memory_pressure = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.pressure', cgroup_name])
 
     return {'memory_stat': memory_stat, 'memory_events': memory_events, 'memory_pressure': memory_pressure}
 
@@ -87,11 +87,11 @@ for memory_limit in memory_limits:
                 break
 
     print("Setup finished")
-    pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Print memory stats of cgroup after moving benchmarking process into it.")
+    pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Get memory stats of cgroup after moving benchmarking process into it.")
 
     try:
         p.wait(timeout=timeout_s)
-        get_memory_stats(cgroup_name, "Print memory stats after benchmark finished.")
+        get_memory_stats(cgroup_name, "Get memory stats after benchmark finished.")
     except subprocess.TimeoutExpired:
             print(f"Benchmark {benchmark_command} timed out after {timeout_s} seconds. Killing it.")
             p.kill()
