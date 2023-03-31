@@ -51,7 +51,7 @@ for memory_limit in memory_limits:
     os.system("sudo rm *.bin")
     #create unique memory limit cgroup for each benchmark for easier measurements
     timestamp = time.time()
-    cgroup_name = f"{cgroup_name}-{timestamp}"
+    cgroup_name = f"memory-limit-{timestamp}"
     print(f"Creating cgroup for memory limit and setting its memory.high property to {unlimited}.")
     os.system(f"sudo cgcreate -g memory:{cgroup_name}")
 
