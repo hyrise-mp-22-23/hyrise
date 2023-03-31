@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+
+"""
+This script analyzes and plots the memory peak results create by
+'measure_memory_peak_during_benchmark_execution.py`.
+"""
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
