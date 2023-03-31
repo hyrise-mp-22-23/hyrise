@@ -38,7 +38,7 @@ uint32_t element_index(const uint32_t byte_index, const size_t element_size) {
 }
 
 void overwrite_header(const FILE_HEADER header, std::string file_name) {
-  // All thiese modes are needed to be set exactly like that, otherwise it will not work.
+  // All these modes are needed to be set exactly like that, otherwise it will not work.
   std::fstream fstream(file_name, std::ios::binary | std::ios::in | std::ios::out);
 
   fstream.seekp(0, std::ios_base::beg);
@@ -460,7 +460,6 @@ void StorageManager::replace_chunk_with_persisted_chunk(const std::shared_ptr<Ch
   auto mapped_chunk = _map_chunk_from_disk(chunk_start_offset, chunk_bytes, table_persistence_file,
                                            chunk->column_count(), column_definitions);
   //evaluate_mapped_chunk(chunk, mapped_chunk);
-
   mapped_chunk->set_mvcc_data(chunk->mvcc_data());
 
   // replace chunk in table
@@ -506,8 +505,9 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   auto fd = int32_t{};
 
   Assert((fd = open((_persistence_directory + filename).c_str(), O_RDONLY)) >= 0, "Open error");
+
   auto* persisted_header =
-      reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
+    reinterpret_cast<uint32_t*>(mmap(NULL, _file_header_bytes, PROT_READ, MAP_PRIVATE, fd, off_t{0}));
   Assert((persisted_header != MAP_FAILED), "Mapping Failed");
   close(fd);
 
@@ -519,9 +519,9 @@ FILE_HEADER StorageManager::_read_file_header(const std::string& filename) const
   for (auto header_index = size_t{0}; header_index < file_header.chunk_count; ++header_index) {
     file_header.chunk_ids[header_index] = persisted_header[header_constants_size + header_index];
     file_header.chunk_offset_ends[header_index] =
-        persisted_header[header_constants_size + StorageManager::_chunk_count + header_index];
+      persisted_header[header_constants_size + StorageManager::_chunk_count + header_index];
   }
-  munmap(persisted_header, _file_header_bytes);
+  Assert(munmap(persisted_header, _file_header_bytes) == 0, "Unmapping Failed");
 
   return file_header;
 }

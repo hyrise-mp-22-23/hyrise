@@ -22,8 +22,6 @@ if len(sys.argv) < 3:
 if len(sys.argv) != 4:
     print("You did not specify the benchmark type. If you want only fio read or only fio write benchmarks plotted, please do so.")
 
-# TODO: make pretty with arguments if statistical evaluation should be done
-
 benchmark_df = pd.read_csv(sys.argv[1])
 fio_df = pd.read_csv(sys.argv[2])
 

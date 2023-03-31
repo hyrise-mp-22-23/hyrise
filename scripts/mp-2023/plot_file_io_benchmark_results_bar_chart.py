@@ -20,8 +20,6 @@ plt.style.use("ggplot")
 if len(sys.argv) != 2:
     sys.exit("Usage: " + sys.argv[0] + " benchmark.csv")
 
-# TODO: make pretty with arguments if statistical evaluation should be done
-
 df = pd.read_csv(sys.argv[1])
 
 df[["fixture", "type", "filesize_mb"]] = df["name"].str.split("/", 2, expand=True)
