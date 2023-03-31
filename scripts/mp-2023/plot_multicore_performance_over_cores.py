@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+
+"""
+This script plots the performance of different hyrise multithreaded runs (as deduced from benchmark result file names)
+over the number of cores available.
+"""
+
 import pandas as pd
-import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import json
+
+#configure directory with benchmark results
+benchmark_results_dir = "./scripts/results_variable_core_new_master"
 
 # set plot styles
 plt.style.use("ggplot")
@@ -13,9 +21,9 @@ sns.set(font_scale=1.5)
 #initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["scale_factor", "warmup", "latency"])
 #iterate over files in mmap_multi_core_benchmark_results which end with .json
-for filename in os.listdir("./scripts/23-03-25/benchmark_mmap_based_variable_multi_core"):
+for filename in os.listdir(benchmark_results_dir):
     if filename.endswith(".json"):
-        with open(f"./scripts/23-03-25/benchmark_mmap_based_variable_multi_core/{filename}") as f:
+        with open(os.path.join(benchmark_results_dir, filename)) as f:
             #load json
             data = json.load(f)
 
@@ -25,8 +33,6 @@ for filename in os.listdir("./scripts/23-03-25/benchmark_mmap_based_variable_mul
             else:
                 type += "_no_warmup"
             num_cores = filename.split("_")[3]
-            if num_cores == "1" or num_cores == "64":
-                continue
             #calculate latency
             latency_all = 0
             for benchmark in data['benchmarks']:

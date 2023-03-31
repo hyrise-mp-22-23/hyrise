@@ -1,11 +1,23 @@
+#!/usr/bin/env python3
+
+"""
+This script contains the setup for limited memory benchmarks for TPCH-100.
+This script benchmarks a hyrise implementation for the TPCH benchmark with setting varying memory limits for the execution
+of the benchmark (not the setup!). The memory limits are set via cgroups and the process is immediately moved into the
+cgroup after creation of the process. This is important as cgroups only measure memory that was allocated by a process
+while being in the cgroup.
+"""
+
 import os
 import subprocess
 import time
 
 GB = 1000 * 1000 * 1000
-unlimited = 200 * GB
+unlimited = 500 * GB
 
-memory_limits = [20, 18, 16, 14, 12, 11, 10, 8]
+timeout_s = 60 * 45  #max 45 minutes for TPC-H 100
+
+memory_limits = [300, 250, 100]
 
 for memory_limit in memory_limits:
 
@@ -16,16 +28,16 @@ for memory_limit in memory_limits:
         '-N',
         '0',
         './cmake-build-release/hyriseBenchmarkTPCH',
-        # '-m',
-        # 'Shuffled',
+        '-m',
+        'Shuffled',
         '-s',
-        '10',
+        '100',
         '-t',
         '1200',
         '-w',
         '20',
         '-o',
-        'benchmark_mmap_based_page_cache_' + str(memory_limit) + 'gb.json'
+        'benchmark_mmap_based_100_gb_page_cache_' + str(memory_limit) + 'gb.json'
         ]
 
     os.system("sudo rm *.bin")
@@ -40,8 +52,6 @@ for memory_limit in memory_limits:
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
-    timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
-
     sp = subprocess.Popen(benchmark_command)
 
     print("Moving benchmark process into memory-limited cgroup.")
@@ -55,7 +65,13 @@ for memory_limit in memory_limits:
     os.system("sudo cgget -r memory.high memory-limit")
 
     print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    time.sleep(3 * 60)
+    for i in range(0, 3):
+        print("********* Memory Metadata of benchmark process: *******************:")
+        os.system("sudo cgget -r memory.current memory-limit")
+        os.system("sudo cgget -r memory.pressure memory-limit")
+        os.system("sudo cgget -r memory.stat memory-limit")
+
+        time.sleep(30)
 
     try:
         sp.wait(timeout=timeout_s)

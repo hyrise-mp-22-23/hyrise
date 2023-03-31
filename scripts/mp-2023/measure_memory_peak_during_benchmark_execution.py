@@ -1,9 +1,19 @@
+#!/usr/bin/env python3
+
+"""
+This script measures the memory peak for benchmark executions depending on scale_factor.
+(It waits until setup is finished to start measuring.)
+It uses cgroups to periodically (every second) query the current memory usage of the benchmark process.
+It writes the memory peak for each scale factor and the sequential list of memory usage over time to a json file.
+"""
+
 import os
 import subprocess
 import time
 import json
 
 scale_factors = [0.1, 1, 10, 50, 100]
+
 benchmark_memory_sizes = {}
 for scale_factor in scale_factors:
     memory_sizes = []

@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
+
+"""
+This script plots the performance of different hyrise implementations (as deduced from benchmark result file names)
+over available memory.
+"""
+
 import pandas as pd
-import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import json
 
+#configure directory with benchmark results
+benchmark_results_dir = "/scripts/23-03-25/limited_memory_mmap_23_03_25"
+limit_sizes = [6, 7, 8, 10, 12, 16, 18, 20]
+
 # set plot styles
 plt.style.use("ggplot")
 sns.set(font_scale=1.5)
 
-limit_sizes = [6, 7, 8, 10, 12, 16, 18, 20]
-
 #initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["memory", "type", "latency"])
-for filename in os.listdir("./scripts/23-03-25/limited_memory_mmap_23_03_25/"):
+for filename in os.listdir(benchmark_results_dir):
     if filename.endswith(".json"):
-        with open(f"./scripts/23-03-25/limited_memory_mmap_23_03_25/{filename}") as f:
+        with open(os.path.join(benchmark_results_dir, filename)) as f:
             data = json.load(f)
 
             latency_all = 0
