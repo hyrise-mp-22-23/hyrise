@@ -51,25 +51,25 @@ for memory_limit in memory_limits:
     os.system("sudo rm *.bin")
     #create unique memory limit cgroup for each benchmark for easier measurements
     timestamp = time.time()
-    cgroup_name = f"memory-limit-{timestamp}"
+    cgroup_name = f"{cgroup_name}-{timestamp}"
     print(f"Creating cgroup for memory limit and setting its memory.high property to {unlimited}.")
     os.system(f"sudo cgcreate -g memory:{cgroup_name}")
 
     get_memory_stats(cgroup_name, "Print memory stats of cgroup after creation.")
 
-    os.system("sudo cgset -r memory.high=" + str(unlimited) + " memory-limit")
-    os.system("sudo cgset -r memory.max=" + str(unlimited) + " memory-limit")
+    os.system(f"sudo cgset -r memory.high={str(unlimited)} {cgroup_name}")
+    os.system(f"sudo cgset -r memory.max={str(unlimited)} {cgroup_name}")
 
-    print("Print result of memory limit setting on memory-limit group.")
-    os.system("sudo cgget -r memory.high memory-limit")
-    os.system("sudo cgget -r memory.max memory-limit")
+    print("Print result of memory limit setting on memory-limited group.")
+    os.system(f"sudo cgget -r memory.high {cgroup_name}")
+    os.system(f"sudo cgget -r memory.max {cgroup_name}")
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
     sp = subprocess.Popen(benchmark_command)
 
     print("Moving benchmark process into memory-limited cgroup.")
-    os.system("sudo cgclassify -g memory:memory-limit " + str(sp.pid))
+    os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(sp.pid)}")
 
     get_memory_stats(cgroup_name, "Print memory stats of cgroup after moving benchmarking process into it.")
 
@@ -79,8 +79,8 @@ for memory_limit in memory_limits:
     get_memory_stats(cgroup_name, "Print memory stats of cgroup after 3.5 minutes of setup.")
 
     print("Setting memory.high soft limit on memory-limit group.")
-    os.system("sudo cgset -r memory.high=" + str(memory_limit * GB) + " memory-limit")
-    os.system("sudo cgget -r memory.high memory-limit")
+    os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
+    os.system(f"sudo cgget -r memory.high {cgroup_name}")
 
     print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
     time.sleep(3 * 60)
