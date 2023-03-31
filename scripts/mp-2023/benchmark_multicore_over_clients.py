@@ -12,7 +12,7 @@ import os
 #num physical cores, num logical cores
 num_cores = [24, 48]
 
-warmup = [True, False]
+warmup = [True]
 
 num_clients = [1, 2, 4, 8, 16, 24, 32, 48]
 
