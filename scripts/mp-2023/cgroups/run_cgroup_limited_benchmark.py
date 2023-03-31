@@ -77,23 +77,17 @@ for memory_limit in memory_limits:
             if b'Starting Benchmark' in line:
                 print("Moving benchmark process into memory-limited cgroup.")
                 os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(p.pid)}")
+                print("Setting memory.high soft limit on memory-limit group.")
+                os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
+                os.system(f"sudo cgget -r memory.high {cgroup_name}")
             if b'Warming up for TPC-H 22' in line:
                 setup_running = False
                 #we still need to wait for warmup for TPC-H 22 to finish
                 time.sleep(warmup_time)
+                break
 
     print("Setup finished")
-
     pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Print memory stats of cgroup after moving benchmarking process into it.")
-
-    print("Setting memory.high soft limit on memory-limit group.")
-    os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
-    os.system(f"sudo cgget -r memory.high {cgroup_name}")
-
-    print("Letting benchmark run for 3 minutes to allow reduction of memory footprint.")
-    time.sleep(3 * 60)
-
-    get_memory_stats(cgroup_name, "Print memory stats of cgroup after waiting during warmup.")
 
     try:
         p.wait(timeout=timeout_s)
