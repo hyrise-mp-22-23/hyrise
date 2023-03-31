@@ -8,8 +8,10 @@ while being in the cgroup.
 """
 
 import os
+import json
 import subprocess
 import time
+from collections import defaultdict
 
 GB = 1000 * 1000 * 1000
 unlimited = 200 * GB
@@ -17,14 +19,16 @@ unlimited = 200 * GB
 timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
 memory_limits = [12]
-pagefault_stats = {}
+warmup_time = 1
+pagefault_stats = defaultdict(dict)
 
 def get_memory_stats(cgroup_name, print_info=""):
     print(print_info)
     memory_stat = os.system(f"sudo cgget -r memory.stat {cgroup_name}")
     memory_events = os.system(f"sudo cgget -r memory.events {cgroup_name}")
     memory_pressure = os.system(f"sudo cgget -r memory.pressure {cgroup_name}")
-    print(memory_stat, memory_events, memory_pressure)
+
+    return {'memory_stat': memory_stat, 'memory_events': memory_events, 'memory_pressure': memory_pressure}
 
 
 for memory_limit in memory_limits:
@@ -36,14 +40,14 @@ for memory_limit in memory_limits:
         '-N',
         '0',
         './cmake-build-release/hyriseBenchmarkTPCH',
-        # '-m',
-        # 'Shuffled',
+        '-m',
+        'Shuffled',
         '-s',
         '10',
         '-t',
-        '300',
+        '100',
         '-w',
-        '20',
+        f'{warmup_time}',
         '-o',
         'benchmark_mmap_based_page_cache_' + str(memory_limit) + 'gb.json'
         ]
@@ -55,8 +59,6 @@ for memory_limit in memory_limits:
     print(f"Creating cgroup for memory limit and setting its memory.high property to {unlimited}.")
     os.system(f"sudo cgcreate -g memory:{cgroup_name}")
 
-    get_memory_stats(cgroup_name, "Print memory stats of cgroup after creation.")
-
     os.system(f"sudo cgset -r memory.high={str(unlimited)} {cgroup_name}")
     os.system(f"sudo cgset -r memory.max={str(unlimited)} {cgroup_name}")
 
@@ -66,17 +68,23 @@ for memory_limit in memory_limits:
 
     print("Executing command: " + subprocess.list2cmdline(benchmark_command) + "\n")
 
-    sp = subprocess.Popen(benchmark_command)
+    p = subprocess.Popen(benchmark_command, stdout=subprocess.PIPE)
 
-    print("Moving benchmark process into memory-limited cgroup.")
-    os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(sp.pid)}")
+    setup_running = True
+    while setup_running:
+        for line in iter(p.stdout.readline, b''):
+            print(line)
+            if b'Starting Benchmark' in line:
+                print("Moving benchmark process into memory-limited cgroup.")
+                os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(p.pid)}")
+            if b'Warming up for TPC-H 22' in line:
+                setup_running = False
+                #we still need to wait for warmup for TPC-H 22 to finish
+                time.sleep(warmup_time)
 
-    get_memory_stats(cgroup_name, "Print memory stats of cgroup after moving benchmarking process into it.")
+    print("Setup finished")
 
-    print("Waiting 3.5 minutes to let setup finish...")
-    time.sleep(3.5 * 60)
-
-    get_memory_stats(cgroup_name, "Print memory stats of cgroup after 3.5 minutes of setup.")
+    pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Print memory stats of cgroup after moving benchmarking process into it.")
 
     print("Setting memory.high soft limit on memory-limit group.")
     os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
@@ -88,8 +96,12 @@ for memory_limit in memory_limits:
     get_memory_stats(cgroup_name, "Print memory stats of cgroup after waiting during warmup.")
 
     try:
-        sp.wait(timeout=timeout_s)
+        p.wait(timeout=timeout_s)
         get_memory_stats(cgroup_name, "Print memory stats after benchmark finished.")
     except subprocess.TimeoutExpired:
             print(f"Benchmark {benchmark_command} timed out after {timeout_s} seconds. Killing it.")
-            sp.kill()
+            p.kill()
+
+    #write pagefault_stats to file
+    with open('pagefault_stats.json', 'w') as f:
+        f.write(json.dumps(pagefault_stats))
