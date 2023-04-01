@@ -91,7 +91,7 @@ for memory_limit in memory_limits:
 
     try:
         p.wait(timeout=timeout_s)
-        get_memory_stats(cgroup_name, "Get memory stats after benchmark finished.")
+        pagefault_stats[memory_limit]['after'] = get_memory_stats(cgroup_name, "Get memory stats after benchmark finished.")
     except subprocess.TimeoutExpired:
             print(f"Benchmark {benchmark_command} timed out after {timeout_s} seconds. Killing it.")
             p.kill()
