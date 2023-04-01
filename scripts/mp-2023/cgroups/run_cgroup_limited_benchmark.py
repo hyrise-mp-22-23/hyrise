@@ -24,9 +24,9 @@ pagefault_stats = defaultdict(dict)
 
 def get_memory_stats(cgroup_name, print_info=""):
     print(print_info)
-    memory_stat = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.stat', cgroup_name])
-    memory_events = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.events', cgroup_name])
-    memory_pressure = subprocess.check_output(['sudo', 'cgget', '-r', 'memory.pressure', cgroup_name])
+    memory_stat = str(subprocess.check_output(['sudo', 'cgget', '-r', 'memory.stat', cgroup_name]))
+    memory_events = str(subprocess.check_output(['sudo', 'cgget', '-r', 'memory.events', cgroup_name]))
+    memory_pressure = str(subprocess.check_output(['sudo', 'cgget', '-r', 'memory.pressure', cgroup_name]))
 
     return {'memory_stat': memory_stat, 'memory_events': memory_events, 'memory_pressure': memory_pressure}
 
