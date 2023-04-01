@@ -97,5 +97,5 @@ for memory_limit in memory_limits:
             p.kill()
 
     #write pagefault_stats to file
-    with open('pagefault_stats.json', 'w') as f:
+    with open(f'pagefault_stats_{memory_limit}_gb.json', 'w') as f:
         f.write(json.dumps(pagefault_stats))
