@@ -37,8 +37,8 @@ for key,value in data.items():
 
 #plot data values
     plt.plot([value / GB for value in data[key]['memory_sizes']])
-    plt.title(f'Memory Footprint over Time for TPC-H Benchmark SF{key} on Hyrise Master')
-    plt.xlabel('Time matched to queries being executed for 80 seconds each')
+    plt.title(fMemory Footprint Over Time for TPC-H Benchmark SF{key} on Hyrise Master')
+    plt.xlabel('Time Matched to Queries Being Executed for 80 Seconds Each')
     #add ticks to xscale
     plt.xticks(np.arange(0, 1760, step=80), [f"Q{i}" for i in range(1, 23)], rotation=90)
     plt.ylabel('Memory in GB')
