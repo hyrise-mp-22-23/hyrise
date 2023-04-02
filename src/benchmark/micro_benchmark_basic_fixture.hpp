@@ -27,7 +27,7 @@ class MicroBenchmarkBasicFixture : public benchmark::Fixture {
    * @param page size
    * @return alligned amound of memory in bytes
    */
-  uint32_t _align_to_pagesize(uint32_t buffer_size_mb, uint32_t page_size = 4096);
+  uint64_t _align_to_pagesize(uint64_t buffer_size_mb, uint64_t page_size = 4096);
 
  protected:
   std::shared_ptr<TableWrapper> _table_wrapper_a;

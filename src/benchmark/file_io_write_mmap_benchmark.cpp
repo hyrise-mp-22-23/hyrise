@@ -56,7 +56,7 @@ void FileIOWriteMmapBenchmarkFixture::mmap_write_single_threaded(benchmark::Stat
         // Generating random indexes should not play a role in the benchmark.
         const auto ind_access_order = generate_random_indexes(NUMBER_OF_ELEMENTS);
         state.ResumeTiming();
-        for (auto idx = uint32_t{0}; idx < ind_access_order.size(); ++idx) {
+        for (auto idx = uint64_t{0}; idx < ind_access_order.size(); ++idx) {
           auto access_index = ind_access_order[idx];
           map[access_index] = data_to_write[idx];
         }
@@ -97,7 +97,7 @@ void write_mmap_chunk_sequential(const size_t from, const size_t to, int32_t* ma
 
 void write_mmap_chunk_random(const size_t from, const size_t to, int32_t* map,
                              const std::vector<uint32_t>& data_to_write,
-                             const std::vector<uint32_t>& ind_access_order) {
+                             const std::vector<uint64_t>& ind_access_order) {
   for (auto idx = from; idx < to; ++idx) {
     auto access_index = ind_access_order[idx];
     map[access_index] = data_to_write[idx];

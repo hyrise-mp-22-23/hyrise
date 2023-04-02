@@ -13,19 +13,43 @@
 #include <thread>
 #include "file_io_read_micro_benchmark.hpp"
 #include "micro_benchmark_basic_fixture.hpp"
+#include "micro_benchmark_utils.hpp"
 
 namespace hyrise {
 
-void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
+                          std::atomic<bool>& threads_ready_to_be_executed) {
+  while (!threads_ready_to_be_executed) {}
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
-  lseek(fd, from * uint32_t_size, SEEK_SET);
-  Assert((read(fd, read_data_start + from, bytes_to_read) == bytes_to_read),
-         close_file_and_return_error_message(fd, "Read error: ", errno));
+  const auto total_bytes_to_read = static_cast<size_t>(uint32_t_size * (to - from));
+  const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
+  const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+
+  if (elements_to_read > MAX_NUMBER_OF_ELEMENTS) {
+    auto elements_read = uint64_t{0};
+    auto elements_remaining = elements_to_read;
+    while (elements_remaining > 0) {
+      lseek(fd, (from + elements_read) * uint32_t_size, SEEK_SET);
+      const auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+      const auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+      const auto bytes_read_this_iteration =
+          static_cast<size_t>(read(fd, read_data_start + from + elements_read, bytes_to_read));
+      Assert((bytes_read_this_iteration == bytes_to_read),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+      elements_read += elements_to_read_this_iteration;
+      elements_remaining -= elements_to_read_this_iteration;
+    }
+  } else {
+    lseek(fd, from * uint32_t_size, SEEK_SET);
+    Assert((read(fd, read_data_start + from, total_bytes_to_read) == static_cast<ssize_t>(total_bytes_to_read)),
+           close_file_and_return_error_message(fd, "Read error: ", errno));
+  }
 }
 
 void read_data_randomly_using_read(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                   const std::vector<uint32_t>& random_indices) {
+                                   const std::vector<uint64_t>& random_indices,
+                                   std::atomic<bool>& threads_ready_to_be_executed) {
+  while (!threads_ready_to_be_executed) {}
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
@@ -37,15 +61,37 @@ void read_data_randomly_using_read(const size_t from, const size_t to, int32_t f
   }
 }
 
-void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start) {
+void read_data_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
+                           std::atomic<bool>& threads_ready_to_be_executed) {
+  while (!threads_ready_to_be_executed) {}
+
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
-  const auto bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
-  Assert((pread(fd, read_data_start + from, bytes_to_read, from * uint32_t_size) == bytes_to_read),
-         close_file_and_return_error_message(fd, "Read error: ", errno));
+  const auto total_bytes_to_read = static_cast<ssize_t>(uint32_t_size * (to - from));
+  const auto elements_to_read = static_cast<uint64_t>(total_bytes_to_read / uint32_t_size);
+  const auto MAX_NUMBER_OF_ELEMENTS = uint64_t{536'869'888};
+  if (elements_to_read > MAX_NUMBER_OF_ELEMENTS) {
+    auto elements_read = uint64_t{0};
+    auto elements_remaining = elements_to_read;
+    while (elements_remaining > 0) {
+      auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+      auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+      auto bytes_read_this_iteration = static_cast<size_t>(
+          pread(fd, read_data_start + from + elements_read, bytes_to_read, (from + elements_read) * uint32_t_size));
+      Assert((bytes_read_this_iteration == bytes_to_read),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+      elements_read += elements_to_read_this_iteration;
+      elements_remaining -= elements_to_read_this_iteration;
+    }
+  } else {
+    Assert((pread(fd, read_data_start + from, total_bytes_to_read, from * uint32_t_size) == total_bytes_to_read),
+           close_file_and_return_error_message(fd, "Read error: ", errno));
+  }
 }
 
 void read_data_randomly_using_pread(const size_t from, const size_t to, int32_t fd, uint32_t* read_data_start,
-                                    const std::vector<uint32_t>& random_indices) {
+                                    const std::vector<uint64_t>& random_indices,
+                                    std::atomic<bool>& threads_ready_to_be_executed) {
+  while (!threads_ready_to_be_executed) {}
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
 
   lseek(fd, 0, SEEK_SET);
@@ -67,18 +113,13 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
   memset(&ctx, 0, sizeof(ctx));
   io_setup(REQUEST_COUNT, &ctx);
 
-  auto batch_size_thread =
-      static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS_PER_THREAD) / REQUEST_COUNT));
+  const auto batch_size_thread = static_cast<uint64_t>(NUMBER_OF_ELEMENTS_PER_THREAD / REQUEST_COUNT);
 
   auto iocbs = std::vector<iocb>(REQUEST_COUNT);
   auto iocb_list = std::vector<iocb*>(REQUEST_COUNT);
 
   for (auto index = size_t{0}; index < REQUEST_COUNT; ++index) {
     auto from = batch_size_thread * index + thread_from;
-    auto to = from + batch_size_thread;
-    if (to >= NUMBER_OF_ELEMENTS_PER_THREAD) {
-      to = NUMBER_OF_ELEMENTS_PER_THREAD;
-    }
 
     // io_prep_pread(struct iocb *iocb, int fd, void *buf, size_t count, long long offset);
     io_prep_pread(&iocbs[index], fd, read_data_start + from, batch_size_thread * uint32_t_size, from * uint32_t_size);
@@ -98,7 +139,7 @@ void read_data_using_libaio(const size_t thread_from, const size_t thread_to, in
 }
 
 void read_data_randomly_using_libaio(const size_t thread_from, const size_t thread_to, int32_t fd,
-                                     uint32_t* read_data_start, const std::vector<uint32_t>& random_indices) {
+                                     uint32_t* read_data_start, const std::vector<uint64_t>& random_indices) {
   const auto uint32_t_size = ssize_t{sizeof(uint32_t)};
   const auto REQUEST_COUNT = uint32_t{64};
   const auto NUMBER_OF_ELEMENTS_PER_THREAD = (thread_to - thread_from);
@@ -154,26 +195,28 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
-
+    std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
 
-    state.ResumeTiming();
-
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start));
+      threads[index] = (std::thread(read_data_using_read, from, to, filedescriptors[index], read_data_start,
+                                    std::ref(threads_ready_to_be_executed)));
     }
+
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
@@ -182,7 +225,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_multi_threaded(benchmark::
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -205,14 +249,30 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_single_threaded(benchmark:
 
     state.ResumeTiming();
 
-    lseek(fd, 0, SEEK_SET);
-    Assert((read(fd, std::data(read_data), NUMBER_OF_BYTES) == NUMBER_OF_BYTES),
-           close_file_and_return_error_message(fd, "Read error: ", errno));
+    if (NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS) {
+      auto elements_read = uint64_t{0};
+      auto elements_remaining = NUMBER_OF_ELEMENTS;
+      auto read_data_start = std::data(read_data);
+      while (elements_remaining > 0) {
+        auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+        auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+        auto bytes_read_this_iteration = static_cast<size_t>(read(fd, read_data_start + elements_read, bytes_to_read));
+        Assert((bytes_read_this_iteration == bytes_to_read),
+               close_file_and_return_error_message(fd, "Read error: ", errno));
+        elements_read += elements_to_read_this_iteration;
+        elements_remaining -= elements_to_read_this_iteration;
+      }
+    } else {
+      lseek(fd, 0, SEEK_SET);
+      Assert((static_cast<uint64_t>(read(fd, std::data(read_data), NUMBER_OF_BYTES)) == NUMBER_OF_BYTES),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+    }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -229,7 +289,7 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     state.PauseTiming();
 
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
@@ -238,16 +298,17 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_single_threaded(ben
     lseek(fd, 0, SEEK_SET);
     // TODO(everyone): Randomize inidzes to not read all the data but really randomize the reads to read same amount but
     //  incl possible duplicates
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      lseek(fd, uint32_t_size * random_indices[index], SEEK_SET);
-      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == uint32_t_size),
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      lseek(fd, uint32_t_size * random_indexes[index], SEEK_SET);
+      Assert((read(fd, std::data(read_data) + index, uint32_t_size) == static_cast<ssize_t>(uint32_t_size)),
              close_file_and_return_error_message(fd, "Read error: ", errno));
     }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -266,27 +327,30 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
 
+    std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
-    state.ResumeTiming();
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+      threads[index] =
+          (std::thread(read_data_randomly_using_read, from, to, filedescriptors[index], std::data(read_data),
+                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed)));
     }
 
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
@@ -294,7 +358,8 @@ void FileIOMicroReadBenchmarkFixture::read_non_atomic_random_multi_threaded(benc
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -317,13 +382,30 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_single_threaded(benchmark::St
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    Assert((pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0) == NUMBER_OF_BYTES),
-           close_file_and_return_error_message(fd, "Read error: ", errno));
+    if (NUMBER_OF_ELEMENTS > MAX_NUMBER_OF_ELEMENTS) {
+      auto elements_read = uint64_t{0};
+      auto elements_remaining = NUMBER_OF_ELEMENTS;
+      auto read_data_start = std::data(read_data);
+      while (elements_remaining > 0) {
+        auto elements_to_read_this_iteration = std::min(elements_remaining, MAX_NUMBER_OF_ELEMENTS);
+        auto bytes_to_read = elements_to_read_this_iteration * uint32_t_size;
+        auto bytes_read_this_iteration = static_cast<size_t>(
+            pread(fd, read_data_start + elements_read, bytes_to_read, elements_read * uint32_t_size));
+        Assert((bytes_read_this_iteration == bytes_to_read),
+               close_file_and_return_error_message(fd, "Read error: ", errno));
+        elements_read += elements_to_read_this_iteration;
+        elements_remaining -= elements_to_read_this_iteration;
+      }
+    } else {
+      Assert((static_cast<uint64_t>(pread(fd, std::data(read_data), NUMBER_OF_BYTES, 0)) == NUMBER_OF_BYTES),
+             close_file_and_return_error_message(fd, "Read error: ", errno));
+    }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -340,27 +422,29 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
 
+    std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     auto* read_data_start = std::data(read_data);
 
-    state.ResumeTiming();
-
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_using_pread, from, to, filedescriptors[index], read_data_start));
+      threads[index] = (std::thread(read_data_using_pread, from, to, filedescriptors[index], read_data_start,
+                                    std::ref(threads_ready_to_be_executed)));
     }
 
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
@@ -368,7 +452,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_multi_threaded(benchmark::Sta
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -385,23 +470,24 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_single_threaded(benchm
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
     state.ResumeTiming();
 
     // TODO(everyone) Randomize inidzes to not read all the data but really randomize
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indices[index]) ==
-              uint32_t_size),
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      Assert((pread(fd, std::data(read_data) + index, uint32_t_size, uint32_t_size * random_indexes[index]) ==
+              static_cast<ssize_t>(uint32_t_size)),
              close_file_and_return_error_message(fd, "Read error: ", errno));
     }
 
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -420,27 +506,29 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
-
+    std::atomic<bool> threads_ready_to_be_executed = false;
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
 
-    state.ResumeTiming();
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
-      threads[index] = (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+      threads[index] =
+          (std::thread(read_data_randomly_using_pread, from, to, filedescriptors[index], std::data(read_data),
+                       std::ref(random_indexes), std::ref(threads_ready_to_be_executed)));
     }
 
+    state.ResumeTiming();
+    threads_ready_to_be_executed = true;
     for (auto index = size_t{0}; index < thread_count; ++index) {
       // Explain: Blocks the current thread until the thread identified by *this finishes its execution
       threads[index].join();
@@ -448,7 +536,8 @@ void FileIOMicroReadBenchmarkFixture::pread_atomic_random_multi_threaded(benchma
     state.PauseTiming();
 
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
 
     state.ResumeTiming();
   }
@@ -508,7 +597,8 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_single_threaded(ben
 
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     state.ResumeTiming();
   }
 
@@ -527,7 +617,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
@@ -539,7 +629,7 @@ void FileIOMicroReadBenchmarkFixture::libaio_sequential_read_multi_threaded(benc
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_using_libaio, from, to, filedescriptors[index], std::data(read_data)));
@@ -571,12 +661,12 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
   }
 
   auto threads = std::vector<std::thread>(thread_count);
-  auto batch_size = static_cast<uint64_t>(std::ceil(static_cast<float>(NUMBER_OF_ELEMENTS) / thread_count));
+  const auto batch_size = static_cast<uint64_t>(NUMBER_OF_ELEMENTS / thread_count);
 
   for (auto _ : state) {
     state.PauseTiming();
     micro_benchmark_clear_disk_cache();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
@@ -584,11 +674,11 @@ void FileIOMicroReadBenchmarkFixture::libaio_random_read(benchmark::State& state
     for (auto index = size_t{0}; index < thread_count; ++index) {
       auto from = batch_size * index;
       auto to = from + batch_size;
-      if (to >= NUMBER_OF_ELEMENTS) {
+      if (to + batch_size >= NUMBER_OF_ELEMENTS) {
         to = NUMBER_OF_ELEMENTS;
       }
       threads[index] = (std::thread(read_data_randomly_using_libaio, from, to, filedescriptors[index],
-                                    std::data(read_data), random_indices));
+                                    std::data(read_data), std::ref(random_indexes)));
     }
 
     for (auto index = size_t{0}; index < thread_count; ++index) {
@@ -668,14 +758,15 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
       read_data[index] = numbers[index];
     }
 
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
-    Assert(control_sum == sum, "Sanity check failed: Not the same result");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
     Assert(&read_data != &numbers, "Sanity check failed: Same reference");
 
     state.ResumeTiming();
@@ -685,48 +776,50 @@ BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)(b
 BENCHMARK_DEFINE_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
-    const auto random_indices = generate_random_indexes(NUMBER_OF_ELEMENTS);
+    create_random_indexes_if_needed(state.range(0), NUMBER_OF_ELEMENTS);
     auto read_data = std::vector<uint32_t>{};
     read_data.resize(NUMBER_OF_ELEMENTS);
     state.ResumeTiming();
 
-    for (auto index = size_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
-      read_data[index] = numbers[random_indices[index]];
+    for (auto index = uint64_t{0}; index < NUMBER_OF_ELEMENTS; ++index) {
+      read_data[index] = numbers[random_indexes[index]];
     }
 
     state.PauseTiming();
     const auto sum = std::accumulate(read_data.begin(), read_data.end(), uint64_t{0});
 
-    Assert(control_sum == static_cast<uint64_t>(sum), "Sanity check failed: Not the same result");
-    Assert(&read_data[0] != &numbers[random_indices[0]], "Sanity check failed: Same reference");
+    Assert(control_sum == sum, "Sanity check failed: Not the same result. Got: " + std::to_string(sum) +
+                                   " Expected: " + std::to_string(control_sum) + ".");
+    Assert(&read_data[0] != &numbers[random_indexes[0]], "Sanity check failed: Same reference");
 
     state.ResumeTiming();
   }
 }
 
-// Arguments are file size in MB
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
-    ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, READ_NON_ATOMIC_RANDOM_THREADED)
+    ->Apply(CustomArguments)
+    ->UseRealTime();
+
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, PREAD_ATOMIC_RANDOM_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
 
 #ifdef __linux__
 BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_SEQUENTIAL_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
+    ->Apply(CustomArguments)
     ->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)
-    ->ArgsProduct({{10, 100, 1000}, {1, 2, 4, 8, 16, 32, 48}})
-    ->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, LIBAIO_RANDOM_THREADED)->Apply(CustomArguments)->UseRealTime();
 #endif
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(1000)->UseRealTime();
-BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(1000)->UseRealTime();
+
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_SEQUENTIAL)->Arg(100000)->UseRealTime();
+BENCHMARK_REGISTER_F(FileIOMicroReadBenchmarkFixture, IN_MEMORY_READ_RANDOM)->Arg(100000)->UseRealTime();
 
 }  // namespace hyrise
