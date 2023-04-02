@@ -71,14 +71,14 @@ bc_hyrise_mmap_limited_memory_sf_100 = ['sudo', 'python3', 'scripts/mp-2023/cgro
 bc_hyrise_mmap_limited_memory_sf_100_cwd = '/mnt/md0/Theresa.Hradilak/hyrise'
 
 benchmarks = [
-    #(bc_realistic_scenario_variable_cores_hyrise_master, bc_realistic_scenario_variable_cores_hyrise_master_cwd),
+    (bc_realistic_scenario_variable_cores_hyrise_master, bc_realistic_scenario_variable_cores_hyrise_master_cwd),
     (bc_realistic_scenario_variable_cores_hyrise_mmap, bc_realistic_scenario_variable_cores_hyrise_mmap_cwd),
     (bc_realistic_scenario_variable_clients_hyrise_master, bc_realistic_scenario_variable_clients_hyrise_master_cwd),
     (bc_realistic_scenario_variable_clients_hyrise_mmap, bc_realistic_scenario_variable_clients_hyrise_mmap_cwd),
     (bc_hyrise_master_tpch_10, bc_hyrise_master_tpch_10_cwd),
     (bc_hyrise_mmap_limited_memory_sf_10, bc_hyrise_mmap_limited_memory_sf_10_cwd),
-    # (bc_hyrise_master_tpch_100, bc_hyrise_master_tpch_100_cwd),
-    # (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
+    (bc_hyrise_master_tpch_100, bc_hyrise_master_tpch_100_cwd),
+    (bc_hyrise_mmap_limited_memory_sf_100, bc_hyrise_mmap_limited_memory_sf_100_cwd)
 ]
 
 for benchmark in benchmarks:
