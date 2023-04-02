@@ -19,7 +19,7 @@ unlimited = 200 * GB
 timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
 memory_limits = [20, 16, 12, 11, 10, 9, 8, 7, 6]
-warmup_time = 1
+warmup_time = 20
 pagefault_stats = defaultdict(dict)
 
 def get_memory_stats(cgroup_name, print_info=""):
@@ -29,7 +29,6 @@ def get_memory_stats(cgroup_name, print_info=""):
     memory_pressure = str(subprocess.check_output(['sudo', 'cgget', '-r', 'memory.pressure', cgroup_name]))
 
     return {'memory_stat': memory_stat, 'memory_events': memory_events, 'memory_pressure': memory_pressure}
-
 
 for memory_limit in memory_limits:
 
@@ -45,7 +44,7 @@ for memory_limit in memory_limits:
         '-s',
         '10',
         '-t',
-        '100',
+        '1200',
         '-w',
         f'{warmup_time}',
         '-o',
@@ -53,6 +52,7 @@ for memory_limit in memory_limits:
         ]
 
     os.system("sudo rm *.bin")
+
     #create unique memory limit cgroup for each benchmark for easier measurements
     timestamp = time.time()
     cgroup_name = f"memory-limit-{timestamp}"
@@ -87,7 +87,7 @@ for memory_limit in memory_limits:
                 break
 
     print("Setup finished")
-    pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Get memory stats of cgroup after moving benchmarking process into it.")
+    pagefault_stats[memory_limit]['before'] = get_memory_stats(cgroup_name, "Get memory stats of cgroup after finished setup.")
 
     try:
         p.wait(timeout=timeout_s)
