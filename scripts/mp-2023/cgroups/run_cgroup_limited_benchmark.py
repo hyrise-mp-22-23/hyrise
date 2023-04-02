@@ -77,7 +77,7 @@ for memory_limit in memory_limits:
     while setup_running:
         for line in iter(p.stdout.readline, b''):
             print(line)
-            if b'Starting Benchmark' in line:
+            if b'Warming up for TPC-H 02' in line:
                 print("Setting memory.high soft limit on memory-limit group.")
                 os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
                 os.system(f"sudo cgget -r memory.high {cgroup_name}")
