@@ -18,7 +18,7 @@ unlimited = 200 * GB
 
 timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
-memory_limits = [20, 16, 12, 11, 10, 9, 8, 7, 6]
+memory_limits = [8]
 warmup_time = 20
 pagefault_stats = defaultdict(dict)
 
@@ -70,13 +70,14 @@ for memory_limit in memory_limits:
 
     p = subprocess.Popen(benchmark_command, stdout=subprocess.PIPE)
 
+    print("Moving benchmark process into memory-limited cgroup.")
+    os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(p.pid)}")
+
     setup_running = True
     while setup_running:
         for line in iter(p.stdout.readline, b''):
             print(line)
             if b'Starting Benchmark' in line:
-                print("Moving benchmark process into memory-limited cgroup.")
-                os.system(f"sudo cgclassify -g memory:{cgroup_name} {str(p.pid)}")
                 print("Setting memory.high soft limit on memory-limit group.")
                 os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
                 os.system(f"sudo cgget -r memory.high {cgroup_name}")
