@@ -10,6 +10,7 @@ import matplotlib.ticker as mtick
 import seaborn as sns
 import json
 import pandas as pd
+import numpy as np
 
 # set plot styles
 plt.style.use("ggplot")
@@ -17,9 +18,9 @@ sns.set(font_scale=1.5)
 
 GB = 1000 * 1000 * 1000
 #load json
-with open('./scripts/benchmark_memory_peak.json') as f_hundred:
+with open('../server_results/benchmark_memory_peak.json') as f_hundred:
     data_hundred = json.load(f_hundred)
-with open('./scripts/benchmark_memory_peak_1_10_50.json') as f_rest:
+with open('../server_results/benchmark_memory_peak_1_10_50.json') as f_rest:
     data_rest = json.load(f_rest)
 
 #merge json
@@ -34,10 +35,14 @@ for key,value in data.items():
 
     print(f"{key} : {data[key]['memory_peak'] / GB}GB")
 
-# plot data values
-#     plt.plot(data[key]['memory_sizes'])
-#     plt.title(f'{key}GB')
-#     plt.show()
+#plot data values
+    plt.plot([value / GB for value in data[key]['memory_sizes']])
+    plt.title(f'Memory Footprint over Time for TPC-H Benchmark SF{key} on Hyrise Master')
+    plt.xlabel('Time matched to queries being executed for 80 seconds each')
+    #add ticks to xscale
+    plt.xticks(np.arange(0, 1760, step=80), [f"Q{i}" for i in range(1, 23)], rotation=90)
+    plt.ylabel('Memory in GB')
+    plt.show()
 
 #plot memory peak against scale factor
 #create pandas data frame
