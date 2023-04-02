@@ -18,7 +18,7 @@ unlimited = 200 * GB
 
 timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
-memory_limits = [8]
+memory_limits = [20, 16, 12, 11, 10, 9, 8, 7, 6]
 warmup_time = 20
 pagefault_stats = defaultdict(dict)
 
@@ -77,7 +77,7 @@ for memory_limit in memory_limits:
     while setup_running:
         for line in iter(p.stdout.readline, b''):
             print(line)
-            if b'Warming up for TPC-H 02' in line:
+            if b'Starting Benchmark' in line:
                 print("Setting memory.high soft limit on memory-limit group.")
                 os.system(f"sudo cgset -r memory.high={str(memory_limit * GB)} {cgroup_name}")
                 os.system(f"sudo cgget -r memory.high {cgroup_name}")
