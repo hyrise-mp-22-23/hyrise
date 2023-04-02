@@ -12,7 +12,7 @@ import os
 import json
 
 #configure directory with benchmark results
-benchmark_results_dir = "./scripts/benchmark_hyrise_master_variable_core_23_01_04"
+benchmark_results_dir = ""
 
 # set plot styles
 plt.style.use("ggplot")
