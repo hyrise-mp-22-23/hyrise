@@ -15,30 +15,30 @@ import time
 GB = 1000 * 1000 * 1000
 unlimited = 500 * GB
 
-timeout_s = 60 * 45  #max 45 minutes for TPC-H 100
+timeout_s = 60 * 45  # max 45 minutes for TPC-H 100
 
 memory_limits = [300, 250, 100]
 
 for memory_limit in memory_limits:
 
     benchmark_command = [
-        'numactl',
-        '-m',
-        '0',
-        '-N',
-        '0',
-        './cmake-build-release/hyriseBenchmarkTPCH',
-        '-m',
-        'Shuffled',
-        '-s',
-        '100',
-        '-t',
-        '1200',
-        '-w',
-        '20',
-        '-o',
-        'benchmark_mmap_based_100_gb_page_cache_' + str(memory_limit) + 'gb.json'
-        ]
+        "numactl",
+        "-m",
+        "0",
+        "-N",
+        "0",
+        "./cmake-build-release/hyriseBenchmarkTPCH",
+        "-m",
+        "Shuffled",
+        "-s",
+        "100",
+        "-t",
+        "1200",
+        "-w",
+        "20",
+        "-o",
+        "benchmark_mmap_based_100_gb_page_cache_" + str(memory_limit) + "gb.json",
+    ]
 
     os.system("sudo rm *.bin")
     print(f"Creating cgroup for memory limit and setting its memory.high property to {unlimited}.")

@@ -16,12 +16,8 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("file", help="JSON file with benchmark results")
 parser.add_argument("--title", help="Plot Title")
-parser.add_argument(
-    "--labels", help="Comma-separated list of entries for the plot legend"
-)
-parser.add_argument(
-    "-o", "--output", help="Save image to the given filename."
-)
+parser.add_argument("--labels", help="Comma-separated list of entries for the plot legend")
+parser.add_argument("-o", "--output", help="Save image to the given filename.")
 
 args = parser.parse_args()
 
@@ -35,21 +31,21 @@ else:
 times = [b["times"] for b in results]
 
 boxplot = plt.boxplot(times, vert=True, patch_artist=True)
-plt.setp(boxplot['medians'], color='white')
-plt.setp(boxplot['boxes'], facecolor='white', edgecolor='black')
-plt.setp(boxplot['whiskers'], color='black', linestyle='--')
-plt.setp(boxplot['caps'], color='black')
-#plt.setp(boxplot['fliers'], color='black', marker='+')
-#cmap = plt.cm.get_cmap("rainbow")
-#colors = [cmap(val / len(times)) for val in range(len(times))]
+plt.setp(boxplot["medians"], color="white")
+plt.setp(boxplot["boxes"], facecolor="white", edgecolor="black")
+plt.setp(boxplot["whiskers"], color="black", linestyle="--")
+plt.setp(boxplot["caps"], color="black")
+# plt.setp(boxplot['fliers'], color='black', marker='+')
+# cmap = plt.cm.get_cmap("rainbow")
+# colors = [cmap(val / len(times)) for val in range(len(times))]
 
-#for patch, color in zip(boxplot["boxes"], colors):
+# for patch, color in zip(boxplot["boxes"], colors):
 #    patch.set_facecolor(color)
 
 if args.title:
     plt.title(args.title)
 plt.xticks(range(1, len(labels) + 1), labels)
-#plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
+# plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
 plt.ylabel("Time [s]")
 plt.ylim(0, None)
 if args.output:

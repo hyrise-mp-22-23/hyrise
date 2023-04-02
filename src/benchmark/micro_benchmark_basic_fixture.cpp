@@ -42,7 +42,8 @@ void MicroBenchmarkBasicFixture::_clear_cache() {
 
 uint32_t MicroBenchmarkBasicFixture::_align_to_pagesize(const uint32_t buffer_size_mb, const uint32_t page_size) {
   auto buffer_size = buffer_size_mb * MB;
-  const auto multiplier = static_cast<uint32_t>(std::ceil(static_cast<float>(buffer_size) / static_cast<float>(page_size)));
+  const auto multiplier =
+      static_cast<uint32_t>(std::ceil(static_cast<float>(buffer_size) / static_cast<float>(page_size)));
   return page_size * multiplier;
 }
 

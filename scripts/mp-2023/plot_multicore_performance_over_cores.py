@@ -11,45 +11,49 @@ import seaborn as sns
 import os
 import json
 
-#configure directory with benchmark results
+# configure directory with benchmark results
 benchmark_results_dir = ""
 
 # set plot styles
 plt.style.use("ggplot")
 sns.set(font_scale=1.5)
 
-#initalize pandas data frame with columns
+# initalize pandas data frame with columns
 data_df = pd.DataFrame(columns=["scale_factor", "warmup", "latency"])
-#iterate over files in mmap_multi_core_benchmark_results which end with .json
+# iterate over files in mmap_multi_core_benchmark_results which end with .json
 for filename in os.listdir(benchmark_results_dir):
     if filename.endswith(".json"):
         with open(os.path.join(benchmark_results_dir, filename)) as f:
-            #load json
+            # load json
             data = json.load(f)
 
             type = filename.split("_")[1] + "_" + filename.split("_")[2]
-            if filename.split("_")[-2].startswith('warmup') or filename.split("_")[-1].startswith('warmup'):
+            if filename.split("_")[-2].startswith("warmup") or filename.split("_")[-1].startswith("warmup"):
                 type += "_warmup"
             else:
                 type += "_no_warmup"
             num_cores = filename.split("_")[3]
-            #calculate latency
+            # calculate latency
             latency_all = 0
-            for benchmark in data['benchmarks']:
+            for benchmark in data["benchmarks"]:
                 query_latency = 0
-                for run in benchmark['successful_runs']:
-                    query_latency += run['duration']
-                query_latency /= len(benchmark['successful_runs'])
+                for run in benchmark["successful_runs"]:
+                    query_latency += run["duration"]
+                query_latency /= len(benchmark["successful_runs"])
                 latency_all += query_latency
-            #convert latency_all from nanoseconds to milliseconds
+            # convert latency_all from nanoseconds to milliseconds
             latency_all /= 1000000
-            #append data to data frame
-            data_df = data_df.append({"num_cores": int(num_cores), "type": type, "latency": latency_all}, ignore_index=True)
+            # append data to data frame
+            data_df = data_df.append(
+                {"num_cores": int(num_cores), "type": type, "latency": latency_all}, ignore_index=True
+            )
 
-benchmark_results = sns.lineplot(data=data_df, x="num_cores", y="latency", hue="type", marker='o', linestyle='--')
+benchmark_results = sns.lineplot(data=data_df, x="num_cores", y="latency", hue="type", marker="o", linestyle="--")
 
 benchmark_results.set(
-    xlabel="Available #Cores", ylabel="Latency in ms/iter (Sum over all Queries)", title=f"Comparison of MMAP-based Hyrise vs. Hyrise Master in \nSum of Average Latency over All Queries Depending on Available Number of Cores."
+    xlabel="Available #Cores",
+    ylabel="Latency in ms/iter (Sum over all Queries)",
+    title=f"Comparison of MMAP-based Hyrise vs. Hyrise Master in \nSum of Average Latency over All Queries Depending on Available Number of Cores.",
 )
 
 benchmark_results.set(xticks=data_df.num_cores.values)
@@ -61,4 +65,3 @@ benchmark_results.set(xticks=data_df.num_cores.values)
 
 plt.legend(title="Warmup")
 plt.show()
-

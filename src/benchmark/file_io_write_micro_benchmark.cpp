@@ -39,7 +39,8 @@ void write_data_using_aio(const size_t from, const size_t to, int32_t fd, uint32
 
   /* Wait until end of transaction */
   auto err = int{0};
-  while ((err = aio_error(&aiocb)) == EINPROGRESS);
+  while ((err = aio_error(&aiocb)) == EINPROGRESS)
+    ;
 
   aio_error_handling(&aiocb, bytes_to_write);
 }
@@ -199,7 +200,8 @@ void FileIOWriteMicroBenchmarkFixture::aio_single_threaded(benchmark::State& sta
 
     /* Wait until end of transaction */
     auto err = int{0};
-    while ((err = aio_error(&aiocb)) == EINPROGRESS);
+    while ((err = aio_error(&aiocb)) == EINPROGRESS)
+      ;
 
     aio_error_handling(&aiocb, NUMBER_OF_BYTES);
 

@@ -11,7 +11,7 @@ import subprocess
 
 # we use MiB instead of MB to easier calculate block-size aligned file offsets
 # this is needed for DIRECT_IO (e.g. for io_uring or libaio)
-MiB = pow(2,20)
+MiB = pow(2, 20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 64]
 io_types = ["randread", "randwrite", "read", "write"]
@@ -24,7 +24,7 @@ ioengine_configs = [
     ("psync", ""),
     ("mmap", ""),
     ("io_uring", f"--iodepth={async_io_io_depth}"),
-    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"), #libaio needs direct_io
+    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"),  # libaio needs direct_io
     ("posixaio", f"--iodepth={async_io_io_depth}"),
 ]
 
