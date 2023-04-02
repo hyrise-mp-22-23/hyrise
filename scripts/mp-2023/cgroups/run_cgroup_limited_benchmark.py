@@ -18,7 +18,7 @@ unlimited = 200 * GB
 
 timeout_s = 60 * 45  #max 45 minutes for TPC-H 10
 
-memory_limits = [12]
+memory_limits = [20, 16, 12, 11, 10, 9, 8, 7, 6]
 warmup_time = 1
 pagefault_stats = defaultdict(dict)
 
