@@ -70,7 +70,7 @@ benchmark_results = sns.lineplot(data=data_df, x="memory", y="latency", hue="typ
 benchmark_results_second = sns.lineplot(data=data_df, x="memory", y="pgfaults", color='red', marker='o', linestyle='dotted', ax=benchmark_results.twinx())
 
 benchmark_results.set(
-    xlabel="Available RAM in GB", ylabel="Latency in ms/iter (Sum over all Queries)", title=f"MMAP-based Single-Threaded Hyrise\nSum of Average Latency over all Queries Depending on Memory Limitation."
+    xlabel="Available RAM in GB", ylabel="Latency in ms/iter (Sum over all Queries)", title=f"MMAP-Based Single-Threaded Hyrise\nSum of Average Latency over all Queries Depending on Memory Limitation."
 )
 
 benchmark_results_second.set(ylabel="#Pagefaults during Execution")
