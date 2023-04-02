@@ -6,7 +6,6 @@
 
 #include "base_test.hpp"
 
-#include "./storage_manager_test_util.cpp"
 #include "hyrise.hpp"
 #include "logical_query_plan/stored_table_node.hpp"
 #include "storage/table.hpp"
