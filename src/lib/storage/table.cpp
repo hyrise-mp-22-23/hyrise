@@ -455,18 +455,4 @@ size_t Table::memory_usage(const MemoryUsageCalculationMode mode) const {
   return bytes;
 }
 
-void Table::persist() {
-  const auto chunk_count = _chunks.size();
-  for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
-    _persist_chunk(chunk_id);
-  }
-}
-
-void Table::_persist_chunk(ChunkID chunk_id) {
-  Assert(!_chunks[chunk_id]->is_mutable(), "It is not possible to persist mutable chunks.");
-
-  auto& storage_manager = Hyrise::get().storage_manager;
-  storage_manager.replace_chunk_with_persisted_chunk(_chunks[chunk_id], chunk_id, this);
-}
-
 }  // namespace hyrise

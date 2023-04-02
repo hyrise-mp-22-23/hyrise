@@ -370,13 +370,14 @@ void AbstractTableGenerator::generate_and_store() {
 }
 
 void AbstractTableGenerator::persist_tables() {
+  auto& storage_manager = Hyrise::get().storage_manager;
+
   std::cout << "- Persisting tables to disk" << std::endl;
   for (const auto& [table_name, table_info] : _table_info_by_name) {
     std::cout << "-  Writing '" << table_name << "' to disk" << std::endl;
-    const auto& table = table_info.table;
-    table->persist();
+    storage_manager.persist_table(table_name);
   }
-  Hyrise::get().storage_manager.update_storage_json();
+  storage_manager.update_storage_json();
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(

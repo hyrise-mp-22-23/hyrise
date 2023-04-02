@@ -708,4 +708,13 @@ void StorageManager::export_values(const FixedStringSpan& data_span, std::ofstre
   ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * data_span.string_length());
 }
 
+void StorageManager::persist_table(const std::string& table_name) {
+  const auto& table = get_table(table_name);
+  const auto chunk_count = table->chunk_count();
+
+  for (auto chunk_id = ChunkID{0}; chunk_id < chunk_count; ++chunk_id) {
+    replace_chunk_with_persisted_chunk(table->get_chunk(chunk_id), chunk_id, table.get());
+  }
+}
+
 }  // namespace hyrise
