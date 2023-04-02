@@ -12,7 +12,7 @@ import os
 
 num_cores = [2, 4, 8, 16, 24, 32, 48]
 
-warmup = [True, False]
+warmup = [True]
 
 for num_core, do_warmup in itertools.product(num_cores, warmup):
     #neccessary for mmap-measurements, doesn't disturb other benchmarks

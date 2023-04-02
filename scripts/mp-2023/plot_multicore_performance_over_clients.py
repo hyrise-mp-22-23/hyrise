@@ -14,7 +14,7 @@ import os
 import json
 
 #configure benchmark results directory
-benchmark_results_dir = "./scripts/23-03-25/benchmark_mmap_based_fixed_multi_core"
+benchmark_results_dir = ""
 num_cores = [24.0, 48.0]
 
 # set plot styles
