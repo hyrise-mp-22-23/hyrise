@@ -1,3 +1,6 @@
+#include <filesystem>
+#include <iostream>
+
 #include "abstract_table_generator.hpp"
 
 #include "benchmark_config.hpp"
@@ -5,6 +8,7 @@
 #include "hyrise.hpp"
 #include "import_export/binary/binary_parser.hpp"
 #include "import_export/binary/binary_writer.hpp"
+#include "nlohmann/json.hpp"
 #include "operators/sort.hpp"
 #include "operators/table_wrapper.hpp"
 #include "scheduler/job_task.hpp"
@@ -234,6 +238,7 @@ void AbstractTableGenerator::generate_and_store() {
   /**
    * Write the Tables into binary files if required
    */
+
   if (_benchmark_config->cache_binary_tables) {
     for (auto& [table_name, table_info] : table_info_by_name) {
       const auto& table = table_info.table;
@@ -243,14 +248,11 @@ void AbstractTableGenerator::generate_and_store() {
              ". Delete cached files or use '--dont_cache_binary_tables'.");
       }
     }
-
     std::cout << "- Writing tables into binary files if necessary" << std::endl;
-
     for (auto& [table_name, table_info] : table_info_by_name) {
       if (table_info.loaded_from_binary && !table_info.re_encoded && !table_info.binary_file_out_of_date) {
         continue;
       }
-
       auto binary_file_path = std::filesystem::path{};
       if (table_info.binary_file_path) {
         binary_file_path = *table_info.binary_file_path;
@@ -258,7 +260,6 @@ void AbstractTableGenerator::generate_and_store() {
         binary_file_path = *table_info.text_file_path;
         binary_file_path.replace_extension(".bin");
       }
-
       std::cout << "-  Writing '" << table_name << "' into binary file " << binary_file_path << " " << std::flush;
       Timer per_table_timer;
       BinaryWriter::write(*table_info.table, binary_file_path);
@@ -342,9 +343,41 @@ void AbstractTableGenerator::generate_and_store() {
     std::cout << "- No indexes created as --indexes was not specified or set to false" << std::endl;
   }
 
+  /**
+   * Persist the tables in binary files if we want to use the new file format
+   * and the cached tables are not already mmap-based.
+   * The tables will have chunks whose data will be managed by the Storage Manager.
+   */
+  _table_info_by_name = table_info_by_name;
+  if (_benchmark_config->use_mmap &&
+      !std::filesystem::is_directory(Hyrise::get().storage_manager.get_persistence_directory())) {
+    std::filesystem::create_directory(Hyrise::get().storage_manager.get_persistence_directory());
+    persist_tables();
+  }
+
+  // To receive more reliable benchmark results, the following syscalls clear the page caches of the system.
+  // #ifdef __APPLE__
+  //   auto return_val = system("purge");
+  //   (void)return_val;
+  // #else
+  //   auto return_val = system("echo 3 > /proc/sys/vm/drop_caches");
+  //   (void)return_val;
+  // #endif
+
   // Set scheduler back to previously used scheduler.
   Hyrise::get().topology.use_default_topology(_benchmark_config->cores);
   Hyrise::get().set_scheduler(initial_scheduler);
+}
+
+void AbstractTableGenerator::persist_tables() {
+  auto& storage_manager = Hyrise::get().storage_manager;
+
+  std::cout << "- Persisting tables to disk" << std::endl;
+  for (const auto& [table_name, table_info] : _table_info_by_name) {
+    std::cout << "-  Writing '" << table_name << "' to disk" << std::endl;
+    storage_manager.persist_table(table_name);
+  }
+  storage_manager.update_storage_json();
 }
 
 std::shared_ptr<BenchmarkConfig> AbstractTableGenerator::create_benchmark_config_with_chunk_size(
@@ -404,6 +437,54 @@ std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_loa
     std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
   }
 
+  return table_info_by_name;
+}
+
+std::unordered_map<std::string, BenchmarkTableInfo> AbstractTableGenerator::_load_binary_tables_from_json() {
+  std::unordered_map<std::string, BenchmarkTableInfo> table_info_by_name;
+  auto& storage_manager = Hyrise::get().storage_manager;
+
+  std::cout << "-  Loading tables file mapping from storage json. " << std::endl;
+  Timer timer_json_parsing;
+  const auto tables_files_mapping = storage_manager.get_tables_files_mapping();
+  std::cout << " (" << timer_json_parsing.lap_formatted() << ")" << std::endl;
+
+  for (const auto& mapping : tables_files_mapping) {
+    const auto table_name = mapping.first;
+
+    std::cout << "-  Loading table '" << table_name << "' from storage json. " << std::endl;
+    Timer timer;
+
+    const auto persistence_data = mapping.second;
+    auto file_name = persistence_data.file_name;
+    const auto file_count = persistence_data.file_index;
+    auto total_chunks = std::vector<std::shared_ptr<Chunk>>{};
+
+    // Create column definitions
+    const auto column_definitions = storage_manager.get_table_column_definitions_from_json(table_name);
+
+    // Load chunks from files
+    for (auto index = size_t{0}; index < file_count + 1; ++index) {
+      file_name = table_name + "_" + std::to_string(index) + ".bin";
+
+      auto chunks = storage_manager.get_chunks_from_disk(table_name, file_name, column_definitions);
+      for (const auto& chunk : chunks) {
+        // Set mvcc data to 0
+        auto mvcc_data = std::make_shared<MvccData>(chunk->size(), CommitID{0});
+        chunk->set_mvcc_data(mvcc_data);
+      }
+
+      total_chunks.insert(total_chunks.end(), chunks.begin(), chunks.end());
+    }
+
+    auto table = std::make_shared<Table>(column_definitions, TableType::Data, std::move(total_chunks), UseMvcc::Yes);
+    BenchmarkTableInfo table_info;
+    table_info.table = table;
+    table_info.loaded_from_binary = true;
+    table_info.binary_file_path = file_name;
+    table_info_by_name[table_name] = table_info;
+    std::cout << " (" << timer.lap_formatted() << ")" << std::endl;
+  }
   return table_info_by_name;
 }
 

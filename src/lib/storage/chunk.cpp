@@ -2,9 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
-#include <limits>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,6 +12,7 @@
 #include "reference_segment.hpp"
 #include "resolve_type.hpp"
 #include "storage/segment_iterate.hpp"
+#include "storage_manager.hpp"
 #include "utils/assert.hpp"
 
 namespace hyrise {
@@ -95,6 +94,12 @@ bool Chunk::has_mvcc_data() const {
 
 std::shared_ptr<MvccData> Chunk::mvcc_data() const {
   return _mvcc_data;
+}
+
+// Because there can not be Chunks without MVCC data and MVCC is not considered in our mmap mode implementation, we
+// need this method to set dummy MVCC data for chunks.
+void Chunk::set_mvcc_data(std::shared_ptr<MvccData> mvcc_data) {
+  _mvcc_data = mvcc_data;
 }
 
 std::vector<std::shared_ptr<AbstractIndex>> Chunk::get_indexes(

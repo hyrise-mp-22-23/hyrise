@@ -25,8 +25,10 @@ class FixedStringDictionarySegment : public BaseDictionarySegment {
   explicit FixedStringDictionarySegment(const std::shared_ptr<const FixedStringVector>& dictionary,
                                         const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
 
+  explicit FixedStringDictionarySegment(const std::byte* start_address);
+
   // returns an underlying dictionary
-  std::shared_ptr<const FixedStringVector> fixed_string_dictionary() const;
+  std::shared_ptr<const FixedStringSpan> fixed_string_dictionary() const;
 
   std::shared_ptr<const FixedStringSpan> fixed_string_dictionary_span() const;
 
@@ -70,13 +72,23 @@ class FixedStringDictionarySegment : public BaseDictionarySegment {
 
   ValueID null_value_id() const final;
 
+  void serialize(std::ofstream& ofstream) const final;
+
   /**@}*/
 
  protected:
-  const std::shared_ptr<const FixedStringVector> _dictionary;
-  const std::shared_ptr<const FixedStringSpan> _dictionary_span;
-  const std::shared_ptr<const BaseCompressedVector> _attribute_vector;
-  const std::unique_ptr<BaseVectorDecompressor> _decompressor;
+  const std::shared_ptr<const FixedStringVector> _dictionary_base_vector;
+  std::shared_ptr<const FixedStringSpan> _dictionary;
+  std::shared_ptr<const BaseCompressedVector> _attribute_vector;
+  std::unique_ptr<BaseVectorDecompressor> _decompressor;
+
+ private:
+  // Constants used for the construction of FixedStringDictionarySegments from memory-mapped storage.
+  static constexpr auto ENCODING_TYPE_OFFSET_INDEX = uint32_t{0};
+  static constexpr auto STRING_LENGTH_OFFSET_INDEX = uint32_t{1};
+  static constexpr auto DICTIONARY_SIZE_OFFSET_INDEX = uint32_t{2};
+  static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{3};
+  static constexpr auto HEADER_OFFSET_BYTES = uint32_t{16};
 };
 
 extern template class FixedStringDictionarySegment<pmr_string>;

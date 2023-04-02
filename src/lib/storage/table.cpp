@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "concurrency/transaction_manager.hpp"
+#include "hyrise.hpp"
 #include "resolve_type.hpp"
 #include "statistics/attribute_statistics.hpp"
 #include "statistics/table_statistics.hpp"
@@ -236,6 +237,10 @@ void Table::remove_chunk(ChunkID chunk_id) {
               "Physical delete of chunk prevented: Chunk needs to be fully invalidated before.");
   Assert(_type == TableType::Data, "Removing chunks from other tables than data tables is not intended yet.");
   std::atomic_store(&_chunks[chunk_id], std::shared_ptr<Chunk>(nullptr));
+}
+
+void Table::replace_chunk(ChunkID chunk_id, const std::shared_ptr<Chunk>& chunk) {
+  std::atomic_store(&_chunks[chunk_id], chunk);
 }
 
 void Table::append_chunk(const Segments& segments, std::shared_ptr<MvccData> mvcc_data,  // NOLINT

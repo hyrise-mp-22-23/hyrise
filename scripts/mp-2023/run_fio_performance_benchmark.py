@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+"""
+This script runs fio benchmarks for different io-engines and allows to configure thread count and file size,
+as well as additional parameters.
+"""
 import os
 import time
 from datetime import date
@@ -5,10 +11,10 @@ import subprocess
 
 # we use MiB instead of MB to easier calculate block-size aligned file offsets
 # this is needed for DIRECT_IO (e.g. for io_uring or libaio)
-MiB = pow(2,20)
+MiB = pow(2, 20)
 
 thread_range = [1, 2, 4, 8, 16, 32, 64]
-io_types = ["randread"]
+io_types = ["randread", "randwrite", "read", "write"]
 filesizes = ["100M", "1000M"]
 
 async_io_io_depth = 16
@@ -18,7 +24,7 @@ ioengine_configs = [
     ("psync", ""),
     ("mmap", ""),
     ("io_uring", f"--iodepth={async_io_io_depth}"),
-    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"), #libaio needs direct_io
+    ("libaio", f"--direct=1 --iodepth={async_io_io_depth}"),  # libaio needs direct_io
     ("posixaio", f"--iodepth={async_io_io_depth}"),
 ]
 
@@ -36,6 +42,7 @@ columns = (
     "name,iterations,real_time,cpu_time,time_unit,bytes_per_second,items_per_second,label,error_occurred,"
     "error_message"
 )
+
 f = open(f"""fio_benchmark_{kernel_version}_{today.strftime("%y-%m-%d")}_{time.strftime("%H-%M-%S")}_fio.csv""", "w+")
 f.write(columns + "\n")
 

@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "fixed_string.hpp"
-#include "fixed_string_vector.hpp"
 #include "fixed_string_span_iterator.hpp"
+#include "fixed_string_vector.hpp"
 #include "types.hpp"
 #include "utils/assert.hpp"
 
@@ -19,6 +19,7 @@ namespace hyrise {
 class FixedStringSpan {
  public:
   FixedStringSpan(const FixedStringVector& vector);
+  FixedStringSpan(const char* start_address, const uint32_t string_length, const uint32_t size);
 
   // Return the value at a certain position.
   // FixedString operator[](const size_t pos);
@@ -46,7 +47,7 @@ class FixedStringSpan {
   size_t string_length() const;
 
   // // Return the calculated size of FixedStringSpan in main memory
-  // size_t data_size() const;
+  size_t data_size() const;
 
  protected:
   const size_t _string_length;

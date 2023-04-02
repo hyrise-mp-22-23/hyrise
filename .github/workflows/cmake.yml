@@ -34,15 +34,25 @@ jobs:
             cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
             ./hyriseTest
 
-      - name: Run TPCH (SF 0.1) without caching
-        run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 
-
-      - name: Run TPCH (SF 0.1) with caching
+      - name: Run TPCH (SF 0.1) without caching (old-school way)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
           ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) with caching (old-school way)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) without caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
+
+      - name: Run TPCH (SF 0.1) with caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-gcc
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
     
   build-linux-clang:
     runs-on: ubuntu-22.04
@@ -75,15 +85,25 @@ jobs:
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseTest
 
-      - name: Run TPCH (SF 0.1) without caching
-        run: |
-          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-          ./hyriseBenchmarkTPCH -r 1 -s 0.1 
-
-      - name: Run TPCH (SF 0.1) with caching
+      - name: Run TPCH (SF 0.1) without caching (old-school way)
         run: |
           cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
           ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) with caching (old-school way)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) without caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
+
+      - name: Run TPCH (SF 0.1) with caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
 
   build-mac-clang:
     runs-on: macos-latest
@@ -109,13 +129,23 @@ jobs:
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
             ./hyriseTest
 
-      - name: Run TPCH (SF 0.1) without caching
+      - name: Run TPCH (SF 0.1) without caching (old-school way)
         run: |
             cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-            ./hyriseBenchmarkTPCH -r 1 -s 0.1 
-  
-      - name: Run TPCH (SF 0.1) with caching
+            ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) with caching (old-school way)
         run: |
-            cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
-            ./hyriseBenchmarkTPCH -r 1 -s 0.1 
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1
+
+      - name: Run TPCH (SF 0.1) without caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
+
+      - name: Run TPCH (SF 0.1) with caching (MMAP-based)
+        run: |
+          cd ${{github.workspace}}/hyrise/cmake-build-debug-clang
+          ./hyriseBenchmarkTPCH -r 1 -s 0.1 --use_mmap
       

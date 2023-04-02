@@ -10,11 +10,24 @@
 #include <string>
 #include <vector>
 
+#include "chunk.hpp"
 #include "lqp_view.hpp"
+
+#ifdef __APPLE__
+#include "nlohmann/json.hpp"
+#endif
+
+#ifdef __linux__
+#include "../../third_party/nlohmann_json/single_include/nlohmann/json.hpp"
+#endif
+
 #include "prepared_plan.hpp"
 #include "storage/chunk_encoder.hpp"
 #include "storage/dictionary_segment.hpp"
+#include "storage/fixed_string_dictionary_segment.hpp"
 #include "types.hpp"
+
+// #include "storage/vector_compression/bitpacking/bitpacking_vector_type.hpp"
 
 namespace hyrise {
 
@@ -33,6 +46,12 @@ struct FILE_HEADER {
 struct CHUNK_HEADER {
   uint32_t row_count;
   std::vector<uint32_t> segment_offset_ends;
+};
+
+struct PERSISTENCE_FILE_DATA {
+  std::string file_name;
+  uint32_t file_index;
+  uint32_t current_chunk_count;
 };
 
 enum class PersistedSegmentEncodingType : uint32_t {
@@ -85,14 +104,28 @@ class StorageManager : public Noncopyable {
   std::unordered_map<std::string, std::shared_ptr<PreparedPlan>> prepared_plans() const;
   /** @} */
 
+  /**
+     * @defgroup Manage writing Chunks to disk and keep storage.json synchronized.
+     * @{
+     */
+
+  /** @} */
+
   // For debugging purposes mostly, dump all tables as csv
   void export_all_tables_as_csv(const std::string& path);
 
   void persist_chunks_to_disk(const std::vector<std::shared_ptr<Chunk>>& chunks, const std::string& file_name);
+  std::pair<uint32_t, uint32_t> persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                                      const std::string& file_name);
 
-  FILE_HEADER read_file_header(const std::string& filename);
-  std::shared_ptr<Chunk> map_chunk_from_disk(const uint32_t chunk_offset_end, const std::string& filename,
-                                             const uint32_t segment_count);
+  void replace_chunk_with_persisted_chunk(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                          const Table* table_address);
+
+  std::vector<std::shared_ptr<Chunk>> get_chunks_from_disk(
+      std::string table_name, std::string file_name,
+      const std::vector<TableColumnDefinition>& table_column_definitions);
+
+  std::vector<TableColumnDefinition> get_table_column_definitions_from_json(const std::string& table_name);
 
   uint32_t get_max_chunk_count_per_file() {
     return _chunk_count;
@@ -102,23 +135,77 @@ class StorageManager : public Noncopyable {
     return _storage_format_version_id;
   }
 
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> get_tables_files_mapping() {
+    _load_storage_data_from_disk();
+    return _tables_current_persistence_file_mapping;
+  }
+
+  void update_storage_json();
+
   uint32_t get_file_header_bytes() {
     return _file_header_bytes;
   }
 
+  void set_persistence_directory(std::string persistence_dir) {
+    _persistence_directory = persistence_dir;
+  }
+
+  std::string get_persistence_directory() {
+    return _persistence_directory;
+  }
+
+  static PersistedSegmentEncodingType resolve_persisted_segment_encoding_type_from_compression_type(
+      const CompressedVectorType compressed_vector_type);
+
+  template <typename T>
+  static void export_value(const T& value, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(&value), sizeof(T));
+  }
+
+  static void export_compressed_vector(const CompressedVectorType type, const BaseCompressedVector& compressed_vector,
+                                       std::ofstream& ofstream);
+
+  template <typename T, typename Alloc>
+  static void export_values(const std::vector<T, Alloc>& values, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(values.data()), values.size() * sizeof(T));
+  }
+
+  template <typename T>
+  static void export_values(const std::span<const T>& data_span, std::ofstream& ofstream) {
+    ofstream.write(reinterpret_cast<const char*>(data_span.data()), data_span.size() * sizeof(T));
+  }
+
+  static void export_values(const FixedStringSpan& data_span, std::ofstream& ofstream);
+
+  /*
+   * Persist table to use mmap-based storage for its data.
+   * The call of this method will write the data of the Chunks (and their Segments) of the Table to disk. After this,
+   * the written data is accessed using memory-mapped storage and new Segments are created using that data. Last, the 
+   * old Chunks are replaced with new Chunks holding the memory-mapped segments.
+   */
+  void persist_table(const std::string& table_name);
+
  protected:
-  StorageManager() = default;
   friend class Hyrise;
+
+  StorageManager() = default;
+
+  std::string _persistence_directory;
+  std::string _storage_json_name = "storage.json";
+
+  nlohmann::json _storage_json;
 
   // We preallocate maps to prevent costly re-allocation.
   static constexpr size_t INITIAL_MAP_SIZE = 100;
 
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<Table>> _tables{INITIAL_MAP_SIZE};
+  tbb::concurrent_unordered_map<std::string, PERSISTENCE_FILE_DATA> _tables_current_persistence_file_mapping{
+      INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<LQPView>> _views{INITIAL_MAP_SIZE};
   tbb::concurrent_unordered_map<std::string, std::shared_ptr<PreparedPlan>> _prepared_plans{INITIAL_MAP_SIZE};
 
  private:
-  static constexpr uint32_t _chunk_count = 50;
+  static constexpr uint32_t _chunk_count = MAX_CHUNK_COUNT_PER_FILE;
   static constexpr uint32_t _storage_format_version_id = 1;
 
   // Fileformat constants
@@ -141,13 +228,31 @@ class StorageManager : public Noncopyable {
   static constexpr uint32_t _segment_header_bytes =
       _dictionary_size_bytes + _element_count_bytes + _compressed_vector_type_id_bytes;
 
-  CHUNK_HEADER read_chunk_header(const std::string& filename, const uint32_t segment_count, const uint32_t chunk_offset_begin);
+  CHUNK_HEADER _read_chunk_header(const std::byte* map, const uint32_t segment_count,
+                                  const uint32_t chunk_offset_begin) const;
 
-  std::vector<uint32_t> generate_segment_offset_ends(const std::shared_ptr<Chunk> chunk);
-  void write_dict_segment_to_disk(const std::shared_ptr<DictionarySegment<int>> segment, const std::string& file_name);
-  void write_chunk_to_disk(const std::shared_ptr<Chunk>& chunk, const std::vector<uint32_t>& segment_offset_ends,
-                           const std::string& file_name);
-  uint32_t _chunk_header_bytes(uint32_t column_count);
+  FILE_HEADER _read_file_header(const std::string& filename) const;
+
+  std::vector<uint32_t> _calculate_segment_offset_ends(const std::shared_ptr<Chunk> chunk) const;
+
+  std::pair<uint32_t, uint32_t> _persist_chunk_to_file(const std::shared_ptr<Chunk> chunk, ChunkID chunk_id,
+                                                       const std::string& file_name) const;
+
+  void _write_chunk_to_disk(const std::shared_ptr<Chunk> chunk, const std::vector<uint32_t>& segment_offset_ends,
+                            std::ofstream& ofstream) const;
+
+  uint32_t _chunk_header_bytes(const uint32_t column_count) const;
+
+  const std::string _get_persistence_file_name(const std::string& table_name);
+
+  std::shared_ptr<Chunk> _map_chunk_from_disk(const uint32_t chunk_offset_end, const uint32_t chunk_bytes,
+                                              const std::string& filename, const uint32_t segment_count,
+                                              const std::vector<DataType>& column_definitions) const;
+
+  std::string _get_table_name(const Table* address) const;
+
+  void _serialize_table_files_mapping();
+  void _load_storage_data_from_disk();
 };
 
 std::ostream& operator<<(std::ostream& stream, const StorageManager& storage_manager);

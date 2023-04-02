@@ -26,13 +26,10 @@ class DictionarySegment : public BaseDictionarySegment {
   explicit DictionarySegment(const std::shared_ptr<const std::span<const T>>& dictionary,
                              const std::shared_ptr<const BaseCompressedVector>& attribute_vector);
 
-  explicit DictionarySegment(const uint32_t* start_address);
+  explicit DictionarySegment(const std::byte* start_address);
 
   // returns an underlying dictionary
-  std::shared_ptr<const pmr_vector<T>> dictionary() const;
-
-  // returns an underlying dictionary
-  std::shared_ptr<const std::span<const T>> dictionary_span() const;
+  std::shared_ptr<const std::span<const T>> dictionary() const;
 
   /**
    * @defgroup AbstractSegment interface
@@ -44,10 +41,10 @@ class DictionarySegment : public BaseDictionarySegment {
   std::optional<T> get_typed_value(const ChunkOffset chunk_offset) const {
     // performance critical - not in cpp to help with inlining
     const auto value_id = _decompressor->get(chunk_offset);
-    if (value_id == _dictionary_span->size()) {
+    if (value_id == _dictionary->size()) {
       return std::nullopt;
     }
-    return (*_dictionary_span)[value_id];
+    return (*_dictionary)[value_id];
   }
 
   ChunkOffset size() const final;
@@ -91,18 +88,20 @@ class DictionarySegment : public BaseDictionarySegment {
 
   ValueID null_value_id() const final;
 
+  void serialize(std::ofstream& ofstream) const final;
+
   /**@}*/
 
  protected:
-  const std::shared_ptr<const pmr_vector<T>> _dictionary;
-  std::shared_ptr<const std::span<const T>> _dictionary_span;
+  const std::shared_ptr<const pmr_vector<T>> _dictionary_base_vector;
+  std::shared_ptr<const std::span<const T>> _dictionary;
   std::shared_ptr<const BaseCompressedVector> _attribute_vector;
   std::unique_ptr<BaseVectorDecompressor> _decompressor;
 
   static constexpr auto ENCODING_TYPE_OFFSET_INDEX = uint32_t{0};
   static constexpr auto DICTIONARY_SIZE_OFFSET_INDEX = uint32_t{1};
   static constexpr auto ATTRIBUTE_VECTOR_OFFSET_INDEX = uint32_t{2};
-  static constexpr auto HEADER_OFFSET_INDEX = uint32_t{3};
+  static constexpr auto HEADER_OFFSET_BYTES = uint32_t{12};
   static constexpr auto NUM_BYTES_32_BIT_ENCODING = uint32_t{4};
   static constexpr auto NUM_BYTES_16_BIT_ENCODING = uint32_t{2};
 };

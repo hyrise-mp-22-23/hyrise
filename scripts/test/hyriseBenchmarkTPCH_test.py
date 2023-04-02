@@ -211,6 +211,44 @@ def main():
     close_benchmark(benchmark)
     check_exit_status(benchmark)
 
+    # The next two TPC-H runs are using memory-mapped files. In the first run they are created, in the second run they
+    # are loaded.
+
+    arguments = {}
+    arguments["--scale"] = ".01"
+    arguments["--runs"] = "1"
+    arguments["--use_mmap"] = "true"
+
+    benchmark = run_benchmark(build_dir, arguments, "hyriseBenchmarkTPCH", True)
+    benchmark.expect_exact("Using mmap/storage.json: yes")
+    benchmark.expect_exact("Binary caching is deactivated because mmap is used.")
+    benchmark.expect_exact("Persisting tables to disk")
+    benchmark.expect_exact("Writing 'region' to disk")
+    benchmark.expect_exact("Writing 'nation' to disk")
+    benchmark.expect_exact("Writing 'supplier' to disk")
+    benchmark.expect_exact("Writing 'part' to disk")
+    benchmark.expect_exact("Writing 'lineitem' to disk")
+    benchmark.expect_exact("Writing 'partsupp' to disk")
+    benchmark.expect_exact("Writing 'orders' to disk")
+    benchmark.expect_exact("Writing 'customer' to disk")
+
+    close_benchmark(benchmark)
+    check_exit_status(benchmark)
+
+    benchmark = run_benchmark(build_dir, arguments, "hyriseBenchmarkTPCH", True)
+    benchmark.expect_exact("Loading tables file mapping from storage json.")
+    benchmark.expect_exact("Loading table 'partsupp' from storage json.")
+    benchmark.expect_exact("Loading table 'part' from storage json.")
+    benchmark.expect_exact("Loading table 'supplier' from storage json.")
+    benchmark.expect_exact("Loading table 'lineitem' from storage json.")
+    benchmark.expect_exact("Loading table 'nation' from storage json.")
+    benchmark.expect_exact("Loading table 'orders' from storage json.")
+    benchmark.expect_exact("Loading table 'customer' from storage json.")
+    benchmark.expect_exact("Loading table 'region' from storage json.")
+
+    close_benchmark(benchmark)
+    check_exit_status(benchmark)
+
     CompareBenchmarkScriptTest(compare_benchmarks_path, output_filename_1, output_filename_2).run()
 
 
